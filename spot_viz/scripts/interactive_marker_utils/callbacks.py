@@ -84,7 +84,7 @@ def _get_perpendicular_pose(pose, rot_vec=[0, 0, np.pi/2], offset=[0.0, 0.0, 0.0
 
 class GrabMarkerCallback(object):
 
-    def __init__(self, server_name, t=[0.2, 0.0, 0.5], R=[0, 0, 0]):
+    def __init__(self, server_name, grasp_pos, t=[0.2, 0.0, 0.5], R=[0, 0, 0]):
         '''
         A functor providing callback that triggers a rasp action server.
         Args:
@@ -97,6 +97,7 @@ class GrabMarkerCallback(object):
         self._client.wait_for_server()
         rospy.loginfo(f"Connected ChairHandle marker to {server_name}.")
         self._t, self._R = t, R
+        self._grasp_pos = grasp_pos
 
     def __call__(self, feedback):
         rospy.loginfo("Sending grasp goal to server...")
@@ -108,27 +109,31 @@ class GrabMarkerCallback(object):
                                             offset=self._t)
         self._client.send_goal(goal, feedback_cb=rospy.loginfo)
         self._client.wait_for_result()
+        self._grasp_pos['t'] = self._t
+        self._grasp_pos['R'] = self._R
         result = self._client.get_result()
         rospy.loginfo(result)
 
 class DragToMarkerCallback(object):
      
-    def __init__(self, server_name, t=[0.0, 0.0, 0.0], R=[0, 0, 0]):
+    def __init__(self, server_name, grasp_pos):
         rospy.loginfo("Setting up client...")
         self._client = actionlib.SimpleActionClient(server_name, GripperAction)
         rospy.loginfo(f"Waiting for {server_name} server...")
         self._client.wait_for_server()
         rospy.loginfo(f"Connected ChairHandle marker to {server_name}.")
-        self._t, self._R = t, R
+        self._grasp_pos = grasp_pos
 
     def __call__(self, feedback):
+        if self._grasp_pose['t'] == None or self._grasp_pose['R'] == None:
+            return
         rospy.loginfo("Sending manipulation goal...")
         ros_pose = _get_ros_stamped_pose(feedback.pose.position, feedback.pose.orientation)
         ros_pose.header.frame_id = feedback.header.frame_id
         goal = GripperGoal(pose=ros_pose.pose, header=ros_pose.header)
         goal.pose = _get_perpendicular_pose(goal.pose, 
-                                            rot_vec=self._R, 
-                                            offset=self._t)
+                                            rot_vec=self._grasp_pos['t'], 
+                                            offset=self._grasp_pos['R'])
         self._client.send_goal(goal, feedback_cb=rospy.loginfo)
         self._client.wait_for_result()
         result = self._client.get_result()
