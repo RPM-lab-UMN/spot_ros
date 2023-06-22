@@ -18,14 +18,16 @@ from interactive_marker_utils import (GoToMarkerCallback,
 def main():
     rospy.init_node("spot_interactive_marker", anonymous=True)
     mesh_dir = "package://spot_viz/meshes"
-    chair_arm = {
-        'name': 'chair_arm',
-        'mesh': f'{mesh_dir}/chair_arm.stl',
-        'mesh_scale': 0.001,
-        'grasp_t': [0.0, 0.0, 0.0],
-        'grasp_R': [0, 0, np.pi/2],
-        'tag_pose_offset': np.eye(4),
-    }
+
+    # chair_arm = {
+    #     'name': 'chair_arm',
+    #     'mesh': f'{mesh_dir}/chair_arm.stl',
+    #     'mesh_scale': 0.001,
+    #     'grasp_t': [0.0, 0.0, 0.0],
+    #     'grasp_R': [0, 0, np.pi/2],
+    #     'tag_pose_offset': np.eye(4),
+    # }
+
     chair = {
         'name': 'chair',
         'mesh': f"{mesh_dir}/office_chair/10239_Office_Chair_v1_L3.obj",
@@ -43,9 +45,9 @@ def main():
         # 'grasp_R': [0.0 , 2.22144147, 2.22144147],
 
         ## back rest
-        'name': 'backrest', 
-        'grasp_t': [0.2, 0.15, 0.6],
-        'grasp_R': [0.0 , 2.22144147, 2.22144147],
+        # 'name': 'backrest', 
+        # 'grasp_t': [0.2, 0.15, 0.6],
+        # 'grasp_R': [0.0 , 2.22144147, 2.22144147],
 
         #################### Mesh relative to tag ####################
         ## Tag set upright on bench center
@@ -61,7 +63,28 @@ def main():
                                      [0.0,  0.0, -1.0, 0.4],
                                      [0.0, -1.0, 0.0,  0.25],]),
     }
+
+    grasps = [
+        {
+            'name': 'backrest left side', 
+            'grasp_t': [0.2, 0.15, 0.6],
+            'grasp_R': [0.0 , 2.22144147, 2.22144147],
+        },
+        {
+            'name': 'TODO backrest right side', 
+            'grasp_t': [0.2, 0.15, 0.6], # TODO: modify values
+            'grasp_R': [0.0 , 2.22144147, 2.22144147], # TODO: modify values
+        },
+    ]
+
     obj = chair
+
+    # stores the current grasp position
+    # callbacks will update and read from here
+    cur_grasp = {
+        't': None,
+        'R': None
+    }
 
     # spawn cube with interactive marker in rviz for right arm
     server = InteractiveMarkerServer("chair_handle")
@@ -85,22 +108,27 @@ def main():
 
     # Add a menu
     menu_handler = MenuHandler()
-    
-    t, R = obj['grasp_t'], obj['grasp_R']
+
     menu_handler.insert("toggle tag tracking", 
                         callback=update_merker_sub.toggle)
     menu_handler.insert("go to", 
                         callback=GoToMarkerCallback(server_name='spot/trajectory'))
-    menu_handler.insert(f"grasp {obj['name']}", 
-                        callback=GrabMarkerCallback(server_name='spot/grasp',
-                                                    t=t, R=R))
-    menu_handler.insert("drag to", 
-                        callback=DragToMarkerCallback(server_name='spot/manipulate', 
-                                                      t=t, R=R))
+
+    grasp_menu = menu_handler.insert('grasp')
+    for grasp in grasps:
+        menu_handler.insert(grasp['name'], grasp_menu,
+                            callback=GrabMarkerCallback(server_name='spot/grasp',
+                                                        grasp_pos=cur_grasp,
+                                                        t=grasp['grasp_t'],
+                                                        R=grasp['grasp_R']))
+
+    drag_button = menu_handler.insert("drag to", 
+                                      callback=DragToMarkerCallback(server_name='spot/manipulate', 
+                                                                    grasp_pos=cur_grasp))
+
     menu_handler.insert("stow arm", 
                         callback=TriggerCallback('spot/arm_stow'))
     menu_handler.apply(server, int_marker.name)
-
 
     rospy.spin()
 
