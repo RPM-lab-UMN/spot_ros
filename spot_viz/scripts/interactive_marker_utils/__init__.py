@@ -1,5 +1,7 @@
 from .callbacks import (GoToMarkerCallback,
-                        GrabMarkerCallback, 
+                        GoToRightMarkerCallback,
+from .callbacks import (GoToMarkerCallback,
+                        GrabMarkerCallback,
                         DragToMarkerCallback,
                         TriggerCallback)
 from .factory import create_interactive_marker
