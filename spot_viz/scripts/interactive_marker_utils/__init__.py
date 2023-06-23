@@ -1,5 +1,4 @@
 from .callbacks import (GoToMarkerCallback,
-                        GoToRightMarkerCallback, 
                         GrabMarkerCallback, 
                         DragToMarkerCallback,
                         TriggerCallback)

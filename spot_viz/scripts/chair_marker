@@ -8,7 +8,6 @@ import numpy as np
 import rospy
 
 from interactive_marker_utils import (GoToMarkerCallback,
-                                      GoToRightMarkerCallback, 
                                     GrabMarkerCallback, 
                                     DragToMarkerCallback,
                                     create_interactive_marker,
@@ -64,8 +63,11 @@ def main():
 
         ########### Right Pose Offset for Robot to GoTo ##############
         
+        # using the below values of t and R, the robot will go to the right
+        # of the chair, with respect to the position of the apriltag marker
         'right_pose_t': [-0.9, 0.1, 0.6],
         'right_pose_R': [0.0 , 5.31, 2.22144147],
+
         
     }
     obj = chair
@@ -93,15 +95,18 @@ def main():
     # Add a menu
     menu_handler = MenuHandler()
     
-    t, R = obj['grasp_t'], obj['grasp_R']
-    right_t, right_R = obj['right_pose_t'], obj['right_pose_R']
+    t, R = obj['grasp_t'], obj['grasp_R']   # grasp pose relative to marker
+
     menu_handler.insert("toggle tag tracking", 
                         callback=update_merker_sub.toggle)
     menu_handler.insert("go to", 
                         callback=GoToMarkerCallback(server_name='spot/trajectory'))
+    
+    # right pose: robot relative to the marker on the right side of the chair
     menu_handler.insert("go to right", 
                         callback=GoToMarkerCallback(server_name='spot/trajectory',
-                                                         t=right_t, R=right_R))
+                                        t= obj['right_pose_t'], R=obj['right_pose_R']))
+    
     menu_handler.insert(f"grasp {obj['name']}", 
                         callback=GrabMarkerCallback(server_name='spot/grasp',
                                                     t=t, R=R))
