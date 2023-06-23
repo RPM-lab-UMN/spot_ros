@@ -7,7 +7,8 @@ from visualization_msgs.msg import *
 import numpy as np
 import rospy
 
-from interactive_marker_utils import (GoToMarkerCallback, 
+from interactive_marker_utils import (GoToMarkerCallback,
+                                      GoToRightMarkerCallback, 
                                     GrabMarkerCallback, 
                                     DragToMarkerCallback,
                                     create_interactive_marker,
@@ -53,13 +54,19 @@ def main():
         #                              [0.0,  0.0, -1.0, 0.35],
         #                              [0.0, 1.0, 0.0, 0.1],]),
         ## Tag stuck on front of backrest
-        'tag_pose_offset': np.array([[1.0,  0.0, 0.0, 0.0],
-                                     [0.0,  0.0, -1.0, 0.8],
-                                     [0.0, 1.0, 0.0, -0.2],]),
+        # 'tag_pose_offset': np.array([[1.0,  0.0, 0.0, 0.0],
+        #                              [0.0,  0.0, -1.0, 0.8],
+        #                              [0.0, 1.0, 0.0, -0.2],]),
         ## Tag hanging from the back of seat
         'tag_pose_offset': np.array([[-1.0,  0.0, 0.0, 0.0],
                                      [0.0,  0.0, -1.0, 0.4],
                                      [0.0, -1.0, 0.0,  0.25],]),
+
+        ########### Right Pose Offset for Robot to GoTo ##############
+        
+        'right_pose_t': [-0.9, 0.1, 0.6],
+        'right_pose_R': [0.0 , 5.31, 2.22144147],
+        
     }
     obj = chair
 
@@ -87,13 +94,19 @@ def main():
     menu_handler = MenuHandler()
     
     t, R = obj['grasp_t'], obj['grasp_R']
+    right_t, right_R = obj['right_pose_t'], obj['right_pose_R']
     menu_handler.insert("toggle tag tracking", 
                         callback=update_merker_sub.toggle)
     menu_handler.insert("go to", 
                         callback=GoToMarkerCallback(server_name='spot/trajectory'))
+    menu_handler.insert("go to right", 
+                        callback=GoToMarkerCallback(server_name='spot/trajectory',
+                                                         t=right_t, R=right_R))
     menu_handler.insert(f"grasp {obj['name']}", 
                         callback=GrabMarkerCallback(server_name='spot/grasp',
                                                     t=t, R=R))
+    menu_handler.insert("backrest", parent="grasp")
+    menu_handler.insert("arm", parent="grasp")
     menu_handler.insert("drag to", 
                         callback=DragToMarkerCallback(server_name='spot/manipulate', 
                                                       t=t, R=R))
