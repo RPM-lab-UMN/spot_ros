@@ -20,15 +20,6 @@ def _get_ros_stamped_pose(position, orientation):
     p.x, p.y, p.z = position.x, position.y, position.z
     return pose
 
-# def _update_right_chair_pose(pose):
-#     '''
-#     updating the pose to go to the right of the marker
-#     '''
-#     new_pose = pose.pose.position
-#     new_pose.header.stamp = rospy.Time.now()
-#     new_pose.x += 2
-#     return new_pose
-
 class TriggerCallback():
     def __init__(self, topic_name):
         rospy.loginfo(f'Connecting to {topic_name}.')
@@ -41,6 +32,15 @@ class TriggerCallback():
         rospy.loginfo(result)
 
 class GoToMarkerCallback(object):
+    '''
+    Modified to accomodate motion to position based on input 1x3 vectors t and R
+    containing translation and rotation with respect to detection of ficudial marker.
+
+    Args:
+        server_name (str): name of the action server to connect to.
+        t (list): the offset of the grasp relative to the marker center.
+        R (list): the rotation of the grasp relative to the marker orientation.
+    '''
 
     def __init__(self, server_name, t=[0.0, 0.0, 0.0], R=[0, 0, 0]):
         rospy.loginfo("Setting up client...")
