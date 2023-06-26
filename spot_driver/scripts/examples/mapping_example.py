@@ -4,6 +4,10 @@ import sys
 import os
 # run this exaple from the spot_driver directory, using
 # python3 scripts/examples/mapping_example.py
+
+# IMPORTANT: This example will make spot walk forwards and backwards in a 
+# zig-zag pattern. Make sure there is at least 2 meters of space in front of spot
+# before executing
 sys.path.append(os.getcwd() + "/src")
 from spot_driver.spot_wrapper import SpotWrapper
 class MappingWrapperTester:
