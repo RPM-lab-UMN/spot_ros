@@ -780,7 +780,7 @@ class SpotWrapper:
 
         return response[0], response[1], response[2]
 
-    def list_graph(self, upload_path):
+    def list_graph(self):
         """List waypoint ids of garph_nav
         Args:
           upload_path : Path to the root directory of the map.
