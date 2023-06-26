@@ -155,7 +155,7 @@ class DragToMarkerCallback(object):
         self._grasp_pos = grasp_pos
 
     def __call__(self, feedback):
-        if self._grasp_pose['t'] == None or self._grasp_pose['R'] == None:
+        if self._grasp_pos['t'] == None or self._grasp_pos['R'] == None:
             return
         rospy.loginfo("Sending manipulation goal...")
         ros_pose = _get_ros_stamped_pose(feedback.pose.position, feedback.pose.orientation)

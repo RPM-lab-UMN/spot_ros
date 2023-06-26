@@ -75,12 +75,12 @@ def main():
         {
             'name': 'backrest left side',
             'grasp_t': [0.2, 0.15, 0.6],
-            'grasp_R': [0.0 , 2.22144147, 2.22144147],
+            'grasp_R': [0.0, 2.22144147, 2.22144147],
         },
         {
-            'name': 'TODO backrest right side',
-            'grasp_t': [0.2, 0.15, 0.6], # TODO: modify values
-            'grasp_R': [0.0 , 2.22144147, 2.22144147], # TODO: modify values
+            'name': 'backrest right side',
+            'grasp_t': [-0.2, 0.15, 0.6],
+            'grasp_R': [1.57079632679, 0.0, 0.0],
         },
     ]
 
@@ -125,13 +125,13 @@ def main():
     menu_handler.insert("go to right",
                         callback=GoToMarkerCallback(server_name='spot/trajectory',
                                                          t=right_t, R=right_R))
-    menu_handler.insert(f"grasp {obj['name']}", 
+    menu_handler.insert(f"grasp {obj['name']}",
                         callback=GrabMarkerCallback(server_name='spot/grasp',
                                                     t=t, R=R))
     menu_handler.insert("backrest", parent="grasp")
     menu_handler.insert("arm", parent="grasp")
     menu_handler.insert("drag to",
-                        callback=DragToMarkerCallback(server_name='spot/manipulate', 
+                        callback=DragToMarkerCallback(server_name='spot/manipulate',
                                                       t=t, R=R))
 
     grasp_menu = menu_handler.insert('grasp')
