@@ -33,13 +33,13 @@ class TriggerCallback():
 
 class GoToMarkerCallback(object):
     '''
-    A functor that provides a callback that triggers the trajectory action service.
-    This is made to be used as an interactive marker button callback.
-    
+    Modified to accomodate motion to position based on input 1x3 vectors t and R
+    containing translation and rotation with respect to detection of ficudial marker.
+
     Args:
-        server_name (str): name of the action server to prompt.
-        t (list): translational offset applied to interactive marker pose.
-        R (list): rotational offset applied to interactive marker pose.
+        server_name (str): name of the action server to connect to.
+        t (list): the offset of the grasp relative to the marker center.
+        R (list): the rotation of the grasp relative to the marker orientation.
     '''
 
     def __init__(self, server_name, t=[0.0, 0.0, 0.0], R=[0, 0, 0]):
@@ -51,17 +51,47 @@ class GoToMarkerCallback(object):
         self._t, self._R = t, R
 
     def __call__(self, feedback):
+        # rospy.loginfo(feedback)
         rospy.loginfo("Sending navigation goal to server...")
         ros_pose = _get_ros_stamped_pose(feedback.pose.position, feedback.pose.orientation)
         ros_pose.header.frame_id = feedback.header.frame_id
         duration = Duration()
         duration.data.secs = 5
         goal = TrajectoryGoal(target_pose=ros_pose, duration=duration)
-        goal.target_pose.pose = _get_perpendicular_pose(goal.target_pose.pose, 
-                                            rot_vec=self._R, 
+        goal.target_pose.pose = _get_perpendicular_pose(goal.target_pose.pose,
+                                            rot_vec=self._R,
                                             offset=self._t)
         self._client.send_goal(goal)
         
+        self._client.wait_for_result()
+        result = self._client.get_result()
+        rospy.loginfo(result)
+
+class GoToRightMarkerCallback(object):
+
+    def __init__(self, server_name, t=[0.2, 0.0, 0.5], R=[0, 0, 0]):
+        '''
+        A functor providing callback that triggers a rasp action server.
+        Args:
+            server_name (str): name of the action server to connect to.
+            t (list): the offset of the grasp relative to the marker center.
+            R (list): the rotation of the grasp relative to the marker orientation.'''
+        rospy.loginfo("Setting up client...")
+        self._client = actionlib.SimpleActionClient(server_name, TrajectoryAction)
+        rospy.loginfo(f"Waiting for {server_name} server...")
+        self._client.wait_for_server()
+        rospy.loginfo(f"Connected ChairHandle marker to {server_name}.")
+        self._t, self._R = t, R
+
+    def __call__(self, feedback):
+        rospy.loginfo("Sending grasp goal to server...")
+        ros_pose = _get_ros_stamped_pose(feedback.pose.position, feedback.pose.orientation)
+        ros_pose.header.frame_id = feedback.header.frame_id
+        goal = TrajectoryGoal(pose=ros_pose.pose, header=ros_pose.header)
+        goal.pose = _get_perpendicular_pose(goal.pose,
+                                            rot_vec=self._R,
+                                            offset=self._t)
+        self._client.send_goal(goal, feedback_cb=rospy.loginfo)
         self._client.wait_for_result()
         result = self._client.get_result()
         rospy.loginfo(result)
