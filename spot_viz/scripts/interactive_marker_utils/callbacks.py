@@ -20,7 +20,6 @@ def _get_ros_stamped_pose(position, orientation):
     p.x, p.y, p.z = position.x, position.y, position.z
     return pose
 
-
 class TriggerCallback():
     def __init__(self, topic_name):
         rospy.loginfo(f'Connecting to {topic_name}.')
@@ -33,13 +32,23 @@ class TriggerCallback():
         rospy.loginfo(result)
 
 class GoToMarkerCallback(object):
+    '''
+    Modified to accomodate motion to position based on input 1x3 vectors t and R
+    containing translation and rotation with respect to detection of ficudial marker.
+    
+    Args:
+        server_name (str): name of the action server to connect to.
+        t (list): the offset of the grasp relative to the marker center.
+        R (list): the rotation of the grasp relative to the marker orientation.
+    '''
 
-    def __init__(self, server_name):
+    def __init__(self, server_name, t=[0.0, 0.0, 0.0], R=[0, 0, 0]):
         rospy.loginfo("Setting up client...")
         self._client = actionlib.SimpleActionClient(server_name, TrajectoryAction)
         rospy.loginfo(f"Waiting for {server_name} server...")
         self._client.wait_for_server()
         rospy.loginfo(f"Connected ChairHandle marker to {server_name}.")
+        self._t, self._R = t, R
 
     def __call__(self, feedback):
         # rospy.loginfo(feedback)
@@ -49,6 +58,9 @@ class GoToMarkerCallback(object):
         duration = Duration()
         duration.data.secs = 5
         goal = TrajectoryGoal(target_pose=ros_pose, duration=duration)
+        goal.target_pose.pose = _get_perpendicular_pose(goal.target_pose.pose, 
+                                            rot_vec=self._R, 
+                                            offset=self._t)
         self._client.send_goal(goal)
         
         self._client.wait_for_result()
