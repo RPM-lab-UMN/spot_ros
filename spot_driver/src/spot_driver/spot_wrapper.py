@@ -1,5 +1,13 @@
 import time
 import math
+#################################
+# Additional import statements for recording
+import os
+import sys
+import argparse
+import logging
+#Source: Required for recording_command_line.py in the Spot SDK examples
+#################################
 
 import numpy as np
 
@@ -43,6 +51,14 @@ from bosdyn.client.exceptions import InternalServerError
 from bosdyn.client.math_helpers import SE2Pose as bdSE2Pose
 from bosdyn.client.math_helpers import SE3Pose as bdSE3Pose
 from bosdyn.client.math_helpers import Quat as bdQuat
+
+#################### Added code ######################
+from bosdyn.client.recording import GraphNavRecordingServiceClient
+from bosdyn.client.map_processing import MapProcessingServiceClient
+# Sourced from recording_command_line.py in Spot-SDK, required to record
+# adding local grid client
+from bosdyn.client.local_grid import LocalGridClient
+######################################################
 
 from . import graph_nav_util
 from .utils.feedback_handlers import (
@@ -245,6 +261,13 @@ class SpotWrapper:
                     self._docking_client = self._robot.ensure_client(
                         DockingClient.default_service_name
                     )
+                    ############################################ Added code begins here
+                    # Setup the recording service client.
+                    # What this says is "Initialize the space on the robot to hold the recording
+                    # and signal to the client we are doing so"
+                    self._recording_client = self._robot.ensure_client(
+                        GraphNavRecordingServiceClient.default_service_name)
+                    #############################################
                     initialised = True
                 except Exception as e:
                     sleep_secs = 15
@@ -325,6 +348,14 @@ class SpotWrapper:
 
             self._robot_id = None
             self._lease = None
+        ###############################################################
+        # Create the recording environment.
+        # Translation: "Set up more backend framework for ensuring we are able to store recorded info"
+        self._recording_environment = GraphNavRecordingServiceClient.make_recording_environment(
+            waypoint_env=GraphNavRecordingServiceClient.make_waypoint_environment(
+                client_metadata=client_metadata))
+        #Source in recording_command_line.py example in Spot-SDK
+        ################################################################
 
     def _make_image_service(self, cb_name, data_requester):
         '''Helper function to create an AsyncImageService'''
@@ -1670,3 +1701,145 @@ class SpotWrapper:
         """Get docking state of robot."""
         state = self._docking_client.get_docking_state(**kwargs)
         return state
+
+    ############################################################################
+    # Additional Code begins here for recording, these functions are analogs to 
+    # spot-sdk\python\examples\graph_nav_command_line\recording_commandline.py
+
+    def should_we_start_recording(self):
+        """Helper function to authenticate whether recording can happen"""
+        #Step 1: verify that there is no current graph already on the robot
+        graph = self._graph_nav_client.download_graph()
+        if graph is not None:
+            #So the robot already has a graph on it. Now we have to check if this graph has waypoints
+            # if it does have waypoints, we should localize to them
+            if len(graph.waypoints) > 0:
+                localization_state = self._graph_nav_client.get_localization_state()
+                if not localization_state.localization.waypoint_id:
+                    # Not localized to anything in the map. The best option is to clear the graph or
+                    # attempt to localize to the current map.
+                    # Returning false since the GraphNav system is not in the state it should be to
+                    # begin recording.
+                    self._logger.error("Robot already has a map on it. Either clear it or fix localization issues")
+                    return False
+        # We get here if there is no preloaded map. This means we are good to go!
+        return True
+
+    def record(self, *args):
+        """Prompts the Robot to record a map of its own motion."""
+        should_start_recording = self.should_we_start_recording() #This is run first to give us the ok to record
+        if not should_start_recording: #Failed the ready check, report back
+            self._logger.error("The system is not in the proper state to start recording.", \
+                   "Try using the graph_nav_command_line to either clear the map or", \
+                   "attempt to localize to the map.")
+            return
+        try:
+            self._recording_client.start_recording(recording_environment=self._recording_environment) #Attempt the recording procedure
+            self._logger.info("Successfully started recording a map.")
+        except Exception as err: #Any issue in the start-up process will be redirected here
+            self._logger.error("Start recording failed: " + str(err))
+        return
+    
+    def stop_recording(self, *args):
+        """Prompts the Robot to stop recording"""
+        """Stop or pause recording a map."""
+        #Returns a fail if its not recording in the first place
+        first_iter = True #Stores the first iteration
+        while True: #Keep running every second
+            try: #Attempt the stop
+                self._recording_client.stop_recording() #Command to stop
+                self._logger.info("Successfully stopped recording a map.") #Success
+                break
+            except bosdyn.client.recording.NotReadyYetError as err:
+                # It is possible that we are not finished recording yet due to
+                # background processing. Try again every 1 second.
+                if first_iter:
+                    self._logger.info("Cleaning up recording...")
+                first_iter = False
+                time.sleep(1.0)
+                continue
+            except Exception as err:
+                self._logger.error("Stop recording failed: " + str(err))
+                break
+        return
+    
+    def get_recording_status(self, *args): #Function that tells whether robot is recording or not, for debugging
+        """Get the recording service's status."""
+        status = self._recording_client.get_record_status()
+        if status.is_recording:
+            self._logger.info("The recording service is on.")
+        else:
+            self._logger.info("The recording service is off.")
+    
+    def _write_bytes(self, filepath, filename, data): #Helper function
+        """Write data to a file. Used for all downloading procedures"""
+        os.makedirs(filepath, exist_ok=True)
+        with open(filepath + filename, 'wb+') as f:
+            f.write(data)
+            f.close()
+
+    def _write_full_graph(self, graph, download_filepath): #Helper function
+        """Download the graph from robot to the specified, local filepath location."""
+        graph_bytes = graph.SerializeToString()
+        self._write_bytes(download_filepath, '/graph', graph_bytes)
+
+    def _download_and_write_waypoint_snapshots(self, waypoints, download_filepath): #Helper function
+        """Download the waypoint snapshots from robot to the specified, local filepath location."""
+        num_waypoint_snapshots_downloaded = 0
+        for waypoint in waypoints:
+            if len(waypoint.snapshot_id) == 0:
+                continue
+            try:
+                waypoint_snapshot = self._graph_nav_client.download_waypoint_snapshot(
+                    waypoint.snapshot_id)
+            except Exception:
+                # Failure in downloading waypoint snapshot. Continue to next snapshot.
+                self._logger.error("Failed to download waypoint snapshot: " + waypoint.snapshot_id)
+                continue
+            self._write_bytes(download_filepath + '/waypoint_snapshots',
+                              '/' + waypoint.snapshot_id, waypoint_snapshot.SerializeToString())
+            num_waypoint_snapshots_downloaded += 1
+            self._logger.info("Downloaded {} of the total {} waypoint snapshots.".format(
+                num_waypoint_snapshots_downloaded, len(waypoints)))
+            
+
+    def _download_and_write_edge_snapshots(self, edges, download_filepath): #Helper function
+        """Download the edge snapshots from robot to the specified, local filepath location."""
+        num_edge_snapshots_downloaded = 0
+        num_to_download = 0
+        for edge in edges:
+            if len(edge.snapshot_id) == 0:
+                continue
+            num_to_download += 1
+            try:
+                edge_snapshot = self._graph_nav_client.download_edge_snapshot(edge.snapshot_id)
+            except Exception:
+                # Failure in downloading edge snapshot. Continue to next snapshot.
+                self._logger.error("Failed to download edge snapshot: " + edge.snapshot_id)
+                continue
+            self._write_bytes(download_filepath + '/edge_snapshots', '/' + edge.snapshot_id,
+                              edge_snapshot.SerializeToString())
+            num_edge_snapshots_downloaded += 1
+            self._logger.info("Downloaded {} of the total {} edge snapshots.".format(
+                num_edge_snapshots_downloaded, num_to_download))
+
+    def download_recording(self, download_filepath=os.getcwd(), *args): #Download function to use
+        """Downloads the graph that has been recorded and writes it into subdirectory"""
+        # Filepath for the location to put the downloaded graph and snapshots.
+        # What this says is "if no specific file path was given, make a folder that will store it"
+        if download_filepath[-1] == "/":
+            download_filepath = download_filepath + "downloaded_graph"
+        else:
+            download_filepath = download_filepath + "/downloaded_graph"
+        """Download the graph and snapshots from the robot."""
+        graph = self._graph_nav_client.download_graph()
+        if graph is None:
+            self._logger.error("Failed to download the graph.")
+            return
+        self._write_full_graph(graph, download_filepath)
+        self._logger.info("Graph downloaded with {} waypoints and {} edges".format(
+            len(graph.waypoints), len(graph.edges)))
+        # Download the waypoint and edge snapshots.
+        self._download_and_write_waypoint_snapshots(graph.waypoints, download_filepath)
+        self._download_and_write_edge_snapshots(graph.edges, download_filepath)
+    
