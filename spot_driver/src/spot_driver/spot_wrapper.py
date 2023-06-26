@@ -269,6 +269,9 @@ class SpotWrapper:
                     self._recording_client = self._robot.ensure_client(
                         GraphNavRecordingServiceClient.default_service_name)
                     #############################################
+                    # adding local grid client
+                    self._local_grid_client = self._robot.ensure_client(
+                        LocalGridClient.default_service_name)
                     initialised = True
                 except Exception as e:
                     sleep_secs = 15
@@ -800,6 +803,7 @@ class SpotWrapper:
             RobotCommandBuilder.battery_change_pose_command(dir_hint)
         )
         return response[0], response[1]
+        
 
     def navigate_to(
         self,
@@ -822,10 +826,6 @@ class SpotWrapper:
         else:
             upload_filepath = upload_path
 
-        # Boolean indicating the robot's power state.
-        power_state = self._robot_state_client.get_robot_state().power_state
-        self._started_powered_on = power_state.motor_power_state == power_state.STATE_ON
-        self._powered_on = self._started_powered_on
 
         # FIX ME somehow,,,, if the robot is stand, need to sit the robot before starting garph nav
         if self.is_standing and not self.is_moving:
@@ -1292,7 +1292,6 @@ class SpotWrapper:
         return True, "Moved arm successfully"
 
     ###################################################################
-
     ## copy from spot-sdk/python/examples/graph_nav_command_line/graph_nav_command_line.py
     def _get_localization_state(self, *args):
         """Get the current localization and state of the robot."""
@@ -1335,7 +1334,6 @@ class SpotWrapper:
         if not destination_waypoint:
             # Failed to find the unique waypoint id.
             return
-
         robot_state = self._robot_state_client.get_robot_state()
         current_odom_tform_body = get_odom_tform_body(
             robot_state.kinematic_state.transforms_snapshot
@@ -1429,7 +1427,7 @@ class SpotWrapper:
             # The robot is not localized to the newly uploaded graph.
             self._logger.info(
                 "Upload complete! The robot is currently not localized to the map; please localize",
-                "the robot using commands (2) or (3) before attempting a navigation command.",
+                "the robot before attempting a navigation command.",
             )
 
     def _navigate_to(self, *args):
@@ -1619,15 +1617,14 @@ class SpotWrapper:
         else:
             # Return the current power state without change.
             return is_powered_on
-        # Update the locally stored power state.
-        self.check_is_powered_on()
-        return self._powered_on
+        # return the new power state of the robot.
+        return self.check_is_powered_on()
 
     def check_is_powered_on(self):
         """Determine if the robot is powered on or off."""
         power_state = self._robot_state_client.get_robot_state().power_state
-        self._powered_on = power_state.motor_power_state == power_state.STATE_ON
-        return self._powered_on
+        powered_on = power_state.motor_power_state == power_state.STATE_ON
+        return powered_on
 
     def _check_success(self, command_id=-1):
         """Use a navigation command id to get feedback from the robot and sit when command succeeds."""
@@ -1849,3 +1846,88 @@ class SpotWrapper:
         self._download_and_write_waypoint_snapshots(graph.waypoints, download_filepath)
         self._download_and_write_edge_snapshots(graph.edges, download_filepath)
     
+    ############################################################################
+    # Additional code begins here, for obstacle detection
+    def get_obstacle_distance_grid(self):
+        """
+        Gives the obstacle distance grid of the robot, which represents how close points surrounding the robot are
+        to obstacles.
+        
+        returns: a 2-dimensional numpy array, with each entry (x, y) having a value representing how far away it is from 
+        the nearest obstacle. Distances are measured in cells, which are roughly 0.03 meters"""
+        # get local grid proto
+        obstacle_distance_proto = self._local_grid_client.get_local_grids(["obstacle_distance"])[0]
+        cells_pz = np.frombuffer(obstacle_distance_proto.local_grid.data, np.int16)
+        cells_pz_full = []
+        # For each value of rle_counts, we expand the cell data at the matching index
+        # to have that many repeated, consecutive values.
+        for i in range(0, len(obstacle_distance_proto.local_grid.rle_counts)):
+            for j in range(0, obstacle_distance_proto.local_grid.rle_counts[i]):
+                cells_pz_full.append(cells_pz[i])
+        # get dimensions of obstacle_distance_grid, usually 128x128
+        x_dim = obstacle_distance_proto.local_grid.extent.num_cells_x
+        y_dim = obstacle_distance_proto.local_grid.extent.num_cells_y  
+        full_cells_array = np.array(cells_pz_full)
+        # reshape the distances list to fit the dimensions of the grid
+        return np.reshape(full_cells_array, (y_dim, x_dim))
+    
+        
+    #Code for Object Collision
+    #Main function for detecting and relocating an obstacle in the way
+    #Param is grid, which is a numpy integer array determining the distance an obstacle is from spot
+    def obstacle_protocol(self, grid, *args):
+        #Step 1: Ensure a Stop of all movement to avoid collision
+        self.stop()
+        self._logger.info("Obstacle ahead, trying to find a safe place to relocate it")
+        #Step 2: Determine a safe location to move the obstacle
+        possible_obstacle_destination = self._find_safe_place_for_obstacle(grid)
+        self._logger.info("Successfully generated candidate list of safe places, now trying to find best one")
+        best_obstacle_destination = self._weed_out_locations(possible_obstacle_destination)
+        ##############################################################################################
+        #Current task is just to figure out the safest place, rest of the work will come in later iterations.
+        #Step 3: Prompt the Arm to grab the obstacle (ASSUME: It has an apriltag on it)
+
+        #Step 4: Determine a path to get to the safe place to move the obstacle
+
+        #Step 5: Navigate back to most recent waypoint and resume pathing
+
+        return
+    
+    def _find_safe_place_for_obstacle(self, grid_array, *args):
+        Safe_places = [] #Ideally, there will be many safe place to choose from
+        #We will want to store the list of candidates to relocated our chair to
+        #Another function will prune the list for the best place
+
+        #Step 1: Loop through grid, so we need to extract the data
+        #We will just grab the first viable point
+        rows = len(grid_array)
+        columns = len(grid_array[0])
+        for x in range(rows):
+            for y in range(columns):
+                potential_point = grid[x][y]
+                if(potential_point >= 4): #Step 2: confirming the point, but also its neighbors
+                    if(_ensure_neighbors(x,y, grid_array)):
+                        safe_places.append((x,y))
+        return Safe_places
+    
+    #Helper function extracts neighbors of a point and checks if all of them are safe
+    def _ensure_neighbors(self, i, j, grid):
+        rows = len(grid) #Extract rows
+        columns = len(grid[0]) #Extract columns
+        neighbors = [] #Array that stores the neighbors of a point
+        for x in range(max(0, i-1), min(i+1, rows-1)):
+            for y in range(max(0, j-1), min(j+1, columns-1)):
+                if x != 1 or y != j:
+                    neighbors.append(grid[x][y])
+        neighbors = np.array(neighbors) #This is a list of neighbors, there should be 8 maximum, 3 minimum
+        #The neighbors must now be checked to confirm the point is safe
+        check_bool = np.all(neighbors >= 3) #Using >= 3 is safe on the obstacle grid
+        return check_bool
+    
+    #Helper function to take in a list of candidate points and check which is closet linearly
+    def _weed_out_locations(self, candidates, spot_position):
+        #Parameters are self,
+        #candidate: array of (x,y), refers to a bunch of x and y coordinates in 
+        best_location = candidates[0] #Default return value
+
+        return best_location
