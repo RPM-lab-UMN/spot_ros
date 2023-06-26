@@ -1875,12 +1875,16 @@ class SpotWrapper:
     #Code for Object Collision
     #Main function for detecting and relocating an obstacle in the way
     #Param is grid, which is a numpy integer array determining the distance an obstacle is from spot
-    def obstacle_protocol(self, obstacle_location, grid, *args):
-        #Step 1: Stop the movement to avoid collision
+    def obstacle_protocol(self, grid, *args):
+        #Step 1: Ensure a Stop of all movement to avoid collision
         self.stop()
         self._logger.info("Obstacle ahead, trying to find a safe place to relocate it")
         #Step 2: Determine a safe location to move the obstacle
-        #obstacle_destination = self._find_safe_place_for_obstacle(grid)
+        possible_obstacle_destination = self._find_safe_place_for_obstacle(grid)
+        self._logger.info("Successfully generated candidate list of safe places, now trying to find best one")
+        best_obstacle_destination = self._weed_out_locations(possible_obstacle_destination)
+        ##############################################################################################
+        #Current task is just to figure out the safest place, rest of the work will come in later iterations.
         #Step 3: Prompt the Arm to grab the obstacle (ASSUME: It has an apriltag on it)
 
         #Step 4: Determine a path to get to the safe place to move the obstacle
@@ -1890,15 +1894,21 @@ class SpotWrapper:
         return
     
     def _find_safe_place_for_obstacle(self, grid_array, *args):
-        Safe_place = None
+        Safe_places = [] #Ideally, there will be many safe place to choose from
+        #We will want to store the list of candidates to relocated our chair to
+        #Another function will prune the list for the best place
+
         #Step 1: Loop through grid, so we need to extract the data
+        #We will just grab the first viable point
         rows = len(grid_array)
         columns = len(grid_array[0])
-
-
-        #Step 2: confirming the point, but also its neighbors
-
-        return Safe_place
+        for x in range(rows):
+            for y in range(columns):
+                potential_point = grid[x][y]
+                if(potential_point >= 4): #Step 2: confirming the point, but also its neighbors
+                    if(_ensure_neighbors(x,y, grid_array)):
+                        safe_places.append((x,y))
+        return Safe_places
     
     #Helper function extracts neighbors of a point and checks if all of them are safe
     def _ensure_neighbors(self, i, j, grid):
@@ -1914,3 +1924,10 @@ class SpotWrapper:
         check_bool = np.all(neighbors >= 3) #Using >= 3 is safe on the obstacle grid
         return check_bool
     
+    #Helper function to take in a list of candidate points and check which is closet linearly
+    def _weed_out_locations(self, candidates, spot_position):
+        #Parameters are self,
+        #candidate: array of (x,y), refers to a bunch of x and y coordinates in 
+        best_location = candidates[0] #Default return value
+
+        return best_location
