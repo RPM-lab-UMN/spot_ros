@@ -156,6 +156,7 @@ class SpotWrapper:
         estop_timeout=9.0,
         rates={},
         callbacks={},
+        client_metadata=None, ############ Added this for recording ##############
     ):
         self._username = username
         self._password = password
