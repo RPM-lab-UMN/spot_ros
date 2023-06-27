@@ -120,7 +120,27 @@ def main():
     right_t, right_R = obj['right_pose_t'], obj['right_pose_R']
     menu_handler.insert("toggle tag tracking",
                         callback=update_marker_sub.toggle)
-    menu_handler.insert("go to", 
+    # Toggle pose topic subscription & update tickbox state
+    # Uses rviz visualization_tutorials/interactive_marker_tutorials/scripts/menu.py -> enableCb as a base
+    def toggle_tag_tracking_callback(feedback):
+        update_marker_sub.toggle()
+        rospy.loginfo("Toggle pose topic subscription")
+
+        entry_id = feedback.menu_entry_id
+        state = menu_handler.getCheckState(entry_id)
+
+        #TODO fix tick/unticking logic
+        if state == MenuHandler.CHECKED:
+            menu_handler.setCheckState(entry_id, MenuHandler.UNCHECKED)
+            rospy.loginfo("Unchecking menu tickbox")
+        else:
+            menu_handler.setCheckState(entry_id, MenuHandler.CHECKED)
+            rospy.loginfo("Checking menu tickbox")
+
+    tag_tracking_button = menu_handler.insert("toggle tag tracking", callback=toggle_tag_tracking_callback)
+    menu_handler.setCheckState(tag_tracking_button, MenuHandler.CHECKED)
+
+    menu_handler.insert("go to",
                         callback=GoToMarkerCallback(server_name='spot/trajectory'))
     menu_handler.insert("go to right",
                         callback=GoToMarkerCallback(server_name='spot/trajectory',
