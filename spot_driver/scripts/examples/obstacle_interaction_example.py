@@ -26,7 +26,6 @@ class LocalGridTester:
         self.log.debug('Powering on...')
         self.spot.getLease(hijack=True)
         self.spot.power_on()
-        self.spot.stand()
         ######################################################### Default startup stuff
         #Assumptions:
         #1. The grid info is passed as 128x128 array
@@ -36,8 +35,11 @@ class LocalGridTester:
         #5. Given how our local grid check is setup, we are assuming spot is stopped because the object is right in front of it
 
         #Basic Obstacle grid, a generic random matrix of the required size
+        self.spot.stand()
+        time.sleep(4)
         obstacle_grid_test = np.random.randint(-2, 6, (128,128))
-
+        self.log.debug(obstacle_grid_test)
+        
         """ #Code for future runs when we ensure the local grid works as intended.
         self.spot.trajectory_cmd(1, 0, 0, 10) #We will assume there is an obstacle dead ahead, along this path
         time.sleep(3)
@@ -48,7 +50,8 @@ class LocalGridTester:
         grid = self.spot.get_obstacle_distance_grid()
         self.log.debug("Initiating obstacle relocation protocol")
         self.spot.obstacle_protocol(obstacle_grid_test)
-
+        time.sleep(4)
+        self.spot.sit()
 
 if __name__ == "__main__":
     LocalGridTester()

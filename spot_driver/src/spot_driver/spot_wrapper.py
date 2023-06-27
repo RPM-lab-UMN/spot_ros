@@ -1907,7 +1907,7 @@ class SpotWrapper:
         possible_obstacle_destinations = self._find_safe_place_for_obstacle(grid)
         self._logger.info("Successfully generated candidate list of safe places, now trying to find best one")
         best_obstacle_destination = self._weed_out_locations(possible_obstacle_destinations, np.array((128/2, 128/2))) #Right now its autofilled to be the center, later it will get spot's location
-        if(best_obstacle_destination == None): #Nothing was found, so spot sits down and waits
+        if(best_obstacle_destination == []): #Nothing was found, so spot sits down and waits
             self.sit()
             return
         self._logger.info("Ideal destination located: ", best_obstacle_destination) #Debug statement
@@ -1920,24 +1920,6 @@ class SpotWrapper:
         #Step 5: Navigate back to most recent waypoint and resume pathing
 
         return
-    
-    def _find_safe_place_for_obstacle(self, grid_array, *args):
-        Safe_places = [] #Ideally, there will be many safe place to choose from
-        #We will want to store the list of candidates to relocated our chair to
-        #Another function will prune the list for the best place
-        #Step 1: Loop through grid, so we need to extract the data
-        #We will just grab the first viable point
-        rows = len(grid_array)
-        columns = len(grid_array[0])
-        for x in range(rows):
-            for y in range(columns):
-                potential_point = grid_array[x][y]
-                if(potential_point >= 4): #Step 2: confirming the point, but also its neighbors
-                    if(_ensure_neighbors(x,y, grid_array)):
-                        Safe_places.append((x,y))
-        if(len(Safe_places) == 0):
-            self._logger.error("There are no safe places that could be found within the obstacle grid")
-        return Safe_places
     
     #Helper function extracts neighbors of a point and checks if all of them are safe
     def _ensure_neighbors(self, i, j, grid):
@@ -1959,7 +1941,7 @@ class SpotWrapper:
         #candidate: array of (x,y), refers to a bunch of x and y coordinates in the obstacle grid that satisfy a safe place criteria
         if(len(candidates) ==0):
             self._logger.error("Candidates list is empty, prompting spot to sit down as no way to relocate object exists")
-            return None
+            return []
         best_location = candidates[0] #Default return value
         best_location = np.array(best_location) #convert to linalg array
         smallest_dist = np.linalg.norm(best_location-spot_position) #Calculate Euclidean distance
@@ -1970,3 +1952,22 @@ class SpotWrapper:
                 best_location = candidate
                 smallest_dist = dist
         return best_location
+    
+    def _find_safe_place_for_obstacle(self, grid_array, *args):
+        Safe_places = [] #Ideally, there will be many safe place to choose from
+        #We will want to store the list of candidates to relocated our chair to
+        #Another function will prune the list for the best place
+        #Step 1: Loop through grid, so we need to extract the data
+        #We will just grab the first viable point
+        rows = len(grid_array)
+        columns = len(grid_array[0])
+        for x in range(rows):
+            for y in range(columns):
+                potential_point = grid_array[x][y]
+                if(potential_point >= 4): #Step 2: confirming the point, but also its neighbors
+                    if(self._ensure_neighbors(x,y, grid_array)):
+                        Safe_places.append((x,y))
+        if(len(Safe_places) == 0):
+            self._logger.error("There are no safe places that could be found within the obstacle grid")
+        return Safe_places
+    
