@@ -1932,7 +1932,7 @@ class SpotWrapper:
                     neighbors.append(grid[x][y])
         neighbors = np.array(neighbors) #This is a list of neighbors, there should be 8 maximum, 3 minimum
         #The neighbors must now be checked to confirm the point is safe
-        check_bool = np.all(neighbors >= 2) #Using >= 2 is safe on the obstacle grid
+        check_bool = np.all(neighbors >= 3) #Using >= 2 is safe on the obstacle grid
         return check_bool
     
     #Helper function to take in a list of candidate points and check which is closet linearly
@@ -1964,7 +1964,7 @@ class SpotWrapper:
         for x in range(rows):
             for y in range(columns):
                 potential_point = grid_array[x][y]
-                if(potential_point >= 4): #Step 2: confirming the point, but also its neighbors
+                if(potential_point >= 5): #Step 2: confirming the point, but also its neighbors
                     if(self._ensure_neighbors(x,y, grid_array)):
                         Safe_places.append((x,y))
         if(len(Safe_places) == 0):
