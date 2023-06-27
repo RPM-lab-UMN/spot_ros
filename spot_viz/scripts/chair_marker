@@ -108,7 +108,7 @@ def main():
     server.applyChanges()
 
     # Subscribe to pose topic to update marker pose
-    update_merker_sub = MarkerPoseSubscriber(
+    update_marker_sub = MarkerPoseSubscriber(
                                 'tcpu', 
                                 int_marker, 
                                 server, 
@@ -119,7 +119,7 @@ def main():
     menu_handler = MenuHandler()
 
     menu_handler.insert("toggle tag tracking", 
-                        callback=update_merker_sub.toggle)
+                        callback=update_marker_sub.toggle)
     menu_handler.insert("go to", 
                         callback=GoToMarkerCallback(server_name='spot/trajectory'))
 
