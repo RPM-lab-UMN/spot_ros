@@ -5,7 +5,7 @@ import os
 import numpy as np
 from bosdyn.api import local_grid_pb2
 # run this exaple from the spot_driver directory, using
-# python3 scripts/examples/local_grid_example.py
+# python3 scripts/examples/obstacle_interaction_example.py
 sys.path.append(os.getcwd() + "/src")
 from spot_driver.spot_wrapper import SpotWrapper
 class LocalGridTester:
@@ -35,7 +35,7 @@ class LocalGridTester:
         #4. The values in the obstacle grid are given as discrete integers (i.e. a heuristic rating of safety)
         #5. Given how our local grid check is setup, we are assuming spot is stopped because the object is right in front of it
 
-        #Basic Obstacle grid, a generic
+        #Basic Obstacle grid, a generic random matrix of the required size
         obstacle_grid_test = np.random.randint(-2, 6, (128,128))
 
         """ #Code for future runs when we ensure the local grid works as intended.

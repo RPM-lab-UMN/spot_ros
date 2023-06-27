@@ -1895,8 +1895,7 @@ class SpotWrapper:
         # return the local grid value at those coordinates
         return self.get_obstacle_distance_grid()[grid_coordinates[0], grid_coordinates[1]]
         
-    
-        
+
     #Code for Object Collision
     #Main function for detecting and relocating an obstacle in the way
     #Param is grid, which is a numpy integer array determining the distance an obstacle is from spot
@@ -1932,7 +1931,7 @@ class SpotWrapper:
         columns = len(grid_array[0])
         for x in range(rows):
             for y in range(columns):
-                potential_point = grid[x][y]
+                potential_point = grid_array[x][y]
                 if(potential_point >= 4): #Step 2: confirming the point, but also its neighbors
                     if(_ensure_neighbors(x,y, grid_array)):
                         Safe_places.append((x,y))
