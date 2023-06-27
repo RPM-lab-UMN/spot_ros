@@ -28,6 +28,7 @@ from bosdyn.client.frame_helpers import (
     get_odom_tform_body,
     ODOM_FRAME_NAME,
     BODY_FRAME_NAME,
+    GRAV_ALIGNED_BODY_FRAME_NAME,
     VISION_FRAME_NAME,
     get_se2_a_tform_b,
     get_a_tform_b
@@ -1870,6 +1871,30 @@ class SpotWrapper:
         full_cells_array = np.array(cells_pz_full)
         # reshape the distances list to fit the dimensions of the grid
         return np.reshape(full_cells_array, (y_dim, x_dim))
+    def check_proximity_to_obstacles(self, pose, frame = BODY_FRAME_NAME):
+        """
+        Get the distance from the nearest obstacle of a given pose, in a given frame, using the 
+        obstacle_distance grid
+        Parameters: Pose (pbSE3), the position to check,
+                    frame: the frame the pose is in
+        Returns: the distance of the location in the pose from the nearest obstacle, in 
+        meters
+        """
+        obstacle_distance_grid_proto = self._local_grid_client.get_local_grids(["obstacle_distance"])[0]
+        # get snapshot from local grid instead of robot state client
+        grid_snapshot = obstacle_distance_grid_proto.local_grid.transforms_snapshot
+        # get name of local grid frame
+        grid_frame = obstacle_distance_grid_proto.local_grid.frame_name_local_grid_data
+        # get a transformation from the provided frame into the local grid frame
+        T = get_a_tform_b(grid_snapshot, frame, grid_frame)
+        # transpose the pose into local grid frame
+        robot_position =  T * pose
+        cell_size = obstacle_distance_grid_proto.local_grid.extent.cell_size
+        # translate the position in the grid frame into the coordinates in the grid
+        grid_coordinates = [round(robot_position.position.y / cell_size), round(robot_position.x / cell_size)]
+        # return the local grid value at those coordinates
+        return self.get_obstacle_distance_grid()[grid_coordinates[0], grid_coordinates[1]]
+        
     
         
     #Code for Object Collision

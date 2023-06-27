@@ -4,6 +4,8 @@ import sys
 import os
 import numpy as np
 from bosdyn.api import local_grid_pb2
+from bosdyn.client.math_helpers import SE3Pose as bdSE3Pose
+from bosdyn.client.math_helpers import Quat as bdQuat
 # run this exaple from the spot_driver directory, using
 # python3 scripts/examples/local_grid_example.py
 sys.path.append(os.getcwd() + "/src")
@@ -31,5 +33,7 @@ class LocalGridTester:
         self.log.debug(str(self.spot._local_grid_client.get_local_grid_types()))
 
         self.log.info(str(self.spot.get_obstacle_distance_grid()))
+
+        self.log.info(str(self.spot.check_proximity_to_obstacles(bdSE3Pose(1.5, 0, 0, bdQuat()))))
 if __name__ == "__main__":
     LocalGridTester()
