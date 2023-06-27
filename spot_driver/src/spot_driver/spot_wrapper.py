@@ -1870,7 +1870,14 @@ class SpotWrapper:
         y_dim = obstacle_distance_proto.local_grid.extent.num_cells_y  
         full_cells_array = np.array(cells_pz_full)
         # reshape the distances list to fit the dimensions of the grid
-        return np.reshape(full_cells_array, (y_dim, x_dim))
+        value_scale = obstacle_distance_proto.local_grid.cell_value_scale
+        value_offset = obstacle_distance_proto.local_grid.cell_value_offset
+        full_cells_array = np.reshape(full_cells_array, (y_dim, x_dim))
+        float_array = full_cells_array.astype(float)
+        float_array *= value_scale
+        float_array += value_offset
+        return float_array
+
     def check_proximity_to_obstacles(self, pose, frame = BODY_FRAME_NAME):
         """
         Get the distance from the nearest obstacle of a given pose, in a given frame, using the 
@@ -1882,20 +1889,22 @@ class SpotWrapper:
         """
         obstacle_distance_grid_proto = self._local_grid_client.get_local_grids(["obstacle_distance"])[0]
         # get snapshot from local grid instead of robot state client
+        # _transform_bd_pose assumes snapshot comes from robot state
         grid_snapshot = obstacle_distance_grid_proto.local_grid.transforms_snapshot
         # get name of local grid frame
         grid_frame = obstacle_distance_grid_proto.local_grid.frame_name_local_grid_data
         # get a transformation from the provided frame into the local grid frame
-        T = get_a_tform_b(grid_snapshot, frame, grid_frame)
+        T = get_a_tform_b(grid_snapshot, grid_frame, frame)
         # transpose the pose into local grid frame
         robot_position =  T * pose
         cell_size = obstacle_distance_grid_proto.local_grid.extent.cell_size
         # translate the position in the grid frame into the coordinates in the grid
         grid_coordinates = [round(robot_position.position.y / cell_size), round(robot_position.x / cell_size)]
         # return the local grid value at those coordinates
-        return self.get_obstacle_distance_grid()[grid_coordinates[0], grid_coordinates[1]]
+        return self.get_obstacle_distance_grid()[grid_coordinates[0]][grid_coordinates[1]]
         
-
+    
+        
     #Code for Object Collision
     #Main function for detecting and relocating an obstacle in the way
     #Param is grid, which is a numpy integer array determining the distance an obstacle is from spot
@@ -1907,7 +1916,7 @@ class SpotWrapper:
         possible_obstacle_destinations = self._find_safe_place_for_obstacle(grid)
         self._logger.info("Successfully generated candidate list of safe places, now trying to find best one")
         best_obstacle_destination = self._weed_out_locations(possible_obstacle_destinations, np.array((128/2, 128/2))) #Right now its autofilled to be the center, later it will get spot's location
-        if(best_obstacle_destination == []): #Nothing was found, so spot sits down and waits
+        if(best_obstacle_destination == None): #Nothing was found, so spot sits down and waits
             self.sit()
             return
         self._logger.info("Ideal destination located: ", best_obstacle_destination) #Debug statement
@@ -1921,6 +1930,24 @@ class SpotWrapper:
 
         return
     
+    def _find_safe_place_for_obstacle(self, grid_array, *args):
+        Safe_places = [] #Ideally, there will be many safe place to choose from
+        #We will want to store the list of candidates to relocated our chair to
+        #Another function will prune the list for the best place
+        #Step 1: Loop through grid, so we need to extract the data
+        #We will just grab the first viable point
+        rows = len(grid_array)
+        columns = len(grid_array[0])
+        for x in range(rows):
+            for y in range(columns):
+                potential_point = grid[x][y]
+                if(potential_point >= 4): #Step 2: confirming the point, but also its neighbors
+                    if(_ensure_neighbors(x,y, grid_array)):
+                        Safe_places.append((x,y))
+        if(len(Safe_places) == 0):
+            self._logger.error("There are no safe places that could be found within the obstacle grid")
+        return Safe_places
+    
     #Helper function extracts neighbors of a point and checks if all of them are safe
     def _ensure_neighbors(self, i, j, grid):
         rows = len(grid) #Extract rows
@@ -1932,7 +1959,7 @@ class SpotWrapper:
                     neighbors.append(grid[x][y])
         neighbors = np.array(neighbors) #This is a list of neighbors, there should be 8 maximum, 3 minimum
         #The neighbors must now be checked to confirm the point is safe
-        check_bool = np.all(neighbors >= 3) #Using >= 2 is safe on the obstacle grid
+        check_bool = np.all(neighbors >= 2) #Using >= 2 is safe on the obstacle grid
         return check_bool
     
     #Helper function to take in a list of candidate points and check which is closet linearly
@@ -1941,7 +1968,7 @@ class SpotWrapper:
         #candidate: array of (x,y), refers to a bunch of x and y coordinates in the obstacle grid that satisfy a safe place criteria
         if(len(candidates) ==0):
             self._logger.error("Candidates list is empty, prompting spot to sit down as no way to relocate object exists")
-            return []
+            return None
         best_location = candidates[0] #Default return value
         best_location = np.array(best_location) #convert to linalg array
         smallest_dist = np.linalg.norm(best_location-spot_position) #Calculate Euclidean distance
@@ -1952,22 +1979,3 @@ class SpotWrapper:
                 best_location = candidate
                 smallest_dist = dist
         return best_location
-    
-    def _find_safe_place_for_obstacle(self, grid_array, *args):
-        Safe_places = [] #Ideally, there will be many safe place to choose from
-        #We will want to store the list of candidates to relocated our chair to
-        #Another function will prune the list for the best place
-        #Step 1: Loop through grid, so we need to extract the data
-        #We will just grab the first viable point
-        rows = len(grid_array)
-        columns = len(grid_array[0])
-        for x in range(rows):
-            for y in range(columns):
-                potential_point = grid_array[x][y]
-                if(potential_point >= 5): #Step 2: confirming the point, but also its neighbors
-                    if(self._ensure_neighbors(x,y, grid_array)):
-                        Safe_places.append((x,y))
-        if(len(Safe_places) == 0):
-            self._logger.error("There are no safe places that could be found within the obstacle grid")
-        return Safe_places
-    
