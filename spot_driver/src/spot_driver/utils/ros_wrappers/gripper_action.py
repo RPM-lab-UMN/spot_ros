@@ -84,6 +84,14 @@ class GraspActionServer(GripperActionServer):
         return self.task_wrapper.grasp(pose, goal.header.frame_id)
 
 
+class MultiGraspActionServer(GripperActionServer):
+    def __init__(self, ros_wrapper, action_name, feedback_rate=5):
+        super().__init__(ros_wrapper, action_name, feedback_rate)
+
+    def handler(self, goal):
+        rospy.loginfo(goal)
+        # TODO return task wrapper task
+
 
 class MoveActionServer(GripperActionServer):
     def __init__(self, ros_wrapper, action_name, feedback_rate=5):
