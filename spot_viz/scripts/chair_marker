@@ -128,7 +128,6 @@ def main():
         entry_id = feedback.menu_entry_id
         state = menu_handler.getCheckState(entry_id)
 
-        #TODO fix tick/unticking logic
         if state == MenuHandler.CHECKED:
             menu_handler.setCheckState(entry_id, MenuHandler.UNCHECKED)
             rospy.loginfo("Unchecking menu tickbox")
@@ -146,25 +145,9 @@ def main():
     menu_handler.insert("go to",
                         callback=GoToMarkerCallback(server_name='spot/trajectory'))
 
-    grasp_menu = menu_handler.insert('grasp')
-    for grasp in grasps:
-        menu_handler.insert(grasp['name'], grasp_menu,
-                            callback=GrabMarkerCallback(server_name='spot/grasp',
-                                                        grasp_pos=cur_grasp,
-                                                        t=grasp['grasp_t'],
-                                                        R=grasp['grasp_R']))
-
-    drag_button = menu_handler.insert("drag to",
-                                      callback=DragToMarkerCallback(server_name='spot/manipulate',
-                                                                    grasp_pos=cur_grasp))
-
-    menu_handler.insert("stow arm",
     menu_handler.insert("go to right",
                         callback=GoToMarkerCallback(server_name='spot/trajectory',
-                                                         t=right_t, R=right_R))
-    menu_handler.insert("drag to",
-                        callback=DragToMarkerCallback(server_name='spot/manipulate',
-                                                      t=t, R=R))
+                                                         t=obj['right_pose_t'], R=obj['right_pose_R']))
 
     grasp_menu = menu_handler.insert('grasp')
     for grasp in grasps:
@@ -178,10 +161,9 @@ def main():
                                       callback=DragToMarkerCallback(server_name='spot/manipulate',
                                                                     grasp_pos=cur_grasp))
 
-    menu_handler.insert("stow arm",
+    menu_handler.insert("stow arm", 
                         callback=TriggerCallback('spot/arm_stow'))
     menu_handler.apply(server, int_marker.name)
-
 
     rospy.spin()
 
