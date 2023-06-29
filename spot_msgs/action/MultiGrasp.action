@@ -1,0 +1,6 @@
+geometry_msgs/Pose[] poses
+---
+bool success
+geometry_msgs/Pose chosenPose
+---
+string feedback
