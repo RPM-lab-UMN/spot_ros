@@ -42,6 +42,7 @@ class MappingWrapperTester:
         self.log.debug('Getting recording status')
         self.spot.get_recording_status()
 
+        # Spot will walk forward in a zig-zag pattern while recording a GraphNav map
         self.log.debug('Walking forward ...')
         self.spot.trajectory_cmd(1, 0, 0, 2)
 
@@ -72,28 +73,22 @@ class MappingWrapperTester:
         self.spot._get_localization_state()
 
         self.log.debug("localizing ...")
-        # waypoint arguments must be passed in as a list.
-        # passing in strings directly will lead to waypoints not being found
+        
         waypoints = self.spot.list_graph()
-        self.spot._set_initial_localization_waypoint([waypoints[0]])
+        # spot can localize to a specific waypoint in the graph
+        # in this case, we use the last waypoint spot recorded, as it will be closest to spot's
+        # current location
+        self.spot._set_initial_localization_waypoint(waypoints[-1])
+
+        # next we can tell spot to navigate the graph back to its first recorded waypoint
         self.log.debug("Navigating waypoints...")
 
-        # when using navigate_to, must specify path to map
+        # when using navigate_to, must specify
         # destination waypoint, and localization method.
         # if using waypoints, must specify localization waypoint
-        print(waypoints[-1])
-        print(waypoints[0])
-        self.spot.navigate_to(download_path + "/downloaded_graph", waypoints[0], False, waypoints[-1])
+
+        self.spot.navigate_to(waypoints[0], False, waypoints[-1])
         
-        time.sleep(2)
-
-        # _navigate_to() method is used to navigate to a waypoint from a map thatis already uploaded to spot
-        # self.spot._navigate_to([waypoints[1]])
-
-        # _navigate_route() method is used to navigate through a list of specified waypoints.
-        # there must be edges between each adjacent pair of waypoints in the list
-        # self.spot._navigate_route(waypoints)
-        time.sleep(2)
         if self.power_off: self.spot.safe_power_off()
         self.spot.releaseLease()
         self.log.debug(f'Done')

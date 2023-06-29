@@ -807,7 +807,6 @@ class SpotWrapper:
 
     def navigate_to(
         self,
-        upload_path,
         navigate_to,
         initial_localization_fiducial=True,
         initial_localization_waypoint=None,
@@ -815,17 +814,10 @@ class SpotWrapper:
         """navigate with graph nav.
 
         Args:
-           upload_path : Path to the root directory of the map.
            navigate_to : Waypont id string for where to goal
            initial_localization_fiducial : Tells the initializer whether to use fiducials
            initial_localization_waypoint : Waypoint id string of current robot position (optional)
         """
-        # Filepath for uploading a saved graph's and snapshots too.
-        if upload_path[-1] == "/":
-            upload_filepath = upload_path[:-1]
-        else:
-            upload_filepath = upload_path
-
 
         # FIX ME somehow,,,, if the robot is stand, need to sit the robot before starting garph nav
         if self.is_standing and not self.is_moving:
@@ -834,8 +826,9 @@ class SpotWrapper:
         assert not self._robot.is_estopped(), "Robot is estopped. cannot complete navigation"
         assert self.check_is_powered_on(), "Robot not powered on, cannot complete navigation"
         assert self._lease != None, "No lease claim, cannot complete navigations"
-        self._clear_graph()
-        self._upload_graph_and_snapshots(upload_filepath)
+        if self._graph_nav_client.download_graph() == None:
+            self._logger.error("No graph is uploaded to the robot, cannot complete navigation")
+            return
         if initial_localization_fiducial:
             self._set_initial_localization_fiducial()
         if initial_localization_waypoint:
@@ -1325,8 +1318,14 @@ class SpotWrapper:
             # If no waypoint id is given as input, then return without initializing.
             self._logger.error("No waypoint specified to initialize to.")
             return
+        # waypoint id can either be passed in as a single string or a list of waypoints, 
+        # in which case the first will be used.
+        if isinstance(args[0], list):
+            waypoint_id = args[0][0]
+        else:
+            waypoint_id = args[0]
         destination_waypoint = graph_nav_util.find_unique_waypoint_id(
-            args[0][0],
+            waypoint_id,
             self._current_graph,
             self._current_annotation_name_to_wp_id,
             self._logger,
