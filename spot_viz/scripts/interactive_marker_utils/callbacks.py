@@ -146,12 +146,13 @@ class GrabMarkerCallback(object):
 
 class DragToMarkerCallback(object):
      
-    def __init__(self, server_name, grasp_pos):
+    def __init__(self, server_name, grasp_pos, t=[0.0, 0.0, 0.0], R=[0, 0, 0]):
         rospy.loginfo("Setting up client...")
         self._client = actionlib.SimpleActionClient(server_name, GripperAction)
         rospy.loginfo(f"Waiting for {server_name} server...")
         self._client.wait_for_server()
         rospy.loginfo(f"Connected ChairHandle marker to {server_name}.")
+        self._t, self._R = t, R
         self._grasp_pos = grasp_pos
 
     def __call__(self, feedback):
@@ -162,7 +163,7 @@ class DragToMarkerCallback(object):
         ros_pose.header.frame_id = feedback.header.frame_id
         goal = GripperGoal(pose=ros_pose.pose, header=ros_pose.header)
         goal.pose = _get_perpendicular_pose(goal.pose, 
-                                            rot_vec=self._grasp_pos['t'], 
+                                            rot_vec=self._grasp_pos['t'],
                                             offset=self._grasp_pos['R'])
         self._client.send_goal(goal, feedback_cb=rospy.loginfo)
         self._client.wait_for_result()

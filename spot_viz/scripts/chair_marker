@@ -66,8 +66,11 @@ def main():
 
         ########### Right Pose Offset for Robot to GoTo ##############
 
+        # using the below values of t and R, the robot will go to the right
+        # of the chair, with respect to the position of the apriltag marker
         'right_pose_t': [-0.9, 0.1, 0.6],
         'right_pose_R': [0.0 , 5.31, 2.22144147],
+
 
     }
 
@@ -116,10 +119,6 @@ def main():
     # Add a menu
     menu_handler = MenuHandler()
 
-    t, R = obj['grasp_t'], obj['grasp_R']
-    right_t, right_R = obj['right_pose_t'], obj['right_pose_R']
-    menu_handler.insert("toggle tag tracking",
-                        callback=update_marker_sub.toggle)
     # Toggle pose topic subscription & update tickbox state
     # Uses rviz visualization_tutorials/interactive_marker_tutorials/scripts/menu.py -> enableCb as a base
     def toggle_tag_tracking_callback(feedback):
@@ -146,14 +145,23 @@ def main():
 
     menu_handler.insert("go to",
                         callback=GoToMarkerCallback(server_name='spot/trajectory'))
+
+    grasp_menu = menu_handler.insert('grasp')
+    for grasp in grasps:
+        menu_handler.insert(grasp['name'], grasp_menu,
+                            callback=GrabMarkerCallback(server_name='spot/grasp',
+                                                        grasp_pos=cur_grasp,
+                                                        t=grasp['grasp_t'],
+                                                        R=grasp['grasp_R']))
+
+    drag_button = menu_handler.insert("drag to",
+                                      callback=DragToMarkerCallback(server_name='spot/manipulate',
+                                                                    grasp_pos=cur_grasp))
+
+    menu_handler.insert("stow arm",
     menu_handler.insert("go to right",
                         callback=GoToMarkerCallback(server_name='spot/trajectory',
                                                          t=right_t, R=right_R))
-    menu_handler.insert(f"grasp {obj['name']}",
-                        callback=GrabMarkerCallback(server_name='spot/grasp',
-                                                    t=t, R=R))
-    menu_handler.insert("backrest", parent="grasp")
-    menu_handler.insert("arm", parent="grasp")
     menu_handler.insert("drag to",
                         callback=DragToMarkerCallback(server_name='spot/manipulate',
                                                       t=t, R=R))
@@ -173,6 +181,7 @@ def main():
     menu_handler.insert("stow arm",
                         callback=TriggerCallback('spot/arm_stow'))
     menu_handler.apply(server, int_marker.name)
+
 
     rospy.spin()
 
