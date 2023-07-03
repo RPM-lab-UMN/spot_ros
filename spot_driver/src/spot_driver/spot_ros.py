@@ -66,7 +66,7 @@ from spot_msgs.srv import HandPose, HandPoseResponse, HandPoseRequest
 from .ros_helpers import *
 from .spot_wrapper import SpotWrapper
 from .utils.spot_task_wrapper import SpotTaskWrapper
-from .utils.ros_wrappers.gripper_action import GraspActionServer, MoveActionServer
+from .utils.ros_wrappers.gripper_action import GraspActionServer, MoveActionServer, MultiGraspActionServer
 from .utils.ros_pointcloud import images_to_pointcloud2
 from .utils.task_state_publisher import TaskStatePublisher
 import actionlib
@@ -1645,6 +1645,7 @@ class SpotROS:
         self.task_wrapper = SpotTaskWrapper(self.spot_wrapper, self.logger)
         self._gripper_action_server = GraspActionServer(self, 'grasp')
         self._gripper_action_server = MoveActionServer(self, 'manipulate')
+        self._multigrasp_action_server = MultiGraspActionServer(self, 'multigrasp')
 
         #########################################################
         
