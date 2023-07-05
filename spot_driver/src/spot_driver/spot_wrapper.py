@@ -1319,8 +1319,14 @@ class SpotWrapper:
             # If no waypoint id is given as input, then return without initializing.
             self._logger.error("No waypoint specified to initialize to.")
             return
+        # waypoint id can either be passed in as a single string or a list of waypoints, 
+        # in which case the first will be used.
+        if isinstance(args[0], list):
+            waypoint_id = args[0][0]
+        else:
+            waypoint_id = args[0]
         destination_waypoint = graph_nav_util.find_unique_waypoint_id(
-            args[0][0],
+            waypoint_id,
             self._current_graph,
             self._current_annotation_name_to_wp_id,
             self._logger,
