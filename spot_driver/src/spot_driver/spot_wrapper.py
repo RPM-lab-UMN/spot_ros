@@ -808,7 +808,6 @@ class SpotWrapper:
 
     def navigate_to(
         self,
-        upload_path,
         navigate_to,
         initial_localization_fiducial=True,
         initial_localization_waypoint=None,
@@ -816,17 +815,10 @@ class SpotWrapper:
         """navigate with graph nav.
 
         Args:
-           upload_path : Path to the root directory of the map.
            navigate_to : Waypont id string for where to goal
            initial_localization_fiducial : Tells the initializer whether to use fiducials
            initial_localization_waypoint : Waypoint id string of current robot position (optional)
         """
-        # Filepath for uploading a saved graph's and snapshots too.
-        if upload_path[-1] == "/":
-            upload_filepath = upload_path[:-1]
-        else:
-            upload_filepath = upload_path
-
 
         # FIX ME somehow,,,, if the robot is stand, need to sit the robot before starting garph nav
         if self.is_standing and not self.is_moving:
