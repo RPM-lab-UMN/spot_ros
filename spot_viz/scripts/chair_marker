@@ -168,7 +168,14 @@ def main():
                                                marker_server=server,
                                                grasp=grasp
                                            ))
-        menu_handler.setCheckState(grasp_toggle, MenuHandler.CHECKED)
+        menu_handler.setCheckState(grasp_toggle, MenuHandler.UNCHECKED)
+
+    menu_handler.insert('execute multigrasp',
+                        callback=MultiGraspActionCallback(
+                            server_name='spot/multigrasp',
+                            grasp_pos=cur_grasp,
+                            grasp_points=grasps
+                        ))
 
     drag_button = menu_handler.insert("drag to",
                                       callback=DragToMarkerCallback(server_name='spot/manipulate',
