@@ -827,8 +827,9 @@ class SpotWrapper:
         assert not self._robot.is_estopped(), "Robot is estopped. cannot complete navigation"
         assert self.check_is_powered_on(), "Robot not powered on, cannot complete navigation"
         assert self._lease != None, "No lease claim, cannot complete navigations"
-        self._clear_graph()
-        self._upload_graph_and_snapshots(upload_filepath)
+        if self._graph_nav_client.download_graph() == None:
+            self._logger.error("No graph is uploaded to the robot, cannot complete navigation")
+            return
         if initial_localization_fiducial:
             self._set_initial_localization_fiducial()
         if initial_localization_waypoint:
