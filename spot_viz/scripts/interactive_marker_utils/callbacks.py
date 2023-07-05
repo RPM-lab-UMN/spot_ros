@@ -62,7 +62,7 @@ class GoToMarkerCallback(object):
                                             rot_vec=self._R,
                                             offset=self._t)
         self._client.send_goal(goal)
-        
+
         self._client.wait_for_result()
         result = self._client.get_result()
         rospy.loginfo(result)
@@ -102,7 +102,7 @@ def _get_perpendicular_pose(pose, rot_vec=[0, 0, np.pi/2], offset=[0.0, 0.0, 0.0
     pose_rot = R.from_quat([quat.x, quat.y, quat.z, quat.w])
     pose_quat = (pose_rot * rot).as_quat()
     quat.x, quat.y, quat.z, quat.w = pose_quat
-    
+
     print(f'offset: {offset}')
     offset = pose_rot.as_matrix() @ np.array(offset).T
     print(f'pose_rot.as_matrix(): {pose_rot.as_matrix()}')
@@ -110,7 +110,7 @@ def _get_perpendicular_pose(pose, rot_vec=[0, 0, np.pi/2], offset=[0.0, 0.0, 0.0
     p.x += offset[0]; p.y += offset[1]; p.z += offset[2]
     pose.position = p
     print(pose.position)
-    return pose 
+    return pose
 
 class GrabMarkerCallback(object):
 
@@ -134,8 +134,8 @@ class GrabMarkerCallback(object):
         ros_pose = _get_ros_stamped_pose(feedback.pose.position, feedback.pose.orientation)
         ros_pose.header.frame_id = feedback.header.frame_id
         goal = GripperGoal(pose=ros_pose.pose, header=ros_pose.header)
-        goal.pose = _get_perpendicular_pose(goal.pose, 
-                                            rot_vec=self._R, 
+        goal.pose = _get_perpendicular_pose(goal.pose,
+                                            rot_vec=self._R,
                                             offset=self._t)
         self._client.send_goal(goal, feedback_cb=rospy.loginfo)
         self._client.wait_for_result()
@@ -145,7 +145,7 @@ class GrabMarkerCallback(object):
         rospy.loginfo(result)
 
 class DragToMarkerCallback(object):
-     
+
     def __init__(self, server_name, grasp_pos, t=[0.0, 0.0, 0.0], R=[0, 0, 0]):
         rospy.loginfo("Setting up client...")
         self._client = actionlib.SimpleActionClient(server_name, GripperAction)
@@ -162,7 +162,7 @@ class DragToMarkerCallback(object):
         ros_pose = _get_ros_stamped_pose(feedback.pose.position, feedback.pose.orientation)
         ros_pose.header.frame_id = feedback.header.frame_id
         goal = GripperGoal(pose=ros_pose.pose, header=ros_pose.header)
-        goal.pose = _get_perpendicular_pose(goal.pose, 
+        goal.pose = _get_perpendicular_pose(goal.pose,
                                             rot_vec=self._grasp_pos['t'],
                                             offset=self._grasp_pos['R'])
         self._client.send_goal(goal, feedback_cb=rospy.loginfo)
@@ -197,10 +197,21 @@ class MultiGraspToggleCallback(object):
 
 
 class MultiGraspActionCallback(object):
-    def __init__(self, server_name, grasp_list):
-        # TODO implement this
-        pass
+    def __init__(self, server_name, grasp_pos, grasp_points):
+        """
+        A function that provides a callback which takes in a list of possible grasp
+        targets, chooses which one it deems "best", then executes that grasp
+        Args:
+            server_name (str): name of the ROS action server to contact
+            grasp_pos (obj): stores the current grasp position. written/read by callbacks
+            grasp_points (dict[]): list of grasp points in the form of dictionaries
+        """
+        self.grasp_pos = grasp_pos
+        self.grasps = grasp_points
 
     def __call__(self, feedback):
-        # TODO implement this
-        pass
+        # TODO add real implementation
+        rospy.loginfo("multigrasp callback - enabled grasps:")
+        for grasp in self.grasps:
+            if grasp['multigrasp_enabled']:
+                rospy.loginfo(grasp)
