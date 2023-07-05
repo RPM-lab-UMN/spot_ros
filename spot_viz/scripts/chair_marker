@@ -13,8 +13,9 @@ from interactive_marker_utils import (GoToMarkerCallback,
                                     DragToMarkerCallback,
                                     create_interactive_marker,
                                     MarkerPoseSubscriber,
-                                    TriggerCallback
-                                    )
+                                    TriggerCallback,
+                                    MultiGraspToggleCallback,
+                                    MultiGraspActionCallback)
 
 def main():
     rospy.init_node("spot_interactive_marker", anonymous=True)
@@ -157,12 +158,24 @@ def main():
                                                         t=grasp['grasp_t'],
                                                         R=grasp['grasp_R']))
 
+    multigrasp_toggles = menu_handler.insert('multigrasp points')
+    for grasp in grasps:
+        grasp_toggle = menu_handler.insert(grasp['name'],
+                                           callback=MultiGraspToggleCallback(
+                                               menu_handler=menu_handler,
+                                               server=server,
+                                               grasp=grasp
+                                           ))
+        menu_handler.setCheckState(grasp_toggle, MenuHandler.CHECKED)
+
     drag_button = menu_handler.insert("drag to",
                                       callback=DragToMarkerCallback(server_name='spot/manipulate',
                                                                     grasp_pos=cur_grasp))
 
     menu_handler.insert("stow arm", 
                         callback=TriggerCallback('spot/arm_stow'))
+
+    ### ALl menu insertions must be above this line! ###
     menu_handler.apply(server, int_marker.name)
 
     rospy.spin()
