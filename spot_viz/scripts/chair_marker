@@ -80,11 +80,13 @@ def main():
             'name': 'backrest left side',
             'grasp_t': [0.2, 0.15, 0.6],
             'grasp_R': [0.0, 2.22144147, 2.22144147],
+            'multigrasp_enabled': False
         },
         {
             'name': 'backrest right side',
             'grasp_t': [-0.2, 0.15, 0.6],
             'grasp_R': [1.57079632679, 0.0, 0.0],
+            'multigrasp_enabled': False
         },
     ]
 
