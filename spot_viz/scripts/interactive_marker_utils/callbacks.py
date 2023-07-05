@@ -210,7 +210,7 @@ class MultiGraspActionCallback(object):
         self.grasps = grasp_points
 
     def __call__(self, feedback):
-        # TODO add real implementation
+        # TODO move to server
         rospy.loginfo("multigrasp callback - enabled grasps:")
         for grasp in self.grasps:
             if grasp['multigrasp_enabled']:
