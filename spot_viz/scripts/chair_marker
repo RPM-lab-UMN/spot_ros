@@ -160,10 +160,10 @@ def main():
 
     multigrasp_toggles = menu_handler.insert('multigrasp points')
     for grasp in grasps:
-        grasp_toggle = menu_handler.insert(grasp['name'],
+        grasp_toggle = menu_handler.insert(grasp['name'], multigrasp_toggles,
                                            callback=MultiGraspToggleCallback(
                                                menu_handler=menu_handler,
-                                               server=server,
+                                               marker_server=server,
                                                grasp=grasp
                                            ))
         menu_handler.setCheckState(grasp_toggle, MenuHandler.CHECKED)

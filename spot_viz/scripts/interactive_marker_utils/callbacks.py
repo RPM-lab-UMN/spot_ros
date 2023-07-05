@@ -173,9 +173,9 @@ class DragToMarkerCallback(object):
 
 class MultiGraspToggleCallback(object):
 
-    def __init__(self, menu_handler, server, grasp):
+    def __init__(self, menu_handler, marker_server, grasp):
         self.menu_handler = menu_handler
-        self.marker_server = server
+        self.marker_server = marker_server
         self.grasp_dictionary = grasp
 
     def __call__(self, feedback):
