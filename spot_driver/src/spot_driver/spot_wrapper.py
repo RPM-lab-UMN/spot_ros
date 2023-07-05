@@ -1888,17 +1888,24 @@ class SpotWrapper:
         """
         obstacle_distance_grid_proto = self._local_grid_client.get_local_grids(["obstacle_distance"])[0]
         # get snapshot from local grid instead of robot state client
-        # _transform_bd_pose assumes snapshot comes from robot state
+        # _transform_bd_pose assumes snapshot comes from robot state,
+        # so it cannot be used for this
         grid_snapshot = obstacle_distance_grid_proto.local_grid.transforms_snapshot
         # get name of local grid frame
         grid_frame = obstacle_distance_grid_proto.local_grid.frame_name_local_grid_data
         # get a transformation from the provided frame into the local grid frame
         T = get_a_tform_b(grid_snapshot, grid_frame, frame)
         # transpose the pose into local grid frame
-        robot_position =  T * pose
+        pose_in_obstacle_grid =  T * pose
         cell_size = obstacle_distance_grid_proto.local_grid.extent.cell_size
         # translate the position in the grid frame into the coordinates in the grid
-        grid_coordinates = [round(robot_position.position.y / cell_size), round(robot_position.x / cell_size)]
+        grid_coordinates = [round(pose_in_obstacle_grid.position.y / cell_size), round(pose_in_obstacle_grid.x / cell_size)]
+    
+        x_dim = obstacle_distance_grid_proto.local_grid.extent.num_cells_x
+        y_dim = obstacle_distance_grid_proto.local_grid.extent.num_cells_y
+        if (grid_coordinates[0]) >= y_dim or grid_coordinates[0] < 0 or (grid_coordinates[1]) >= x_dim or grid_coordinates[1] < 0:
+            self._logger.error("Specified point not within obstacle distance grid")
+            return 0
         # return the local grid value at those coordinates
         return self.get_obstacle_distance_grid()[grid_coordinates[0]][grid_coordinates[1]]
         
