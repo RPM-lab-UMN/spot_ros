@@ -32,29 +32,52 @@ class LocalGridTester:
         
 
         self.log.debug(str(self.spot._local_grid_client.get_local_grid_types()))
-
+        self.spot.stand()
+        time.sleep(1)
         self.log.info(str(self.spot.get_obstacle_distance_grid()))
+        self.plot_neighboring_obstacles()
+        self.log.info(str(self.spot.detect_obstacles_near_spot(0.3)))
+        if self.power_off: self.spot.safe_power_off()
+        self.spot.releaseLease()
+        self.log.debug(f'Done')
+        
+    def plot_neighboring_obstacles(self):
+        """
+        Function to create a plot of points that spot sees which contain obstacles
+        Returns: none, displays a matplotlib pyplot showing the obstacles detected by spot
+        Red dots demark points that are within an obstacle, 
+        distances show the x,y location of each point in spot's body frame
+        """
         xs = []
         ys = []
+        poses = []
         # Use local grid to find all points in robot's body frame that have a negative obstacle distance
         # meaning that those points are inside of obstacles
-        for y_distance in range(-10, 30):
-            for x_distance in range(-10, 30):
-                distance = self.spot.check_proximity_to_obstacles(bdSE3Pose(x_distance * 0.1, y_distance * 0.1, 0, bdQuat()))
-                if distance < 0:
-                    self.log.info(str(x_distance * 0.1)+ "," + str(y_distance * 0.1))
-                    xs.append(x_distance * 0.1)
-                    ys.append(- y_distance * 0.1)
+        for y_distance in range(-14, 14):
+            for x_distance in range(-14, 14):
+                poses.append(bdSE3Pose(x_distance * 0.1, y_distance * 0.1, 0, bdQuat()))
+                xs.append(x_distance * 0.1)
+                ys.append(- y_distance * 0.1)
+        obstacle_xs = []
+        obstacle_ys = []
+        distances = self.spot.check_proximity_to_obstacles(poses)
+        for i in range(len(distances)):
+            if distances[i] < 0:
+                self.log.info(str(xs[i]* 0.1)+ "," + str(ys[i] * 0.1))
+                obstacle_xs.append(xs[i])
+                obstacle_ys.append([ys[i]])
         # Create a figure and axis
         fig, ax = plt.subplots()
 
-        # Plot the points
-        ax.plot(ys, xs, 'ro')  # 'ro' specifies red circles as markers
-
+        # Plot the pointsm "ro" specitties red circles as markers
+        ax.plot(obstacle_ys, obstacle_xs, 'ro')
         # Add labels and title
         ax.set_ylabel('Spot Body frame X-axis')
         ax.set_xlabel('Spot Body frame Y-axis')
         ax.set_title('2-D Points Containing Obstacles')
+        # change range to show world centered at spot
+        plt.xlim(-1.4, 1.4)
+        plt.ylim(-1.4, 1.4)
 
         # Show the plot
         plt.show()

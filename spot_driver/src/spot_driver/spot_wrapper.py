@@ -1464,13 +1464,19 @@ class SpotWrapper:
         # Navigate to the destination waypoint.
         is_finished = False
         nav_to_cmd_id = -1
+        obstacle_detected = self.detect_obstacles_near_spot()
         while not is_finished:
             # Issue the navigation command about twice a second such that it is easy to terminate the
             # navigation command (with estop or killing the program).
+            if obstacle_detected:
+                self._logger.info("Obstacle detected, removing it from path")
+                # TODO: call functions to remove obstacle
+                break
             nav_to_cmd_id = self._graph_nav_client.navigate_to(
                 destination_waypoint, 1.0, leases=[sublease.lease_proto]
             )
-            time.sleep(0.5)  # Sleep for half a second to allow for command execution.
+            obstacle_detected = self.detect_obstacles_near_spot()
+            time.sleep(0.05)  # Sleep 0.05 seconds to allow for command execution.
             # Poll the robot for feedback to determine if the navigation command is complete. Then sit
             # the robot down once it is finished.
             is_finished = self._check_success(nav_to_cmd_id)
@@ -1877,11 +1883,11 @@ class SpotWrapper:
         float_array += value_offset
         return float_array
 
-    def check_proximity_to_obstacles(self, pose, frame = BODY_FRAME_NAME):
+    def check_proximity_to_obstacles(self, poses, frame = BODY_FRAME_NAME):
         """
-        Get the distance from the nearest obstacle of a given pose, in a given frame, using the 
+        Get the distance from the nearest obstacle of a given list of poses, in a given frame, using the 
         obstacle_distance grid
-        Parameters: Pose (pbSE3), the position to check,
+        Parameters: poses (pbSE3), a list of positions to check,
                     frame: the frame the pose is in
         Returns: the distance of the location in the pose from the nearest obstacle, in 
         meters
@@ -1896,18 +1902,41 @@ class SpotWrapper:
         # get a transformation from the provided frame into the local grid frame
         T = get_a_tform_b(grid_snapshot, grid_frame, frame)
         # transpose the pose into local grid frame
-        pose_in_obstacle_grid =  T * pose
-        cell_size = obstacle_distance_grid_proto.local_grid.extent.cell_size
-        # translate the position in the grid frame into the coordinates in the grid
-        grid_coordinates = [round(pose_in_obstacle_grid.position.y / cell_size), round(pose_in_obstacle_grid.x / cell_size)]
-    
-        x_dim = obstacle_distance_grid_proto.local_grid.extent.num_cells_x
-        y_dim = obstacle_distance_grid_proto.local_grid.extent.num_cells_y
-        if (grid_coordinates[0]) >= y_dim or grid_coordinates[0] < 0 or (grid_coordinates[1]) >= x_dim or grid_coordinates[1] < 0:
-            self._logger.error("Specified point not within obstacle distance grid")
-            return 0
-        # return the local grid value at those coordinates
-        return self.get_obstacle_distance_grid()[grid_coordinates[0]][grid_coordinates[1]]
+        obstacle_distance_grid = self.get_obstacle_distance_grid()
+        distances = []
+        for pose in poses:
+            pose_in_obstacle_grid =  T * pose
+            cell_size = obstacle_distance_grid_proto.local_grid.extent.cell_size
+            # translate the position in the grid frame into the coordinates in the grid
+            grid_coordinates = [round(pose_in_obstacle_grid.position.y / cell_size), round(pose_in_obstacle_grid.x / cell_size)]
+        
+            x_dim = obstacle_distance_grid_proto.local_grid.extent.num_cells_x
+            y_dim = obstacle_distance_grid_proto.local_grid.extent.num_cells_y
+            if (grid_coordinates[0]) >= y_dim or grid_coordinates[0] < 0 or (grid_coordinates[1]) >= x_dim or grid_coordinates[1] < 0:
+                self._logger.error("Specified point not within obstacle distance grid")
+                distances.append(0)
+            # get the obstacle distance at that location in the grid
+            else:
+                distances.append(obstacle_distance_grid[grid_coordinates[0]][grid_coordinates[1]])
+        return distances
+    def detect_obstacles_near_spot(self, threshold = 0.25):
+        """
+        Purpose: detect whether points around spot are within a certain distance threshold of an obstacle
+        Parameters: threshold, the maximum distance you want to allow spot to be from an obstacle.
+        Returns: Boolean, True if any points on spot's body are within the threshold distance of an obstacle, False otherwise
+        """
+        # get a list of points on the edges of spots body
+        poses = []
+        width = 0.5
+        length = 1.1
+        for x in range(-1, 2):
+            for y in range(-1, 2):
+                poses.append(bdSE3Pose(x * length / 2 , y * width / 2, 0, bdQuat()))
+        distances = self.check_proximity_to_obstacles(poses)
+        for distance in distances:
+            if distance < threshold:
+                return True
+        return False
         
     
         
