@@ -1571,15 +1571,21 @@ class SpotWrapper:
             # Navigate a specific route.
             route = self._graph_nav_client.build_route(waypoint_ids, edge_ids_list)
             is_finished = False
+            obstacle_detected = self.detect_obstacles_near_spot()
             while not is_finished:
                 # Issue the route command about twice a second such that it is easy to terminate the
                 # navigation command (with estop or killing the program).
+                if obstacle_detected:
+                    self._logger.info("Obstacle detected, removing from path")
+                    # TODO: add functions for removing obstacles from path
+                    break
                 nav_route_command_id = self._graph_nav_client.navigate_route(
                     route, cmd_duration=1.0, leases=[sublease.lease_proto]
                 )
+                obstacle_detected = self.detect_obstacles_near_spot()
                 time.sleep(
-                    0.5
-                )  # Sleep for half a second to allow for command execution.
+                    0.05
+                )  # Sleep 0.05 seconds to allow for command execution.
                 # Poll the robot for feedback to determine if the route is complete. Then sit
                 # the robot down once it is finished.
                 is_finished = self._check_success(nav_route_command_id)
