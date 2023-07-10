@@ -1889,6 +1889,42 @@ class SpotWrapper:
         float_array += value_offset
         return float_array
 
+    def _get_transform_to_local_grid(self, frame = BODY_FRAME_NAME):
+        """
+        Transform an SE3 pose into the obstacle_distance frame
+        Snapshots must be taken from the local grid instead of the robot_state client, 
+        so _transform_bd_pose cannot be used
+        Parameters: 
+            frame: the reference frame of the transformation
+        Returns a_tform_b transformation from the provided frame to the local grid
+        """
+        obstacle_distance_grid_proto = self._local_grid_client.get_local_grids(["obstacle_distance"])[0]
+        # get snapshot from local grid instead of robot state client
+        # _transform_bd_pose assumes snapshot comes from robot state,
+        # so it cannot be used for this
+        grid_snapshot = obstacle_distance_grid_proto.local_grid.transforms_snapshot
+        # get name of local grid frame
+        grid_frame = obstacle_distance_grid_proto.local_grid.frame_name_local_grid_data
+        # get a transformation from the provided frame into the local grid frame
+        return  get_a_tform_b(grid_snapshot, grid_frame, frame)
+    def _get_obstacle_grid_coordinates(self, pose, transform, obstacle_distance_grid_proto = None):
+        """
+        Get the coordinates of a pose in spot's obstacle_distance_grid
+        Parameters: 
+            pose, a bdSE3pose to get the coordinates of
+            transform: A transformation of the pose into the obstacle_distance grid's frame. 
+                This can be obtained by calling _get_transform_to_local_grid
+            obstacle_distance_grid_proto: proto for obstacle distance grid obtained from the client.
+                if None (default), will be extracted from the local grid client.
+
+        """
+        if obstacle_distance_grid_proto == None:
+            obstacle_distance_grid_proto = self._local_grid_client.get_local_grids(["obstacle_distance"])[0]
+        pose_in_obstacle_grid =  transform * pose
+        cell_size = obstacle_distance_grid_proto.local_grid.extent.cell_size
+        # translate the position in the grid frame into the coordinates in the grid
+        grid_coordinates = [round(pose_in_obstacle_grid.position.y / cell_size), round(pose_in_obstacle_grid.x / cell_size)]
+        return grid_coordinates
     def check_proximity_to_obstacles(self, poses, frame = BODY_FRAME_NAME):
         """
         Get the distance from the nearest obstacle of a given list of poses, in a given frame, using the 
@@ -1899,23 +1935,11 @@ class SpotWrapper:
         meters
         """
         obstacle_distance_grid_proto = self._local_grid_client.get_local_grids(["obstacle_distance"])[0]
-        # get snapshot from local grid instead of robot state client
-        # _transform_bd_pose assumes snapshot comes from robot state,
-        # so it cannot be used for this
-        grid_snapshot = obstacle_distance_grid_proto.local_grid.transforms_snapshot
-        # get name of local grid frame
-        grid_frame = obstacle_distance_grid_proto.local_grid.frame_name_local_grid_data
-        # get a transformation from the provided frame into the local grid frame
-        T = get_a_tform_b(grid_snapshot, grid_frame, frame)
-        # transpose the pose into local grid frame
         obstacle_distance_grid = self.get_obstacle_distance_grid()
         distances = []
         for pose in poses:
-            pose_in_obstacle_grid =  T * pose
-            cell_size = obstacle_distance_grid_proto.local_grid.extent.cell_size
-            # translate the position in the grid frame into the coordinates in the grid
-            grid_coordinates = [round(pose_in_obstacle_grid.position.y / cell_size), round(pose_in_obstacle_grid.x / cell_size)]
-        
+            T = self._get_transform_to_local_grid()
+            grid_coordinates = self._get_obstacle_grid_coordinates(pose, T, obstacle_distance_grid_proto)
             x_dim = obstacle_distance_grid_proto.local_grid.extent.num_cells_x
             y_dim = obstacle_distance_grid_proto.local_grid.extent.num_cells_y
             if (grid_coordinates[0]) >= y_dim or grid_coordinates[0] < 0 or (grid_coordinates[1]) >= x_dim or grid_coordinates[1] < 0:
