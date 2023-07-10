@@ -142,5 +142,4 @@ class MultiGraspActionServer(ActionServerBuilder):
 
     def handler(self, goal):
         rospy.loginfo(f"gripper_action.py/MultiGraspActionServer/handler: {goal}")
-        # TODO return task wrapper task call
         return self.task_wrapper.multigrasp(goal)
