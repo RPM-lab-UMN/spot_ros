@@ -10,6 +10,7 @@ import os
 # before executing
 sys.path.append(os.getcwd() + "/src")
 from spot_driver.spot_wrapper import SpotWrapper
+from spot_driver.utils.graphNav_wrapper import GraphNav
 class MappingWrapperTester:
     def __init__(self, download_path, power_off=False):
         self.power_off = power_off
@@ -23,6 +24,8 @@ class MappingWrapperTester:
                                 logger=self.log,
                                 estop_timeout=9.0,)
         
+        self.graphNav = GraphNav(self.spot._robot, self.spot._logger)
+        
         self.log.setLevel('DEBUG')
         
         self.log.debug('Powering on...')
@@ -34,13 +37,13 @@ class MappingWrapperTester:
         self.spot._clear_graph()
 
         self.log.debug('Getting status of the recording...')
-        self.spot.get_recording_status()
+        self.graphNav.get_recording_status()
 
         self.log.debug('Attempting to start recording...')
-        self.spot.record()
+        self.graphNav.record()
 
         self.log.debug('Getting recording status')
-        self.spot.get_recording_status()
+        self.graphNav.get_recording_status()
 
         # Spot will walk forward in a zig-zag pattern while recording a GraphNav map
         self.log.debug('Walking forward ...')
@@ -57,13 +60,13 @@ class MappingWrapperTester:
         time.sleep(3)
 
         self.log.debug('Attempting to stop recording...')
-        self.spot.stop_recording()
+        self.graphNav.stop_recording()
 
         self.log.debug('Getting recording status')
-        self.spot.get_recording_status()
+        self.graphNav.get_recording_status()
 
         self.log.debug('Attempting to download the recording')
-        self.spot.download_recording(download_path)
+        self.graphNav.download_recording()
        
         # example of downloading and navigating a graph
         self.spot._clear_graph()
@@ -94,5 +97,5 @@ class MappingWrapperTester:
         self.log.debug(f'Done')
 if __name__ == "__main__":
     # specify the path to download and upload the graph here
-    download_path = os.getcwd() + "/scripts/examples"
+    download_path = os.getcwd()
     MappingWrapperTester(download_path)

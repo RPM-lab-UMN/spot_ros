@@ -5,9 +5,10 @@ import time
 import os
 import sys
 # run this exaple from the spot_driver directory, using
-# python3 scripts/examples/mapping_example.py
+# python3 scripts/examples/recording_example.py
 sys.path.append(os.getcwd() + "/src")
 from spot_driver.spot_wrapper import SpotWrapper
+from spot_driver.utils.graphNav_wrapper import GraphNav
 #from spot_driver.spot_task_wrapper import SpotTaskWrapper
 
 import numpy as np
@@ -29,6 +30,8 @@ class RecordingTester:
                                 '192.168.80.3',  #'192.168.80.3','10.0.0.3', 
                                 logger=self.log,
                                 estop_timeout=9.0,)
+        
+        self.graphNav = GraphNav(self.spot._robot, self.spot._logger)
 
         self.log.setLevel('DEBUG')
         
@@ -49,25 +52,25 @@ class RecordingTester:
         self.spot._clear_graph()
 
         self.log.debug('Getting status of the recording...')
-        self.spot.get_recording_status()
+        self.graphNav.get_recording_status()
 
         self.log.debug('Attempting to start recording...')
-        self.spot.record()
+        self.graphNav.record()
 
         self.log.debug('Getting recording status')
-        self.spot.get_recording_status()
+        self.graphNav.get_recording_status()
 
         self.log.debug('Walking forward ...')
         self.spot.trajectory_cmd(1, 0, 90, 20)
 
         self.log.debug('Attempting to stop recording...')
-        self.spot.stop_recording()
+        self.graphNav.stop_recording()
 
         self.log.debug('Getting recording status')
-        self.spot.get_recording_status()
+        self.graphNav.get_recording_status()
 
         self.log.debug('Attempting to download the recording')
-        self.spot.download_recording()
+        self.graphNav.download_recording()
 
     def __del__(self): #Destructor
         time.sleep(5)
@@ -78,3 +81,4 @@ class RecordingTester:
 if __name__=='__main__':
     Testrun = RecordingTester()
     Testrun.obtain_recording_test()
+    del Testrun
