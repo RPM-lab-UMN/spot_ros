@@ -7,32 +7,36 @@ import threading
 import rospy
 from quaternion import quaternion, as_rotation_matrix
 
-class GripperActionServer:
-    def __init__(self, ros_wrapper, action_name, feedback_rate=5):
+class ActionServerBuilder:
+    def __init__(self, action, result, feedback, feedback_rate, action_name, ros_wrapper):
+        self._action = action
+        self._result = result
+        self._feedback = feedback
 
         self._server = actionlib.SimpleActionServer(
-                action_name,
-                GripperAction,
-                execute_cb=self._handle_action,
-                auto_start=False,
+            action_name,
+            GripperAction,
+            execute_cb=self._handle_action,
+            auto_start=False,
             )
         self._server.start()
+
         self._feedback_thread = None
         self.feedback_rate = feedback_rate
         self._running = False
         self.task_wrapper = ros_wrapper.task_wrapper
         self.ros_wrapper = ros_wrapper
-    
+
     def handler(self, goal):
-        raise NotImplementedError("Must be implemented by subclass")
+        raise NotImplementedError("Must be implemented by a subclass")
 
     def _handle_feedback(self):
         while not rospy.is_shutdown() and self._running:
-            f = GripperFeedback(self.task_wrapper.feedback)
+            f = self._feedback(self.task_wrapper.feedback)
             self._server.publish_feedback(f)
             rospy.Rate(self.feedback_rate).sleep()
 
-    def _ros_pose_to_mat(self, pose:Pose):
+    def _ros_pose_to_mat(self, pose: Pose):
         T = np.eye(4)
         p = pose.position
         T[:3, 3] = np.array([p.x, p.y, p.z])
@@ -40,6 +44,14 @@ class GripperActionServer:
         q = quaternion(o.w, o.x, o.y, o.z)
         T[:3, :3] = as_rotation_matrix(q)[:3, :3]
         return T
+
+    def _handle_action(self, goal):
+        raise NotImplementedError("Must be implemented by a subclass")
+
+
+class GripperActionServer(ActionServerBuilder):
+    def __init__(self, ros_wrapper, action_name, feedback_rate=5):
+        super().__init__(GripperAction, GripperResult, GripperFeedback, feedback_rate, action_name, ros_wrapper)
 
     def _handle_action(self, goal):
         rospy.logdebug("Received goal: " + str(goal))
