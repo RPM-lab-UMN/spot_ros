@@ -7,7 +7,7 @@ import os
 
 # IMPORTANT: This example will make spot walk forwards and backwards in a 
 # zig-zag pattern. Make sure there is at least 2 meters of space in front of spot
-# before executing, we assume our users have made the following environment variables in their os: USER, PASSWD, IP
+# before executing, we assume our users have made the following environment variables in their os: BOSDYN_CLIENT_USERNAME, BOSDYN_CLIENT_PASSWORD, BOSDYN_CLIENT_IP
 # To make an environment variable, do something like export <variable-name> = '<value>', or have a bash script
 sys.path.append(os.getcwd() + "/src")
 from spot_driver.spot_wrapper import SpotWrapper
@@ -19,9 +19,9 @@ class MappingWrapperTester:
         logging.basicConfig(format=FORMAT)
         self.log = logging.getLogger("rosout")
         self.log.debug('Starting code.')
-        self.spot = SpotWrapper(os.getenv('USER'), #'admin'
-                                os.getenv('PASSWD'), #'pvwmr4j08osj'
-                                os.getenv('IP'),  #'192.168.80.3','10.0.0.3', 
+        self.spot = SpotWrapper(os.getenv('BOSDYN_CLIENT_USERNAME'), 
+                                os.getenv('BOSDYN_CLIENT_PASSWORD'), 
+                                os.getenv('BOSDYN_CLIENT_IP'),
                                 logger=self.log,
                                 estop_timeout=9.0,)
         
