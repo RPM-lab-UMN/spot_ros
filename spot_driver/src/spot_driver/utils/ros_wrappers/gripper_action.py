@@ -1,4 +1,5 @@
-from spot_msgs.msg import GripperAction, GripperResult, GripperFeedback
+from spot_msgs.msg import GripperAction, GripperResult, GripperFeedback, \
+    MultiGraspAction, MultiGraspResult, MultiGraspFeedback
 from geometry_msgs.msg import Pose
 from std_msgs.msg import Header
 import numpy as np
@@ -105,10 +106,39 @@ class MoveActionServer(GripperActionServer):
         return self.task_wrapper.move_object(pose, goal.header.frame_id)
 
 
-
-class MultiGraspActionServer(GripperActionServer):
+class MultiGraspActionServer(ActionServerBuilder):
     def __init__(self, ros_wrapper, action_name, feedback_rate=5):
-        super().__init__(ros_wrapper, action_name, feedback_rate)
+        super().__init__(MultiGraspAction, MultiGraspResult, MultiGraspFeedback,
+                         feedback_rate, action_name, ros_wrapper)
+
+    def _handle_action(self, goal):
+        rospy.logdebug("Received goal: " + str(goal))
+
+        # Start feedback thread
+        self._feedback_thread = threading.Thread(target=self._handle_feedback, args=())
+        self._running = True
+        self._feedback_thread.start()
+
+        # Run action using task wrapper & report result
+        try:
+            self.handler(goal)
+            self._server.set_succeeded(
+                MultiGraspResult(
+                    success=True,
+                    message=self.task_wrapper.feedback
+                )
+            )
+        except Exception as e:
+            self._server.set_aborted(
+                GripperResult(
+                    success=False,
+                    message=self.task_wrapper.feedback + '\n' + str(e)
+                )
+            )
+
+        # Stop feedback thread
+        self._running = False
+        self._feedback_thread.join()
 
     def handler(self, goal):
         rospy.loginfo(f"gripper_action.py/MultiGraspActionServer/handler: {goal}")
