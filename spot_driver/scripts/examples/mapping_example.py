@@ -7,7 +7,8 @@ import os
 
 # IMPORTANT: This example will make spot walk forwards and backwards in a 
 # zig-zag pattern. Make sure there is at least 2 meters of space in front of spot
-# before executing
+# before executing, we assume our users have made the following environment variables in their os: USER, PASSWD, IP
+# To make an environment variable, do something like export <variable-name> = '<value>', or have a bash script
 sys.path.append(os.getcwd() + "/src")
 from spot_driver.spot_wrapper import SpotWrapper
 from spot_driver.utils.graphNav_wrapper import GraphNav
@@ -18,9 +19,9 @@ class MappingWrapperTester:
         logging.basicConfig(format=FORMAT)
         self.log = logging.getLogger("rosout")
         self.log.debug('Starting code.')
-        self.spot = SpotWrapper('admin', 
-                                'pvwmr4j08osj', 
-                                '192.168.80.3',  #'192.168.80.3','10.0.0.3', 
+        self.spot = SpotWrapper(os.getenv('USER'), #'admin'
+                                os.getenv('PASSWD'), #'pvwmr4j08osj'
+                                os.getenv('IP'),  #'192.168.80.3','10.0.0.3', 
                                 logger=self.log,
                                 estop_timeout=9.0,)
         

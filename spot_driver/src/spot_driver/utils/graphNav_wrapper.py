@@ -32,10 +32,10 @@ class GraphNav(object):
         self._robot = robot
         # Force trigger timesync.
         self._robot.time_sync.wait_for_sync()
-
+        # Keep logger for debug, info, and error statements
         self._logger = logger
 
-        # Filepath for the location to put the downloaded graph and snapshots.
+        # Filepath for the location to put the downloaded graph and snapshots. Default is the current working directory
         if download_filepath[-1] == "/":
             self._download_filepath = download_filepath + "downloaded_graph"
         else:
