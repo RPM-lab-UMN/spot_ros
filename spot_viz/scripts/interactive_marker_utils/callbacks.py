@@ -227,30 +227,22 @@ class DragToMarkerCallback(object):
         result = self._client.get_result()
         rospy.loginfo(result)
 
-
-class MultiGraspToggleCallback(object):
-
+class MultiGraspToggleCallback(CheckBoxCallback):
     def __init__(self, menu_handler, marker_server, grasp):
-        self.menu_handler = menu_handler
-        self.marker_server = marker_server
+        super().__init__(menu_handler, marker_server)
         self.grasp_dictionary = grasp
 
-    def __call__(self, feedback):
-        menu_id = feedback.menu_entry_id
+    def _before_either(self):
+        pass
 
-        if self.grasp_dictionary['multigrasp_enabled']:
-            self.menu_handler.setCheckState(menu_id, self.menu_handler.UNCHECKED)
-            self.grasp_dictionary['multigrasp_enabled'] = False
-            rospy.loginfo(f"Disabled {self.grasp_dictionary['name']} for multigrasp")
+    def _on_enable(self):
+        self.grasp_dictionary['multigrasp_enabled'] = True
 
-        else:
-            self.menu_handler.setCheckState(menu_id, self.menu_handler.CHECKED)
-            self.grasp_dictionary['multigrasp_enabled'] = True
-            rospy.loginfo(f"Enabled {self.grasp_dictionary['name']} for multigrasp")
+    def _on_disable(self):
+        self.grasp_dictionary['multigrasp_enabled'] = False
 
-        self.menu_handler.reApply(self.marker_server)
-        rospy.loginfo("sending update to marker server")
-        self.marker_server.applyChanges()
+    def _after_either(self):
+        pass
 
 
 class MultiGraspActionCallback(object):
@@ -267,7 +259,6 @@ class MultiGraspActionCallback(object):
         self.grasps = grasp_points
 
     def __call__(self, feedback):
-        # TODO move to server
         rospy.loginfo("multigrasp callback - enabled grasps:")
         for grasp in self.grasps:
             if grasp['multigrasp_enabled']:
