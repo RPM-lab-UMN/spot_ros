@@ -1982,21 +1982,23 @@ class SpotWrapper:
         self._logger.info("Obstacle ahead, trying to find a safe place to relocate it")
         #Determine a safe location to move the obstacle
         possible_obstacle_destinations = self._find_safe_place_for_obstacle(grid)
+        if(len(possible_obstacle_destinations) == 0): #Nothing was found, so spot sits down and waits
+            self._logger.error("No good relocation places located. Spot will sit down now")
+            self.sit()
+            return
         self._logger.info("Successfully generated candidate list of safe places, now trying to find best one")
         #Extract Spot's location within the obstacle grid to determine the closes safe point
         tform_to_obstacle_grid = self._get_transform_to_local_grid()
         spot_location = self._get_obstacle_grid_coordinates(bdSE3Pose(0, 0, 0, bdQuat()), tform_to_obstacle_grid)
         spot_location = np.array(spot_location)
+        self._logger.info("Spot is located at: ", spot_location)
         #Weed out the extraneous solutions
         best_obstacle_destination = self._weed_out_locations(possible_obstacle_destinations, spot_location)
-        if(best_obstacle_destination == None): #Nothing was found, so spot sits down and waits
-            self._logger.error("No good relocation places located. Spot will sit down now")
-            self.sit()
-            return
         self._logger.info("Ideal destination located: ", best_obstacle_destination) #Debug statement
         #Convert the best obstacle destination back to a body frame coordinate, so spot can navigate there
         tform_to_body_frame = tform_to_obstacle_grid.inverse()
         best_obstacle_destination_body = tform_to_body_frame * bdSE3Pose(best_obstacle_destination[0], best_obstacle_destination[1], 0, bdQuat())
+        self._logger.info("Body Frame translation: ", best_obstacle_destination_body)
         return best_obstacle_destination_body
     
     def _find_safe_place_for_obstacle(self, grid_array, *args):
@@ -2013,9 +2015,9 @@ class SpotWrapper:
         columns = len(grid_array[0])
         for x in range(rows):
             for y in range(columns):
-                potential_point = grid[x][y]
+                potential_point = grid_array[x][y]
                 if(potential_point >= 4): #Step 2: confirming the point, but also its neighbors
-                    if(_ensure_neighbors(x,y, grid_array)):
+                    if(self._ensure_neighbors(x,y, grid_array)):
                         Safe_places.append((x,y))
         if(len(Safe_places) == 0):
             self._logger.error("There are no safe places that could be found within the obstacle grid")
@@ -2023,7 +2025,7 @@ class SpotWrapper:
     
     def _ensure_neighbors(self, i, j, grid):
         """
-        Purpose: Confirm the immediate surroundings of an object are safe
+        Purpose: Helper function Confirm the immediate surroundings of a candidate safe point are also safe.
         Parameters:
             i: row coordinate of a candidate point
             j: column coordinate of the candidate point
