@@ -10,6 +10,8 @@ from std_srvs.srv import Trigger, TriggerRequest
 from scipy.spatial.transform import Rotation as R
 import numpy as np
 
+from typing import final
+
 
 def _get_ros_stamped_pose(position, orientation):
     pose = PoseStamped()
@@ -19,6 +21,61 @@ def _get_ros_stamped_pose(position, orientation):
     p = pose.pose.position
     p.x, p.y, p.z = position.x, position.y, position.z
     return pose
+
+
+class CheckBoxCallback(object):
+    """
+    Builder class for the callback for a checkbox button in rviz.
+    Handles all the boilerplate for enabling/disabling the "enabled"
+    state of the checkbox & sending the update to the menu server--
+    all that needs to be added by a subclass is the code to be executed
+    when the box is enabled, when it is disabled, and code to be run
+    whenever the button is pressed regardless of status, both before
+    AND after the on-enable/on-disable code.
+
+    The methods _before_either, _after_either, on_enable, and on_disable
+    MUST be implemented by a subclass, even if all they do is pass
+    """
+    def __init__(self, menu_handler, marker_server):
+        """
+        :param menu_handler: The MenuHandler object inserting the button using this callback
+        :param marker_server: The InteractiveMarkerServer that this button pertains to
+        """
+        self.menu_handler = menu_handler
+        self.marker_server = marker_server
+
+    def _before_either(self):
+        raise NotImplementedError("Must be implemented by a subclass")
+
+    def _on_enable(self):
+        raise NotImplementedError("Must be implemented by a subclass")
+
+    def _on_disable(self):
+        raise NotImplementedError("Must be implemented by a subclass")
+
+    def _after_either(self):
+        raise NotImplementedError("Must be implemented by a subclass")
+
+    @final
+    def __call__(self, feedback):
+        entry_id = feedback.menu_entry_id
+        check_state = self.menu_handler.getCheckState(entry_id)
+
+        self._before_either()
+
+        if check_state == self.menu_handler.UNCHECKED:
+            rospy.logdebug(f"Enabling checkbox button with id {entry_id}")
+            self.menu_handler.setCheckState(entry_id, self.menu_handler.CHECKED)
+            self._on_enable()
+        else:
+            rospy.logdebug(f"Disabling checkbox button with id {entry_id}")
+            self.menu_handler.setCheckState(entry_id, self.menu_handler.UNCHECKED)
+
+        self._after_either()
+
+        rospy.logdebug(f"Applying changes for checkbox button with id {entry_id}")
+        rospy.logdebug("sending update to menu server")
+        self.marker_server.applyChanges()
 
 class TriggerCallback():
     def __init__(self, topic_name):
