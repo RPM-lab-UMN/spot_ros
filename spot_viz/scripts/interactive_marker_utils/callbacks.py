@@ -11,6 +11,8 @@ from std_srvs.srv import Trigger, TriggerRequest
 from scipy.spatial.transform import Rotation as R
 import numpy as np
 
+from typing import final
+
 
 def _get_ros_stamped_pose(position, orientation):
     pose = PoseStamped()
@@ -20,6 +22,61 @@ def _get_ros_stamped_pose(position, orientation):
     p = pose.pose.position
     p.x, p.y, p.z = position.x, position.y, position.z
     return pose
+
+
+class CheckBoxCallback(object):
+    """
+    Builder class for the callback for a checkbox button in rviz.
+    Handles all the boilerplate for enabling/disabling the "enabled"
+    state of the checkbox & sending the update to the menu server--
+    all that needs to be added by a subclass is the code to be executed
+    when the box is enabled, when it is disabled, and code to be run
+    whenever the button is pressed regardless of status, both before
+    AND after the on-enable/on-disable code.
+
+    The methods _before_either, _after_either, on_enable, and on_disable
+    MUST be implemented by a subclass, even if all they do is pass
+    """
+    def __init__(self, menu_handler, marker_server):
+        """
+        :param menu_handler: The MenuHandler object inserting the button using this callback
+        :param marker_server: The InteractiveMarkerServer that this button pertains to
+        """
+        self.menu_handler = menu_handler
+        self.marker_server = marker_server
+
+    def _before_either(self):
+        raise NotImplementedError("Must be implemented by a subclass")
+
+    def _on_enable(self):
+        raise NotImplementedError("Must be implemented by a subclass")
+
+    def _on_disable(self):
+        raise NotImplementedError("Must be implemented by a subclass")
+
+    def _after_either(self):
+        raise NotImplementedError("Must be implemented by a subclass")
+
+    @final
+    def __call__(self, feedback):
+        entry_id = feedback.menu_entry_id
+        check_state = self.menu_handler.getCheckState(entry_id)
+
+        self._before_either()
+
+        if check_state == self.menu_handler.UNCHECKED:
+            rospy.logdebug(f"Enabling checkbox button with id {entry_id}")
+            self.menu_handler.setCheckState(entry_id, self.menu_handler.CHECKED)
+            self._on_enable()
+        else:
+            rospy.logdebug(f"Disabling checkbox button with id {entry_id}")
+            self.menu_handler.setCheckState(entry_id, self.menu_handler.UNCHECKED)
+
+        self._after_either()
+
+        rospy.logdebug(f"Applying changes for checkbox button with id {entry_id}")
+        rospy.logdebug("sending update to menu server")
+        self.marker_server.applyChanges()
 
 class TriggerCallback():
     def __init__(self, topic_name):
@@ -171,31 +228,40 @@ class DragToMarkerCallback(object):
         result = self._client.get_result()
         rospy.loginfo(result)
 
+class TrackingToggleCallback(CheckBoxCallback):
+    def __init__(self, menu_handler, marker_server, marker_pose_sub):
+        super().__init__(menu_handler, marker_server)
+        self._pose_update_subscriber = marker_pose_sub
 
-class MultiGraspToggleCallback(object):
+    def _before_either(self):
+        pass
 
+    def _on_enable(self):
+        pass
+
+    def _on_disable(self):
+        pass
+
+    def _after_either(self):
+        self._pose_update_subscriber.toggle()
+        rospy.logdebug("Toggled chair marker pose topic subscription")
+
+class MultiGraspToggleCallback(CheckBoxCallback):
     def __init__(self, menu_handler, marker_server, grasp):
-        self.menu_handler = menu_handler
-        self.marker_server = marker_server
+        super().__init__(menu_handler, marker_server)
         self.grasp_dictionary = grasp
 
-    def __call__(self, feedback):
-        menu_id = feedback.menu_entry_id
+    def _before_either(self):
+        pass
 
-        if self.grasp_dictionary['multigrasp_enabled']:
-            self.menu_handler.setCheckState(menu_id, self.menu_handler.UNCHECKED)
-            self.grasp_dictionary['multigrasp_enabled'] = False
-            rospy.loginfo(f"Disabled {self.grasp_dictionary['name']} for multigrasp")
+    def _on_enable(self):
+        self.grasp_dictionary['multigrasp_enabled'] = True
 
-        else:
-            self.menu_handler.setCheckState(menu_id, self.menu_handler.CHECKED)
-            self.grasp_dictionary['multigrasp_enabled'] = True
-            rospy.loginfo(f"Enabled {self.grasp_dictionary['name']} for multigrasp")
+    def _on_disable(self):
+        self.grasp_dictionary['multigrasp_enabled'] = False
 
-        self.menu_handler.reApply(self.marker_server)
-        rospy.loginfo("sending update to marker server")
-        self.marker_server.applyChanges()
-
+    def _after_either(self):
+        pass
 
 class MultiGraspActionCallback(object):
     def __init__(self, server_name, grasp_pos, grasp_points):
@@ -216,7 +282,6 @@ class MultiGraspActionCallback(object):
         self._grasps = grasp_points
 
     def __call__(self, feedback):
-        # TODO move to server
         rospy.loginfo("Sending multigrasp goal to server...")
         ros_pose = _get_ros_stamped_pose(feedback.pose.position, feedback.pose.orientation)
         ros_pose.header.frame_id = feedback.header.frame_id
@@ -233,4 +298,3 @@ class MultiGraspActionCallback(object):
         self._client.wait_for_result()
         result = self._client.get_result()
         rospy.loginfo(result)
-
