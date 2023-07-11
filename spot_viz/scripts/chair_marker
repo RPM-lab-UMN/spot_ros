@@ -8,7 +8,6 @@ import numpy as np
 import rospy
 
 from interactive_marker_utils import (GoToMarkerCallback,
-                                      GoToRightMarkerCallback,
                                     GrabMarkerCallback,
                                     DragToMarkerCallback,
                                     create_interactive_marker,
