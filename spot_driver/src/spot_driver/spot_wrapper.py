@@ -1373,7 +1373,56 @@ class SpotWrapper:
             graph, localization_id, self._logger
         )
         return self._current_annotation_name_to_wp_id, self._current_edges
-
+    def extract_waypoint_coordinates(self):
+        """
+        Extract x,y,z coordinates from graph nav waypoints
+        Returns: A 3 x N numpy array of x,y,z point cordinates
+        """
+        graph = self._graph_nav_client.download_graph()
+        waypoints = graph.waypoints
+        edges = graph.edges
+        print(dir(edges[0]))
+        print(edges[0])
+        print(len(waypoints))
+        data = np.array([])
+        for wp in waypoints:
+            waypoint_tform_odom = bdSE3Pose.from_proto(wp.waypoint_tform_ko)
+            point = np.array([waypoint_tform_odom.position.x, waypoint_tform_odom.position.y, waypoint_tform_odom.position.z])
+            data = np.concatenate((data, point))
+        return np.reshape(data, (-1, 3))
+    def extract_point_clouds_from_graph(self):
+        """
+        Extract point cloud data from the robot's active GraphNav map.
+        Returns: a 3 x N numpy array of x,y,z point coordinates of the waypoint's point clouds.
+        """
+        graph = self._graph_nav_client.download_graph()
+        waypoints = graph.waypoints
+        waypoint_snapshots = {}
+        for waypoint in waypoints:
+            if len(waypoint.snapshot_id) > 0:               
+                try:
+                    waypoint_snapshots[waypoint.snapshot_id] = self._graph_nav_client.download_waypoint_snapshot(
+                        waypoint.snapshot_id)
+                except Exception:
+                    # Failure in downloading waypoint snapshot. Continue to next snapshot.
+                    self._logger.error("Failed to download waypoint snapshot: " + waypoint.snapshot_id)
+        print(len(waypoint_snapshots))
+        print(len(waypoints))
+        data = None
+        for wp in waypoints:        
+            snapshot = waypoint_snapshots[wp.snapshot_id]
+            cloud = snapshot.point_cloud
+            odom_tform_cloud = get_a_tform_b(cloud.source.transforms_snapshot, ODOM_FRAME_NAME,
+                                            cloud.source.frame_name_sensor)
+            waypoint_tform_odom = bdSE3Pose.from_proto(wp.waypoint_tform_ko)
+            waypoint_tform_cloud = waypoint_tform_odom * odom_tform_cloud
+            point_cloud_data = np.frombuffer(cloud.data, dtype=np.float32).reshape(int(cloud.num_points), 3)
+            transformed_points = waypoint_tform_cloud.transform_cloud(point_cloud_data)
+            if data is None:
+                data = transformed_points
+            else:
+                data = np.concatenate((data, transformed_points))
+        return data
     def _upload_graph_and_snapshots(self, upload_filepath):
         """Upload the graph and snapshots to the robot."""
         self._logger.info("Loading the graph from disk into local storage...")
