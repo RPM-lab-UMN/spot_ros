@@ -1985,29 +1985,30 @@ class SpotWrapper:
         self._logger.info("Successfully generated candidate list of safe places, now trying to find best one")
         #Extract Spot's location within the obstacle grid to determine the closes safe point
         tform_to_obstacle_grid = self._get_transform_to_local_grid()
-        spot_location = self._get_obstacle_grid_coordinates((0,0,0), tform_to_obstacle_grid)
+        spot_location = self._get_obstacle_grid_coordinates(bdSE3Pose(0, 0, 0, bdQuat()), tform_to_obstacle_grid)
+        spot_location = np.array(spot_location)
         #Weed out the extraneous solutions
-        best_obstacle_destination = self._weed_out_locations(possible_obstacle_destinations, np.array((128/2, 128/2)))
+        best_obstacle_destination = self._weed_out_locations(possible_obstacle_destinations, spot_location)
         if(best_obstacle_destination == None): #Nothing was found, so spot sits down and waits
+            self._logger.error("No good relocation places located. Spot will sit down now")
             self.sit()
             return
         self._logger.info("Ideal destination located: ", best_obstacle_destination) #Debug statement
-        ##############################################################################################
-        #Current task is just to figure out the safest place, rest of the work will come in later iterations.
-        #Step 3: Prompt the Arm to grab the obstacle (ASSUME: It has an apriltag on it)
-
-        #Step 4: Determine a path to get to the safe place to move the obstacle
-
-        #Step 5: Navigate back to most recent waypoint and resume pathing
-
-        return
+        #Convert the best obstacle destination back to a body frame coordinate, so spot can navigate there
+        tform_to_body_frame = tform_to_obstacle_grid.inverse()
+        best_obstacle_destination_body = tform_to_body_frame * bdSE3Pose(best_obstacle_destination[0], best_obstacle_destination[1], 0, bdQuat())
+        return best_obstacle_destination_body
     
     def _find_safe_place_for_obstacle(self, grid_array, *args):
+        """
+        Purpose: Helper function to determine all the safe spaces to relocate the object
+        Parameters: grid_array. nxn numpy array of integer values that detail how far each coordinate is away from the obstacle
+        Returns: Safe_places. List of coordinates in obstacle_grid frame that are determined "safe" to relocate the object
+        """
         Safe_places = [] #Ideally, there will be many safe place to choose from
-        #We will want to store the list of candidates to relocated our chair to
-        #Another function will prune the list for the best place
-        #Step 1: Loop through grid, so we need to extract the data
-        #We will just grab the first viable point
+        # We will want to store the list of candidates to relocated our chair to
+        # Another function will prune the list for the best place
+        # Loop through grid, searching candidate points
         rows = len(grid_array)
         columns = len(grid_array[0])
         for x in range(rows):
@@ -2020,8 +2021,16 @@ class SpotWrapper:
             self._logger.error("There are no safe places that could be found within the obstacle grid")
         return Safe_places
     
-    #Helper function extracts neighbors of a point and checks if all of them are safe
     def _ensure_neighbors(self, i, j, grid):
+        """
+        Purpose: Confirm the immediate surroundings of an object are safe
+        Parameters:
+            i: row coordinate of a candidate point
+            j: column coordinate of the candidate point
+            grid: obstacle grid
+        Returns:
+            A boolean determining whether all immediate surroundings are safe
+        """
         rows = len(grid) #Extract rows
         columns = len(grid[0]) #Extract columns
         neighbors = [] #Array that stores the neighbors of a point
@@ -2034,10 +2043,15 @@ class SpotWrapper:
         check_bool = np.all(neighbors >= 2) #Using >= 2 is safe on the obstacle grid
         return check_bool
     
-    #Helper function to take in a list of candidate points and check which is closet linearly
     def _weed_out_locations(self, candidates, spot_position):
-        #Parameters are self,
-        #candidate: array of (x,y), refers to a bunch of x and y coordinates in the obstacle grid that satisfy a safe place criteria
+        """
+        Purpose: Helper function that prunes the list of candidate points to find the best one
+        Parameters:
+            candidates: list of points that have been verified with their immediate surroundings
+            Spot_position: location of spot on the obstacle grid
+        Returns:
+            best_location: obstacle grid coordinates of the best location
+        """
         if(len(candidates) ==0):
             self._logger.error("Candidates list is empty, prompting spot to sit down as no way to relocate object exists")
             return None

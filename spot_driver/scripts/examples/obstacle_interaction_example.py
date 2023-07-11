@@ -26,7 +26,7 @@ class LocalGridTester:
         self.log.debug('Powering on...')
         self.spot.getLease(hijack=True)
         self.spot.power_on()
-        ######################################################### Default startup stuff
+        ######################################################### Default startup protocol
         #Assumptions:
         #1. The grid info is passed as 128x128 array
         #2. The grid's cells translate to body frame coordinates
