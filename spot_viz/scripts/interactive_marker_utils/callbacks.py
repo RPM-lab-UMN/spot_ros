@@ -3,6 +3,7 @@ import rospy
 import actionlib
 from spot_msgs.msg import TrajectoryAction, TrajectoryGoal
 from spot_msgs.msg import GripperAction, GripperGoal
+from spot_msgs.msg import MultiGraspAction, MultiGraspGoal
 from geometry_msgs.msg import PoseStamped
 from std_msgs.msg import Duration
 from std_srvs.srv import Trigger, TriggerRequest
@@ -206,12 +207,30 @@ class MultiGraspActionCallback(object):
             grasp_pos (obj): stores the current grasp position. written/read by callbacks
             grasp_points (dict[]): list of grasp points in the form of dictionaries
         """
-        self.grasp_pos = grasp_pos
-        self.grasps = grasp_points
+        rospy.loginfo("Setting up multigrasp client...")
+        self._client = actionlib.SimpleActionClient(server_name, MultiGraspAction)
+        rospy.loginfo(f"Waiting for {server_name} server...")
+        self._client.wait_for_server()
+        rospy.loginfo(f"Connected ChairHandle marker to {server_name}.")
+        self._grasp_pos = grasp_pos
+        self._grasps = grasp_points
 
     def __call__(self, feedback):
         # TODO move to server
-        rospy.loginfo("multigrasp callback - enabled grasps:")
-        for grasp in self.grasps:
-            if grasp['multigrasp_enabled']:
-                rospy.loginfo(grasp)
+        rospy.loginfo("Sending multigrasp goal to server...")
+        ros_pose = _get_ros_stamped_pose(feedback.pose.position, feedback.pose.orientation)
+        ros_pose.header.frame_id = feedback.header.frame_id
+        goal_poses = []
+        for grasp in self._grasps:
+            if not grasp['multigrasp_enabled']:
+                continue
+            pose = _get_perpendicular_pose(ros_pose.pose,
+                                           rot_vec=grasp['grasp_R'],
+                                           offset=grasp['grasp_t'])
+            goal_poses.append(pose)
+        goal = MultiGraspGoal(poses=goal_poses, header=ros_pose.header)
+        self._client.send_goal(goal, feedback_cb=rospy.loginfo)
+        self._client.wait_for_result()
+        result = self._client.get_result()
+        rospy.loginfo(result)
+

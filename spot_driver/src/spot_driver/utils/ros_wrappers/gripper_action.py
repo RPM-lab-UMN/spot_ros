@@ -90,7 +90,7 @@ class MultiGraspActionServer(GripperActionServer):
 
     def handler(self, goal):
         rospy.loginfo(goal)
-        # TODO return task wrapper task
+        return self.task_wrapper.multigrasp(pose, goal.header.frame_id)
 
 
 class MoveActionServer(GripperActionServer):
