@@ -1970,17 +1970,24 @@ class SpotWrapper:
         
     
         
-    #Code for Object Collision
-    #Main function for detecting and relocating an obstacle in the way
-    #Param is grid, which is a numpy integer array determining the distance an obstacle is from spot
     def obstacle_protocol(self, grid, *args):
-        #Step 1: Ensure a Stop of all movement to avoid collision
+        """
+        Purpose: Determines an open space to move an obstacle once the obstacle has been detected near spot
+        Parameters:
+            grid(nxn array): the local grid snapshot that returned the issue
+        Returns: a coordinate point in the body frame that is safe to relocate the object
+        """
+        #Ensure a Stop of all movement to avoid collision
         self.stop()
         self._logger.info("Obstacle ahead, trying to find a safe place to relocate it")
-        #Step 2: Determine a safe location to move the obstacle
+        #Determine a safe location to move the obstacle
         possible_obstacle_destinations = self._find_safe_place_for_obstacle(grid)
         self._logger.info("Successfully generated candidate list of safe places, now trying to find best one")
-        best_obstacle_destination = self._weed_out_locations(possible_obstacle_destinations, np.array((128/2, 128/2))) #Right now its autofilled to be the center, later it will get spot's location
+        #Extract Spot's location within the obstacle grid to determine the closes safe point
+        tform_to_obstacle_grid = self._get_transform_to_local_grid()
+        spot_location = self._get_obstacle_grid_coordinates((0,0,0), tform_to_obstacle_grid)
+        #Weed out the extraneous solutions
+        best_obstacle_destination = self._weed_out_locations(possible_obstacle_destinations, np.array((128/2, 128/2)))
         if(best_obstacle_destination == None): #Nothing was found, so spot sits down and waits
             self.sit()
             return
