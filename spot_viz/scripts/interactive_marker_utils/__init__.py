@@ -4,6 +4,7 @@ from .callbacks import (GoToMarkerCallback,
                         DragToMarkerCallback,
                         TriggerCallback,
                         MultiGraspToggleCallback,
-                        MultiGraspActionCallback)
+                        MultiGraspActionCallback,
+                        TrackingToggleCallback)
 from .factory import create_interactive_marker
 from .pose_subscriber import MarkerPoseSubscriber

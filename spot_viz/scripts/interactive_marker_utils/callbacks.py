@@ -227,6 +227,24 @@ class DragToMarkerCallback(object):
         result = self._client.get_result()
         rospy.loginfo(result)
 
+class TrackingToggleCallback(CheckBoxCallback):
+    def __init__(self, menu_handler, marker_server, marker_pose_sub):
+        super().__init__(menu_handler, marker_server)
+        self._pose_update_subscriber = marker_pose_sub
+
+    def _before_either(self):
+        pass
+
+    def _on_enable(self):
+        pass
+
+    def _on_disable(self):
+        pass
+
+    def _after_either(self):
+        self._pose_update_subscriber.toggle()
+        rospy.logdebug("Toggled chair marker pose topic subscription")
+
 class MultiGraspToggleCallback(CheckBoxCallback):
     def __init__(self, menu_handler, marker_server, grasp):
         super().__init__(menu_handler, marker_server)
@@ -243,7 +261,6 @@ class MultiGraspToggleCallback(CheckBoxCallback):
 
     def _after_either(self):
         pass
-
 
 class MultiGraspActionCallback(object):
     def __init__(self, server_name, grasp_pos, grasp_points):
