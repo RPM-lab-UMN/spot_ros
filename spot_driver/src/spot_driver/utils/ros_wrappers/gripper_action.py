@@ -16,7 +16,7 @@ class ActionServerBuilder:
 
         self._server = actionlib.SimpleActionServer(
             action_name,
-            GripperAction,
+            action,
             execute_cb=self._handle_action,
             auto_start=False,
             )
@@ -97,15 +97,6 @@ class GraspActionServer(GripperActionServer):
         return self.task_wrapper.grasp(pose, goal.header.frame_id)
 
 
-class MultiGraspActionServer(GripperActionServer):
-    def __init__(self, ros_wrapper, action_name, feedback_rate=5):
-        super().__init__(ros_wrapper, action_name, feedback_rate)
-
-    def handler(self, goal):
-        rospy.loginfo(goal)
-        return self.task_wrapper.multigrasp(pose, goal.header.frame_id)
-
-
 class MoveActionServer(GripperActionServer):
     def __init__(self, ros_wrapper, action_name, feedback_rate=5):
         super().__init__(ros_wrapper, action_name, feedback_rate)
@@ -151,4 +142,4 @@ class MultiGraspActionServer(ActionServerBuilder):
 
     def handler(self, goal):
         rospy.loginfo(f"gripper_action.py/MultiGraspActionServer/handler: {goal}")
-        return self.task_wrapper.multigrasp(goal)
+        return self.task_wrapper.multigrasp(goal.poses, goal.header.frame_id)

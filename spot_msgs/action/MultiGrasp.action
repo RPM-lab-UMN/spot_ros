@@ -2,6 +2,7 @@ geometry_msgs/Pose[] poses
 std_msgs/Header header
 ---
 bool success
+string message
 geometry_msgs/Pose chosenPose
 ---
 string feedback

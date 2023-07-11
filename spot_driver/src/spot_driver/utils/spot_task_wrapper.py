@@ -157,6 +157,14 @@ class SpotTaskWrapper:
         self._log.info('Succeeded')
         return True
     
+    def multigrasp(self, poses, reference_frame:str, **kwargs):
+        if not self.spot.arm_stow()[0]:
+            raise Exception('Failed to stow arm.')
+
+        local_grids = self.spot.local_grids
+        names = [grid.local_grid_type_name for grid in local_grids]
+        #TODO: Add multigrasp logic
+        return False
 
     def move_object(self, pose, reference_frame:str, **kwargs):
         '''Commands the robot to move an object to a desired pose.'''
