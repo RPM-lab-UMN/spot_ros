@@ -1997,9 +1997,11 @@ class SpotWrapper:
         self._logger.info("Ideal destination located: ", best_obstacle_destination) #Debug statement
         #Convert the best obstacle destination back to a body frame coordinate, so spot can navigate there
         tform_to_body_frame = tform_to_obstacle_grid.inverse()
-        best_obstacle_destination_body = tform_to_body_frame * bdSE3Pose(best_obstacle_destination[0], best_obstacle_destination[1], 0, bdQuat())
-        self._logger.info("Body Frame translation: ", best_obstacle_destination_body)
-        return best_obstacle_destination_body
+        cell_size = obstacle_distance_grid_proto.local_grid.extent.cell_size
+        best_obstacle_destination_body = tform_to_body_frame * bdSE3Pose(best_obstacle_destination[0]*cell_size, best_obstacle_destination[1]*cell_size, 0, bdQuat())
+        best_obstacle_destination_body_coords = [best_obstacle_destination_body.x, best_obstacle_destination_body.y]
+        self._logger.info("Body Frame translation: ", best_obstacle_destination_body_coords)
+        return best_obstacle_destination_body_coords
     
     def _find_safe_place_for_obstacle(self, grid_array, *args):
         """
