@@ -103,7 +103,7 @@ class GoToMarkerCallback(object):
     '''
 
     def __init__(self, server_name, t=[0.0, 0.0, 0.0], R=[0, 0, 0]):
-        rospy.loginfo("Setting up client...")
+        rospy.loginfo(f"Setting up client for {server_name}...")
         self._client = actionlib.SimpleActionClient(server_name, TrajectoryAction)
         rospy.loginfo(f"Waiting for {server_name} server...")
         self._client.wait_for_server()
@@ -136,7 +136,7 @@ class GoToRightMarkerCallback(object):
             server_name (str): name of the action server to connect to.
             t (list): the offset of the grasp relative to the marker center.
             R (list): the rotation of the grasp relative to the marker orientation.'''
-        rospy.loginfo("Setting up client...")
+        rospy.loginfo(f"Setting up client for {server_name}...")
         self._client = actionlib.SimpleActionClient(server_name, TrajectoryAction)
         rospy.loginfo(f"Waiting for {server_name} server...")
         self._client.wait_for_server()
@@ -181,7 +181,7 @@ class GrabMarkerCallback(object):
             server_name (str): name of the action server to connect to.
             t (list): the offset of the grasp relative to the marker center.
             R (list): the rotation of the grasp relative to the marker orientation.'''
-        rospy.loginfo("Setting up client...")
+        rospy.loginfo(f"Setting up client for {server_name}...")
         self._client = actionlib.SimpleActionClient(server_name, GripperAction)
         rospy.loginfo(f"Waiting for {server_name} server...")
         self._client.wait_for_server()
@@ -207,7 +207,7 @@ class GrabMarkerCallback(object):
 class DragToMarkerCallback(object):
 
     def __init__(self, server_name, grasp_pos, t=[0.0, 0.0, 0.0], R=[0, 0, 0]):
-        rospy.loginfo("Setting up client...")
+        rospy.loginfo(f"Setting up client for {server_name}...")
         self._client = actionlib.SimpleActionClient(server_name, GripperAction)
         rospy.loginfo(f"Waiting for {server_name} server...")
         self._client.wait_for_server()
