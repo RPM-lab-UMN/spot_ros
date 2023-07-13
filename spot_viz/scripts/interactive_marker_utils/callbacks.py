@@ -76,8 +76,9 @@ class CheckBoxCallback(object):
 
         self._after_either()
 
-        rospy.logdebug(f"Applying changes for checkbox button with id {entry_id}")
-        rospy.logdebug("sending update to menu server")
+        rospy.logdebug(f"Refreshing menu handler")
+        self.menu_handler.reApply(self.marker_server)
+        rospy.logdebug("Applying changes to marker server")
         self.marker_server.applyChanges()
 
 class TriggerCallback():
