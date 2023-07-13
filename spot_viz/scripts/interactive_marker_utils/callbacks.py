@@ -288,15 +288,14 @@ class MultiGraspActionCallback(object):
         rospy.loginfo("Sending multigrasp goal to server...")
         ros_pose = _get_ros_stamped_pose(feedback.pose.position, feedback.pose.orientation)
         ros_pose.header.frame_id = feedback.header.frame_id
-        goal_poses = []
-        for grasp in self._grasps:
-            if not grasp['multigrasp_enabled']:
-                continue
-            pose = _get_perpendicular_pose(ros_pose.pose,
-                                           rot_vec=grasp['grasp_R'],
-                                           offset=grasp['grasp_t'])
-            goal_poses.append(pose)
-        goal = MultiGraspGoal(poses=goal_poses, header=ros_pose.header)
+
+        # Pull poses and weights for enabled grasps into separate lists
+        enabled_grasp_poses = [_get_perpendicular_pose(ros_pose.pose, rot_vec=grasp['grasp_R'], offset=grasp['grasp_t'])
+                               for grasp in self._grasps if grasp['multigrasp_enabled']]
+        enabled_grasp_weights = [grasp['weight'] for grasp in self._grasps]
+
+        goal = MultiGraspGoal(poses=enabled_grasp_poses, weights=enabled_grasp_weights, header=ros_pose.header)
+
         self._client.send_goal(goal, feedback_cb=rospy.loginfo)
         self._client.wait_for_result()
         result = self._client.get_result()
