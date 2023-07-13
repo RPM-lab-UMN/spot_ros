@@ -163,8 +163,11 @@ class SpotTaskWrapper:
 
         local_grids = self.spot.local_grids
         names = [grid.local_grid_type_name for grid in local_grids]
-        #TODO: Add multigrasp logic
-        return False
+
+        for pose in poses:
+            self._log.info(pose)
+
+        return True
 
     def move_object(self, pose, reference_frame:str, **kwargs):
         '''Commands the robot to move an object to a desired pose.'''
