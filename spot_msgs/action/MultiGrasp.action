@@ -1,4 +1,5 @@
 geometry_msgs/Pose[] poses
+float64[] weights
 std_msgs/Header header
 ---
 bool success

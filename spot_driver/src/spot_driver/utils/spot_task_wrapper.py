@@ -157,7 +157,7 @@ class SpotTaskWrapper:
         self._log.info('Succeeded')
         return True
     
-    def multigrasp(self, poses, reference_frame:str, **kwargs):
+    def multigrasp(self, poses, weights, reference_frame:str, **kwargs):
         if not self.spot.arm_stow()[0]:
             raise Exception('Failed to stow arm.')
 
