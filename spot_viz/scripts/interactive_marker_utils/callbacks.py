@@ -269,8 +269,7 @@ class MultiGraspToggleCallback(CheckBoxCallback):
 class MultiGraspActionCallback(object):
     def __init__(self, server_name, grasp_pos, grasp_points):
         """
-        A function that provides a callback which takes in a list of possible grasp
-        targets, chooses which one it deems "best", then executes that grasp
+        Callback for the multigrasp action
         Args:
             server_name (str): name of the ROS action server to contact
             grasp_pos (obj): stores the current grasp position. written/read by callbacks
