@@ -130,7 +130,7 @@ class MultiGraspActionServer(ActionServerBuilder):
             )
         except Exception as e:
             self._server.set_aborted(
-                GripperResult(
+                MultiGraspResult(
                     success=False,
                     message=self.task_wrapper.feedback + '\n' + str(e)
                 )
