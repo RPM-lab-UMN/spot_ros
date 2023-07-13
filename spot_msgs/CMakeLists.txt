@@ -64,6 +64,7 @@ add_action_files(
   PoseBody.action
   Trajectory.action
   Gripper.action
+  MultiGrasp.action
 )
 
 generate_messages(

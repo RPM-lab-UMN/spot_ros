@@ -34,6 +34,7 @@ from bosdyn.api.graph_nav import graph_nav_pb2
 from bosdyn.api.graph_nav import map_pb2
 from bosdyn.api.graph_nav import nav_pb2
 from bosdyn.client.estop import EstopClient, EstopEndpoint, EstopKeepAlive
+from bosdyn.client.local_grid import LocalGridClient
 from bosdyn.client import power
 from bosdyn.client import frame_helpers
 from bosdyn.client import math_helpers
@@ -62,7 +63,7 @@ from bosdyn.util import seconds_to_duration
 from google.protobuf.duration_pb2 import Duration
 from google.protobuf.timestamp_pb2 import Timestamp
 
-from .utils.asynchronous_tasks import AsyncMetrics, AsyncLease, AsyncImageService, AsyncIdle, AsyncEStopMonitor
+from .utils.asynchronous_tasks import AsyncMetrics, AsyncLease, AsyncImageService, AsyncIdle, AsyncEStopMonitor, AsyncLocalGrid
 from bosdyn.client.robot_command import block_until_arm_arrives
 
 """List of image sources for front image periodic query"""
@@ -245,6 +246,9 @@ class SpotWrapper:
                     self._docking_client = self._robot.ensure_client(
                         DockingClient.default_service_name
                     )
+                    self._local_grid_client = self._robot.ensure_client(
+                        LocalGridClient.default_service_name
+                    )
                     initialised = True
                 except Exception as e:
                     sleep_secs = 15
@@ -299,6 +303,13 @@ class SpotWrapper:
             self._estop_endpoint = self._estop_keepalive = None
             self._estop_monitor = AsyncEStopMonitor(self._estop_client, self._logger, 20.0, self)
 
+            self._local_grids_task = AsyncLocalGrid(
+                    self._local_grid_client,
+                    self._logger,
+                    10.0,
+                    ['terrain', 'terrain_valid', 'no_step', 'obstacle_distance', 'intensity']
+                )
+
             self._async_tasks = AsyncTasks([])
             def _add_task(task): 
                 if task: self._async_tasks.add_task(task)
@@ -312,6 +323,7 @@ class SpotWrapper:
                 self._rear_image_task,
                 self._idle_task,
                 self._estop_monitor,
+                self._local_grids_task,
             ]: _add_task(t)
            
             if self._robot.has_arm():
@@ -387,6 +399,11 @@ class SpotWrapper:
     def hand_images(self):
         """Return latest proto from the _hand_image_task"""
         return self._hand_image_task.proto
+
+    @property
+    def local_grids(self):
+        """Return latest proto from the _local_grids_task"""
+        return self._local_grids_task.proto
 
     @property
     def is_standing(self):
