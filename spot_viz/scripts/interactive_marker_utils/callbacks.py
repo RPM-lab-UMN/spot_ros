@@ -25,6 +25,9 @@ def _get_ros_stamped_pose(position, orientation):
 
 class CheckBoxCallback(object):
     """
+    See wiki page on GitHub for more detailed instructions.
+
+
     Builder class for the callback for a checkbox button in rviz.
     Handles all the boilerplate for enabling/disabling the "enabled"
     state of the checkbox & sending the update to the menu server--
