@@ -80,14 +80,14 @@ def main():
             'name': 'backrest left side',
             'grasp_t': [0.2, 0.15, 0.6],
             'grasp_R': [0.0, 2.22144147, 2.22144147],
-            'multigrasp_enabled': False,
+            'multigrasp_enabled': True,
             'weight': 2
         },
         {
             'name': 'backrest right side',
             'grasp_t': [-0.2, 0.15, 0.6],
             'grasp_R': [1.57079632679, 0.0, 0.0],
-            'multigrasp_enabled': False,
+            'multigrasp_enabled': True,
             'weight': 1
         },
     ]
@@ -152,7 +152,7 @@ def main():
                                                marker_server=server,
                                                grasp=grasp
                                            ))
-        menu_handler.setCheckState(grasp_toggle, MenuHandler.UNCHECKED)
+        menu_handler.setCheckState(grasp_toggle, MenuHandler.CHECKED)
 
     menu_handler.insert('execute multigrasp',
                         callback=MultiGraspActionCallback(
