@@ -1373,23 +1373,28 @@ class SpotWrapper:
             graph, localization_id, self._logger
         )
         return self._current_annotation_name_to_wp_id, self._current_edges
-    def extract_waypoint_coordinates(self):
+    def extract_waypoint_and_edge_points(self):
         """
-        Extract x,y,z coordinates from graph nav waypoints
+        Extract visualizable x,y,z coordinates from graph nav waypoints and edges
         Returns: A 3 x N numpy array of x,y,z point cordinates
         """
         graph = self._graph_nav_client.download_graph()
-        waypoints = graph.waypoints
         edges = graph.edges
-        print(dir(edges[0]))
-        print(edges[0])
-        print(len(waypoints))
+        ids_to_waypoints = {wp.id: wp for wp in graph.waypoints}
         data = np.array([])
-        for wp in waypoints:
-            waypoint_tform_odom = bdSE3Pose.from_proto(wp.waypoint_tform_ko)
-            point = np.array([waypoint_tform_odom.position.x, waypoint_tform_odom.position.y, waypoint_tform_odom.position.z])
-            data = np.concatenate((data, point))
+        for edge in edges:
+            from_wp = ids_to_waypoints[edge.id.from_waypoint]
+            to_wp = ids_to_waypoints[edge.id.to_waypoint]
+            # convert waypoint poses into 3D vectors
+            from_vector = math_helpers.Vec3.from_proto(from_wp.waypoint_tform_ko.position)
+            to_vector = math_helpers.Vec3.from_proto(to_wp.waypoint_tform_ko.position)
+            # draw 100 points on the line represented by the edge
+            for i in range(101):
+                point_vector = from_vector + ((to_vector - from_vector) * 0.01 * i)
+                point_array = np.array([point_vector.x, point_vector.y, point_vector.z])
+                data = np.concatenate((data, point_array))
         return np.reshape(data, (-1, 3))
+    
     def extract_point_clouds_from_graph(self):
         """
         Extract point cloud data from the robot's active GraphNav map.
