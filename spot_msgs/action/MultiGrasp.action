@@ -3,7 +3,7 @@ float64[] weights
 std_msgs/Header header
 ---
 bool success
+int32 chosenIndex
 string message
-geometry_msgs/Pose chosenPose
 ---
 string feedback

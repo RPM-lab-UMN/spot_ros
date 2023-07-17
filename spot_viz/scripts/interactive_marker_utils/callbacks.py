@@ -291,9 +291,10 @@ class MultiGraspActionCallback(object):
         ros_pose.header.frame_id = feedback.header.frame_id
 
         # Pull poses and weights for enabled grasps into separate lists
+        enabled_grasps = [grasp for grasp in self._grasps if grasp['multigrasp_enabled']]
         enabled_grasp_poses = [_get_perpendicular_pose(ros_pose.pose, rot_vec=grasp['grasp_R'], offset=grasp['grasp_t'])
-                               for grasp in self._grasps if grasp['multigrasp_enabled']]
-        enabled_grasp_weights = [grasp['weight'] for grasp in self._grasps if grasp['multigrasp_enabled']]
+                               for grasp in enabled_grasps]
+        enabled_grasp_weights = [grasp['weight'] for grasp in enabled_grasps]
 
         goal = MultiGraspGoal(poses=enabled_grasp_poses, weights=enabled_grasp_weights, header=ros_pose.header)
 
@@ -301,3 +302,8 @@ class MultiGraspActionCallback(object):
         self._client.wait_for_result()
         result = self._client.get_result()
         rospy.loginfo(result)
+
+        if result.success:
+            chosen_grasp = enabled_grasps[result.chosenIndex]
+            self._grasp_pos['t'] = chosen_grasp['grasp_t']
+            self._grasp_pos['R'] = chosen_grasp['grasp_R']

@@ -698,7 +698,7 @@ def local_grid_value(local_grid, pose, ref_frame, unpacked_data=None):
 
     # Check bounds
     if xi < 0 or yi < 0 or xi >= extent.num_cells_x or yi >= extent.num_cells_y:
-        raise IndexError('Pose is out of bounds')
+        raise IndexError('Pose is out of bounds of local grid')
 
     return unpacked_data[xi + extent.num_cells_x * yi]
     

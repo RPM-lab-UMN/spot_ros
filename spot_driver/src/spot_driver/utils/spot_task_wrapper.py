@@ -202,7 +202,7 @@ class SpotTaskWrapper:
 
         if effective_weights[best_idx] > 0:
             result = self.grasp(poses[best_idx], reference_frame, **kwargs)
-            return (result, poses[best_idx])
+            return (result, best_idx)
 
         raise Exception('No safe grasp pose found')
 
