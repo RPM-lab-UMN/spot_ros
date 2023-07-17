@@ -2040,16 +2040,20 @@ class SpotWrapper:
         tform_to_obstacle_grid = self._get_transform_to_local_grid()
         spot_location = self._get_obstacle_grid_coordinates(bdSE3Pose(0, 0, 0, bdQuat()), tform_to_obstacle_grid)
         spot_location = np.array(spot_location)
-        self._logger.info("Spot is located at: ", spot_location)
+        self._logger.info("Spot is located at: ")
+        print(spot_location)
         #Weed out the extraneous solutions
         best_obstacle_destination = self._weed_out_locations(possible_obstacle_destinations, spot_location)
-        self._logger.info("Ideal destination located: ", best_obstacle_destination) #Debug statement
+        self._logger.info("Ideal destination located: ") #Debug statement
+        print(best_obstacle_destination)
         #Convert the best obstacle destination back to a body frame coordinate, so spot can navigate there
         tform_to_body_frame = tform_to_obstacle_grid.inverse()
+        obstacle_distance_grid_proto = self._local_grid_client.get_local_grids(["obstacle_distance"])[0]
         cell_size = obstacle_distance_grid_proto.local_grid.extent.cell_size
         best_obstacle_destination_body = tform_to_body_frame * bdSE3Pose(best_obstacle_destination[0]*cell_size, best_obstacle_destination[1]*cell_size, 0, bdQuat())
         best_obstacle_destination_body_coords = [best_obstacle_destination_body.x, best_obstacle_destination_body.y]
-        self._logger.info("Body Frame translation: ", best_obstacle_destination_body_coords)
+        self._logger.info("Body Frame translation: ")
+        print(best_obstacle_destination_body_coords)
         return best_obstacle_destination_body_coords
     
     def _find_safe_place_for_obstacle(self, grid_array, *args):
@@ -2087,13 +2091,40 @@ class SpotWrapper:
         rows = len(grid) #Extract rows
         columns = len(grid[0]) #Extract columns
         neighbors = [] #Array that stores the neighbors of a point
-        for x in range(max(0, i-1), min(i+1, rows-1)):
-            for y in range(max(0, j-1), min(j+1, columns-1)):
-                if x != 1 or y != j:
-                    neighbors.append(grid[x][y])
-        neighbors = np.array(neighbors) #This is a list of neighbors, there should be 8 maximum, 3 minimum
+        # Extract microgrid of maximum 20x20 with i,j at the center, since a cell size is approximately 3 cm
+        # First, find the boundaries of the x we can get away with
+        min_x = i-10
+        for x in range(i-10, i):
+            if(x >= 0): # Stop at the first positive number because this will give us the widest range without going out of grid bounds
+                min_x = x
+                break
+
+        max_x = i+10
+        for x in range(i, rows): #Stop at the limit because this will prevent us from going out of grid bounds
+            if(x == rows-1):
+                max_x = x
+                break
+
+        min_y = j-10
+        for y in range(j-10, j):
+            if(y >= 0):
+                min_y = y
+                break
+
+        max_y = j+10
+        for y in range(j, columns):
+            if(y == columns-1):
+                max_y = y
+                break
+        
+        microgrid = grid[min_x:max_x][min_y:max_y]
+        # Loop over microgrid to check neighboring values
+        for x in range(len(microgrid)):
+            for y in range(len(microgrid[x])): 
+                neighbors.append(microgrid[x][y])
+        neighbors = np.array(neighbors) #This is a list of all found neighbors in the microgrid
         #The neighbors must now be checked to confirm the point is safe
-        check_bool = np.all(neighbors >= 2) #Using >= 2 is safe on the obstacle grid
+        check_bool = np.all(neighbors > 2) #Using > 0 as in having every point be not inside or adjacent to an obstacle
         return check_bool
     
     def _weed_out_locations(self, candidates, spot_position):
