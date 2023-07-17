@@ -2036,6 +2036,7 @@ class SpotWrapper:
         self._logger.info("Obstacle ahead, trying to find a safe place to relocate it")
         #Determine a safe location to move the obstacle
         possible_obstacle_destinations = self._find_safe_place_for_obstacle(grid)
+        print(possible_obstacle_destinations)
         if(len(possible_obstacle_destinations) == 0): #Nothing was found, so spot sits down and waits
             self._logger.error("No good relocation places located. Spot will sit down now")
             self.sit()
@@ -2095,7 +2096,6 @@ class SpotWrapper:
         """
         rows = len(grid) #Extract rows
         columns = len(grid[0]) #Extract columns
-        neighbors = [] #Array that stores the neighbors of a point
         # Extract microgrid of maximum 20x20 with i,j at the center, since a cell size is approximately 3 cm
         # First, find the boundaries of the x we can iterate over
         min_x = i-10
@@ -2126,11 +2126,9 @@ class SpotWrapper:
         # Loop over microgrid to check neighboring values
         for x in range(len(microgrid)):
             for y in range(len(microgrid[x])): 
-                neighbors.append(microgrid[x][y])
-        neighbors = np.array(neighbors) #This is a list of all found neighbors in the microgrid
-        #The neighbors must now be checked to confirm the point is safe
-        check_bool = np.all(neighbors > 2) #Using > 0 as in having every point be not inside or adjacent to an obstacle
-        return check_bool
+                if(microgrid[x][y] < 0.2):
+                    return False
+        return True
     
     def _weed_out_locations(self, candidates, spot_position):
         """

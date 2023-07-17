@@ -39,6 +39,8 @@ class LocalGridTester:
         time.sleep(4)
         obstacle_grid_test = np.random.randint(-2, 6, (128,128))
         self.log.debug(obstacle_grid_test) #Prints out testing array (randomly generated for now)
+        for x in obstacle_grid_test:
+            print(x)
 
         """ #Code for future runs when we ensure the local grid works as intended.
         self.spot.trajectory_cmd(1, 0, 0, 10) #We will assume there is an obstacle dead ahead, along this path
