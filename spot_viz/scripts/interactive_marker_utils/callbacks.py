@@ -290,12 +290,22 @@ class MultiGraspActionCallback(object):
         ros_pose = _get_ros_stamped_pose(feedback.pose.position, feedback.pose.orientation)
         ros_pose.header.frame_id = feedback.header.frame_id
 
-        # Pull poses and weights for enabled grasps into separate lists
-        enabled_grasp_poses = [_get_perpendicular_pose(ros_pose.pose, rot_vec=grasp['grasp_R'], offset=grasp['grasp_t'])
-                               for grasp in self._grasps if grasp['multigrasp_enabled']]
-        enabled_grasp_weights = [grasp['weight'] for grasp in self._grasps if grasp['multigrasp_enabled']]
+        # Filter out disabled grasps
+        enabled_grasps = [grasp for grasp in self._grasps if grasp['multigrasp_enabled']]
 
-        goal = MultiGraspGoal(poses=enabled_grasp_poses, weights=enabled_grasp_weights, header=ros_pose.header)
+        # Pull weights into own list
+        weights = [grasp['weight'] for grasp in enabled_grasps]
+
+        # Generate ROS poses for grasps by applying transformations to apriltag location
+        base_pose = _get_ros_stamped_pose(feedback.pose.position, feedback.pose.orientation)
+        base_pose.header.frame_id = feedback.header.frame_id
+
+        grasp_poses = [_get_perpendicular_pose(base_pose.pose, rot_vec=grasp['grasp_R'], offset=grasp['grasp_t'])
+                       for grasp
+                       in enabled_grasps]
+
+        # Header data remains the same across all generated poses
+        goal = MultiGraspGoal(poses=grasp_poses, weights=weights, header=base_pose.header)
 
         self._client.send_goal(goal, feedback_cb=rospy.loginfo)
         self._client.wait_for_result()
