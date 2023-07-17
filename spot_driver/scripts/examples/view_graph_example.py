@@ -4,7 +4,8 @@ import sys
 import os
 # run this exaple from the spot_driver directory, using
 # python3 scripts/examples/view_graph_example.py
-
+# before executing, we assume our users have made the following environment variables in their os: BOSDYN_CLIENT_USERNAME, BOSDYN_CLIENT_PASSWORD, BOSDYN_CLIENT_IP
+# To make an environment variable, do something like export <variable-name> = '<value>', or have a bash script
 sys.path.append(os.getcwd() + "/src")
 from spot_driver.spot_wrapper import SpotWrapper
 class ViewGraphExample:
@@ -14,9 +15,9 @@ class ViewGraphExample:
         logging.basicConfig(format=FORMAT)
         self.log = logging.getLogger("rosout")
         self.log.debug('Starting code.')
-        self.spot = SpotWrapper('admin', 
-                                'pvwmr4j08osj', 
-                                '192.168.80.3',  #'192.168.80.3','10.0.0.3', 
+        self.spot = SpotWrapper(os.getenv('BOSDYN_CLIENT_USERNAME'), 
+                                os.getenv('BOSDYN_CLIENT_PASSWORD'), 
+                                os.getenv('SPOT_IP'), 
                                 logger=self.log,
                                 estop_timeout=9.0,)
         
@@ -29,7 +30,7 @@ class ViewGraphExample:
         self.log.debug('Attempting to start recording...')
         self.spot.record()
 
-        self.spot.stand()
+        self.spot.stand() 
         time.sleep(1)
         self.spot.trajectory_cmd(-1, 0, 0, 2)
         time.sleep(2)
@@ -37,10 +38,12 @@ class ViewGraphExample:
         time.sleep(2)
         self.spot.trajectory_cmd(1, 0, 0, 2)
         time.sleep(2)
+        self.spot.stand()
+        time.sleep(2)
 
         self.log.debug('Attempting to stop recording...')
         self.spot.stop_recording()
-        data = self.spot.extract_waypoint_coordinates()
+        data = self.spot.extract_waypoint_and_edge_points()
         write_ply(data, os.getcwd() + "/scripts/examples/map_point_clouds.ply")
         self.spot._clear_graph()
         if self.power_off: self.spot.safe_power_off()
