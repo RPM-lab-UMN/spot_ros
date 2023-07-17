@@ -287,8 +287,6 @@ class MultiGraspActionCallback(object):
 
     def __call__(self, feedback):
         rospy.loginfo("Sending multigrasp goal to server...")
-        ros_pose = _get_ros_stamped_pose(feedback.pose.position, feedback.pose.orientation)
-        ros_pose.header.frame_id = feedback.header.frame_id
 
         # Filter out disabled grasps
         enabled_grasps = [grasp for grasp in self._grasps if grasp['multigrasp_enabled']]
