@@ -1,4 +1,3 @@
-
 import rospy
 import actionlib
 from spot_msgs.msg import TrajectoryAction, TrajectoryGoal
@@ -10,6 +9,7 @@ from std_srvs.srv import Trigger, TriggerRequest
 
 from scipy.spatial.transform import Rotation as R
 import numpy as np
+from copy import deepcopy
 
 from typing import final
 
@@ -159,6 +159,7 @@ class GoToRightMarkerCallback(object):
         rospy.loginfo(result)
 
 def _get_perpendicular_pose(pose, rot_vec=[0, 0, np.pi/2], offset=[0.0, 0.0, 0.0]):
+    pose = deepcopy(pose)
     rot = R.from_rotvec(rot_vec)
     quat = pose.orientation
     pose_rot = R.from_quat([quat.x, quat.y, quat.z, quat.w])
@@ -292,7 +293,7 @@ class MultiGraspActionCallback(object):
         # Pull poses and weights for enabled grasps into separate lists
         enabled_grasp_poses = [_get_perpendicular_pose(ros_pose.pose, rot_vec=grasp['grasp_R'], offset=grasp['grasp_t'])
                                for grasp in self._grasps if grasp['multigrasp_enabled']]
-        enabled_grasp_weights = [grasp['weight'] for grasp in self._grasps]
+        enabled_grasp_weights = [grasp['weight'] for grasp in self._grasps if grasp['multigrasp_enabled']]
 
         goal = MultiGraspGoal(poses=enabled_grasp_poses, weights=enabled_grasp_weights, header=ros_pose.header)
 

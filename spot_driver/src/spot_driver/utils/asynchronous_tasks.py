@@ -82,7 +82,7 @@ class AsyncImageService(AsyncPeriodicQuery):
 
 
 class AsyncLocalGrid(AsyncPeriodicQuery):
-    """Class to get local grids at regular intervals.  get_local_grids_async query sent to the robot at every tick.  Callback registered to defined callback function.
+    """Class to get local grids at regular intervals. get_local_grids_async query sent to the robot at every tick.
 
     Attributes:
         client: The Client to a service on the robot
