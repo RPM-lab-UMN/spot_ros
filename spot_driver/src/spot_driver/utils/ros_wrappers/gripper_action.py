@@ -142,4 +142,7 @@ class MultiGraspActionServer(ActionServerBuilder):
 
     def handler(self, goal):
         rospy.loginfo(f"gripper_action.py/MultiGraspActionServer/handler: {goal}")
-        return self.task_wrapper.multigrasp(goal.poses, goal.weights, goal.header.frame_id)
+
+        converted_poses = [self._ros_pose_to_mat(pose) for pose in goal.poses]
+
+        return self.task_wrapper.multigrasp(converted_poses, goal.weights, goal.header.frame_id)
