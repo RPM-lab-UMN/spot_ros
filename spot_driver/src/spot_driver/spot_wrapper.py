@@ -2079,7 +2079,7 @@ class SpotWrapper:
         for x in range(rows):
             for y in range(columns):
                 potential_point = grid_array[x][y]
-                if(potential_point >= 4): #Step 2: confirming the point, but also its neighbors
+                if(potential_point >= 0.8): #Step 2: confirming the point, but also its neighbors
                     if(self._ensure_neighbors(x,y, grid_array)):
                         Safe_places.append((x,y))
         if(len(Safe_places) == 0):
