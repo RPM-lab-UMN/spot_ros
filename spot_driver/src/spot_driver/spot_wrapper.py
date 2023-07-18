@@ -1524,7 +1524,8 @@ class SpotWrapper:
             # navigation command (with estop or killing the program).
             if obstacle_detected:
                 self._logger.info("Obstacle detected, removing it from path")
-                # TODO: call functions to remove obstacle
+                grid = self.get_obstacle_distance_grid()
+                self.obstacle_protocol(grid)
                 break
             nav_to_cmd_id = self._graph_nav_client.navigate_to(
                 destination_waypoint, 1.0, leases=[sublease.lease_proto]
@@ -1631,7 +1632,8 @@ class SpotWrapper:
                 # navigation command (with estop or killing the program).
                 if obstacle_detected:
                     self._logger.info("Obstacle detected, removing from path")
-                    # TODO: add functions for removing obstacles from path
+                    grid = self.get_obstacle_distance_grid()
+                    self.obstacle_protocol(grid)
                     break
                 nav_route_command_id = self._graph_nav_client.navigate_route(
                     route, cmd_duration=1.0, leases=[sublease.lease_proto]

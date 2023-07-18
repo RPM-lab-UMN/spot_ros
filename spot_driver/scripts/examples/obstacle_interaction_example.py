@@ -26,32 +26,94 @@ class LocalGridTester:
         self.log.debug('Powering on...')
         self.spot.getLease(hijack=True)
         self.spot.power_on()
+        self.spot.stand()
         ######################################################### Default startup protocol
         #Assumptions:
-        #1. The grid info is passed as 128x128 array
-        #2. The grid's cells translate to body frame coordinates
-        #3. The path to relocate an object is linear (beeline), and is always open (i.e. there's no objects in the way)
-        #4. The values in the obstacle grid are given as discrete integers (i.e. a heuristic rating of safety)
-        #5. Given how our local grid check is setup, we are assuming spot is stopped because the object is right in front of it
+        #1. The grid info is passed as 128x128 array, which will grow as spot moves around (obstacle frame is loosely based on ODOM frame)
+        #2. The grid's cells translate to body frame coordinates (see spot_wrapper.py)
+        #3. The path to relocate an object is linear is always open (i.e. there's no objects in the way)
+        #4. The values in the obstacle grid are given as floats representing a distance away (i.e. a heuristic rating of safety)
+        #5. Spot will have some pre-recorded path on, but there is an obstacle now along the path when there wasn't before
 
-        #Basic Obstacle grid, a generic random matrix of the required size
-        self.spot.stand()
-        time.sleep(4)
-        obstacle_grid_test = np.random.randint(-2, 6, (128,128))
-        self.log.debug(obstacle_grid_test) #Prints out testing array (randomly generated for now)
-        for x in obstacle_grid_test:
-            print(x)
-
-        """ #Code for future runs when we ensure the local grid works as intended.
-        self.spot.trajectory_cmd(1, 0, 0, 10) #We will assume there is an obstacle dead ahead, along this path
-        time.sleep(3)
+    def get_a_path(download_path):
         """
+        This function is just an example of recording and downloading a path
+        This recorded path will be the path spot will attempt to clear, but then a chair will be placed in the way
+        """
+        self.log.debug('Attemptiong to clear maps...')
+        self.spot._clear_graph()
 
-        #Now we will test the obstacle protocol to see if Spot can figure out where to move the chair
-        list_of_grids = self.spot._local_grid_client.get_local_grid_types()
-        grid = self.spot.get_obstacle_distance_grid()
-        self.log.debug("Initiating obstacle relocation protocol")
-        self.spot.obstacle_protocol(obstacle_grid_test)
+        self.log.debug('Getting status of the recording...')
+        self.spot.get_recording_status()
+
+        self.log.debug('Attempting to start recording...')
+        self.spot.record()
+
+        self.log.debug('Getting recording status')
+        self.spot.get_recording_status()
+
+        # Spot will walk forward in a zig-zag pattern while recording a GraphNav map
+        self.log.debug('Walking forward ...')
+        self.spot.trajectory_cmd(1, 0, 0, 2)
+
+        time.sleep(2)
+        self.spot.trajectory_cmd(0, 0, 0.6, 2)
+        time.sleep(2)
+        self.spot.trajectory_cmd(0.5, 0, 0, 2)
+        time.sleep(2)
+        self.spot.trajectory_cmd(0, 0, -1.2, 2)
+        time.sleep(2)
+        self.spot.trajectory_cmd(0.5, 0, 0, 2)
+        time.sleep(2)
+
+        self.log.debug('Attempting to stop recording...')
+        self.spot.stop_recording()
+
+        self.log.debug('Getting recording status')
+        self.spot.get_recording_status()
+
+        self.log.debug('Attempting to download the recording')
+        self.spot.download_recording(download_path)
+
+        if self.power_off: self.spot.safe_power_off()
+        self.spot.releaseLease()
+        self.log.debug(f'Done')
+
+    def upload_path_with_obstacles(download_path):
+        """
+        This function uses the uploaded graph that was downloaded by the above function, or any likewise downloaded path
+        However, a chair or similar obstacle will be placed 
+        """
+        self.spot._clear_graph()
+        self.log.debug("Uploading graph...")
+        self.spot._upload_graph_and_snapshots(download_path + "/downloaded_graph")
+
+        self.spot._get_localization_state()
+
+        self.log.debug("localizing ...")
+        
+        waypoints = self.spot.list_graph()
+        # spot can localize to a specific waypoint in the graph
+        # in this case, we use the last waypoint spot recorded, as it will be closest to spot's
+        # current location
+        self.spot._set_initial_localization_waypoint(waypoints[-1])
+
+        # next we can tell spot to navigate the graph back to its first recorded waypoint
+        self.log.debug("Navigating waypoints...")
+
+        # when using navigate_to, must specify
+        # destination waypoint, and localization method.
+        # if using waypoints, must specify localization waypoint
+
+        self.spot.navigate_to(waypoints[0], False, waypoints[-1])
+        #Hypothetically, this command will be interrupted as the chair will be in the way
+        
+        if self.power_off: self.spot.safe_power_off()
+        self.spot.releaseLease()
+        self.log.debug(f'Done')
 
 if __name__ == "__main__":
+    download_path = os.getcwd() + "/scripts/examples"
     LocalGridTester()
+    LocalGridTester.get_a_path(download_path)
+
