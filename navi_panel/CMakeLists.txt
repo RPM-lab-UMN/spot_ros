@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.0.2)
-project(navigation_panel)
+project(navi_panel)
 
 ## Compile as C++11, supported in ROS Kinetic and newer
 # add_compile_options(-std=c++11)
@@ -134,7 +134,7 @@ include_directories(
 
 ## Declare a C++ library
  add_library(${PROJECT_NAME}
-   src/${PROJECT_NAME}/navigation_panel.cpp
+   src/${PROJECT_NAME}/navi_panel.cpp
  )
 
 ## Add cmake target dependencies of the library
