@@ -134,7 +134,7 @@ include_directories(
 
 ## Declare a C++ library
  add_library(${PROJECT_NAME}
-   src/${PROJECT_NAME}/navi_panel.cpp
+   src/navi_panel.cpp
  )
 
 ## Add cmake target dependencies of the library
