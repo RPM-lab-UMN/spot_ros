@@ -12,7 +12,7 @@ namespace navi_panel
 {
 
     ControlPanel::ControlPanel(QWidget *parent) {
-        std::string packagePa†h = ros::package::getPath("navi_panel") + "/resource/navigation_control.ui";
+        std::string packagePath = ros::package::getPath("navi_panel") + "/resource/navigation_control.ui";
         ROS_INFO("Getting ui file from package path %s", packagePath.c_str());
         QFile file(packagePath.c_str());
         file.open(QIODevice::ReadOnly);

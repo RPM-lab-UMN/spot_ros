@@ -67,7 +67,7 @@ class ControlPanel : public rviz::Panel
     QTextBrowser* statusBrowser;
 
 
-} // end class ControlPanel
+}; // end class ControlPanel
 
 } // end namespace navi_panel
 
