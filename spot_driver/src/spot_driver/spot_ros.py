@@ -950,6 +950,30 @@ class SpotROS:
         """Get docking state of robot"""
         resp = self.spot_wrapper.get_docking_state()
         return GetDockStateResponse(GetDockStatesFromState(resp))
+    
+    def handle_start_record(self):
+        """Start recording a GraphNav map"""
+        self.spot_wrapper.record()
+
+    def handle_stop_record(self):
+        """Stop recording a GraphNav map"""
+        self.spot_wrapper.stop_recording()
+
+    def handle_download_recording(self, *args):
+        """Download a recorded GraphNav map"""
+        # if any arguments are passed in, the first will be used as the download path for the GraphNav map
+        # otherwise, current working directory will be used.
+        if len(args) < 1:
+            self.spot_wrapper.download_recording()
+
+    def handle_upload_graph_and_snapshots(self, graph_filepath):
+        """Upload a downloaded GraphNav map to spot"""
+        try:
+            self.spot_wrapper._upload_graph_and_snapshots(graph_filepath)
+        except:
+            rospy.logerr("Error uploading graph from the provided filepath")
+
+    
 
     def _send_trajectory_command(self, pose, duration, precise=True):
         """
@@ -1117,7 +1141,6 @@ class SpotROS:
         feedback_thraed.start()
         # run navigate_to
         resp = self.spot_wrapper.navigate_to(
-            upload_path=msg.upload_path,
             navigate_to=msg.navigate_to,
             initial_localization_fiducial=msg.initial_localization_fiducial,
             initial_localization_waypoint=msg.initial_localization_waypoint,
