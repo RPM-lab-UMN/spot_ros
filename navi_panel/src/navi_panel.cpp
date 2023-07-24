@@ -31,7 +31,17 @@ namespace navi_panel
         // Setup ROS service clients
         //** None **//
 
-        // TODO Get Qt Widget handles
+        // Get Qt Widget handles
+        recordingToggleButton = this->findChild<QPushButton*>("recordingToggleButton");
+        waypointToggleButton = this->findChild<QPushButton*>("waypointToggleButton");
+        pointcloudToggleButton = this->findChild<QPushButton*>("pointcloudToggleButton");
+        waypointNavButton = this->findChild<QPushButton*>("waypointNavButton");
+        graphLoadButton = this->findChild<QPushButton*>("graphLoadButton");
+        graphSaveButton = this->findChild<QPushButton*>("graphSaveButton");
+
+        recordingStatus = this->findChild<QLabel*>("recordingStatus");
+
+        recordingTime = this->findChild<QLCDNumber*>("recordingTime");
 
         // Call Widget setup functions
         setupRecordingPanel();
@@ -107,4 +117,4 @@ namespace navi_panel
 } // end namespace navi_panel
 
 #include <pluginlib/class_list_macros.h>
-PLUGINLIB_EXPORT_CLASS(spot_viz::ControlPanel, rviz::Panel)
+PLUGINLIB_EXPORT_CLASS(navi_panel::ControlPanel, rviz::Panel)
