@@ -28,7 +28,7 @@ class ControlPanel : public rviz::Panel
     virtual void load(const rviz::Config& config);
 
     // Member variables
-    private bool isRecording;
+ private: bool isRecording;
 
     // Qt Slots
     private Q_SLOTS:
@@ -39,6 +39,7 @@ class ControlPanel : public rviz::Panel
         void graphLoad();
         void graphSave();
 
+ private:
     // Component setup functions
     void setupRecordingPanel();
     void setupToggleButtons();
