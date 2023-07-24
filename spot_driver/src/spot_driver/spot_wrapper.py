@@ -2007,7 +2007,7 @@ class SpotWrapper:
             else:
                 distances.append(obstacle_distance_grid[grid_coordinates[0]][grid_coordinates[1]])
         return distances
-    def detect_obstacles_near_spot(self, threshold = 0.25):
+    def detect_obstacles_near_spot(self, threshold = 0.50):
         """
         Purpose: detect whether points around spot are within a certain distance threshold of an obstacle
         Parameters: threshold, the maximum distance you want to allow spot to be from an obstacle.
@@ -2081,7 +2081,7 @@ class SpotWrapper:
         for x in range(rows):
             for y in range(columns):
                 potential_point = grid_array[x][y]
-                if(potential_point >= 0.8): #Step 2: confirming the point, but also its neighbors
+                if(potential_point >= 0.35): #Step 2: confirming the point, but also its neighbors
                     if(self._ensure_neighbors(x,y, grid_array)):
                         Safe_places.append((x,y))
         if(len(Safe_places) == 0):
@@ -2130,7 +2130,7 @@ class SpotWrapper:
         # Loop over microgrid to check neighboring values
         for x in range(len(microgrid)):
             for y in range(len(microgrid[x])): 
-                if(microgrid[x][y] < 0.2):
+                if(microgrid[x][y] < 0.1):
                     return False
         return True
     
