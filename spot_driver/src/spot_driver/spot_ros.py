@@ -68,6 +68,7 @@ from .spot_wrapper import SpotWrapper
 from .utils.spot_task_wrapper import SpotTaskWrapper
 from .utils.ros_wrappers.gripper_action import GraspActionServer, MoveActionServer
 from .utils.ros_pointcloud import images_to_pointcloud2
+from .utils.graphNav_wrapper import GraphNav
 import actionlib
 import logging
 import threading
@@ -101,6 +102,7 @@ class SpotROS:
 
     def __init__(self):
         self.spot_wrapper = None
+        self.graph_nav_wrapper = None
 
         self.callbacks = {}
         """Dictionary listing what callback to use for what data task"""
@@ -953,15 +955,15 @@ class SpotROS:
     
     def handle_start_record(self, req):
         """Start recording a GraphNav map"""
-        resp = self.spot_wrapper.record()
+        resp = self.graph_nav_wrapper.record()
         return GraphNavResponse(resp[0], resp[1])
 
     def handle_stop_record(self, req):
         """Stop recording a GraphNav map"""
-        resp = self.spot_wrapper.stop_recording()
+        resp = self.graph_nav_wrapper.stop_recording()
         return GraphNavResponse(resp[0], resp[1])
     def handle_get_recording_status(self, req):
-        resp = self.spot_wrapper.get_recording_status()
+        resp = self.graph_nav_wrapper.get_recording_status()
         return GraphNavResponse(resp[0], resp[1])
 
     def handle_download_recording(self, req):
@@ -969,9 +971,9 @@ class SpotROS:
         # if a nonempty path string is passed in, it will be used as the download path for the GraphNav map
         # otherwise, current working directory will be used.
         if req.path == "":
-            resp = self.spot_wrapper.download_recording()
+            resp = self.graph_nav_wrapper.download_recording()
         else:
-            resp = self.spot_wrapper.download_recording(req.path)
+            resp = self.graph_nav_wrapper.download_recording(req.path)
         return GraphNavResponse(resp[0], resp[1])
 
     def handle_upload_graph_and_snapshots(self, req):
@@ -1419,6 +1421,9 @@ class SpotROS:
             self.rates,
             self.callbacks,
         )
+
+        # add graph nav wrapper to the ros wrapper
+        self.graph_nav_wrapper = GraphNav(self.spot_wrapper._robot, self.spot_wrapper._logger)
 
         if not self.spot_wrapper.is_valid:
             return

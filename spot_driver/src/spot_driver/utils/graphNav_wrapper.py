@@ -89,13 +89,14 @@ class GraphNav(object):
             self._logger.error("The system is not in the proper state to start recording.", \
                    "Try using the graph_nav_command_line to either clear the map or", \
                    "attempt to localize to the map.")
-            return
+            return False, "Not in proper state to start recording"
         try:
             self._recording_client.start_recording(recording_environment=self._recording_environment) #Attempt the recording procedure
             self._logger.info("Successfully started recording a map.")
         except Exception as err: #Any issue in the start-up process will be redirected here
             self._logger.error("Start recording failed: " + str(err))
-        return
+            return False, "Failed to start Recording"
+        return True, "Started recording"
     
     def stop_recording(self, *args):
         """Prompts the Robot to stop recording"""
@@ -117,16 +118,18 @@ class GraphNav(object):
                 continue
             except Exception as err:
                 self._logger.error("Stop recording failed: " + str(err))
-                break
-        return
+                return False, "Failed to stop recording"
+        return True, "Successfully stopped recording"
     
     def get_recording_status(self, *args):
         """Get the recording service's status."""
         status = self._recording_client.get_record_status()
         if status.is_recording:
             self._logger.info("The recording service is on.")
+            return True, "Currently Recording"
         else:
             self._logger.info("The recording service is off.")
+            return False, "Not recording"
     
     def _write_bytes(self, filepath, filename, data): 
         """Write data to a file. Used for all downloading procedures"""
@@ -182,15 +185,16 @@ class GraphNav(object):
             self._logger.info("Downloaded {} of the total {} edge snapshots.".format(
                 num_edge_snapshots_downloaded, num_to_download))
 
-    def download_recording(self, *args):
+    def download_recording(self, path = self._download_filepath):
         """Downloads the graph that has been recorded and writes it into subdirectory"""
         graph = self._graph_nav_client.download_graph()
         if graph is None:
             self._logger.error("Failed to download the graph.")
-            return
-        self._write_full_graph(graph, self._download_filepath)
+            return False, "Failed to download recording"
+        self._write_full_graph(graph, path)
         self._logger.info("Graph downloaded with {} waypoints and {} edges".format(
             len(graph.waypoints), len(graph.edges)))
         # Download the waypoint and edge snapshots.
-        self._download_and_write_waypoint_snapshots(graph.waypoints, self._download_filepath)
-        self._download_and_write_edge_snapshots(graph.edges, self._download_filepath)
+        self._download_and_write_waypoint_snapshots(graph.waypoints, path)
+        self._download_and_write_edge_snapshots(graph.edges, path)
+        return True, "Succesfully downloaded recording"
