@@ -8,6 +8,8 @@ from bosdyn.api import local_grid_pb2
 # python3 scripts/examples/obstacle_interaction_example.py
 sys.path.append(os.getcwd() + "/src")
 from spot_driver.spot_wrapper import SpotWrapper
+from spot_driver.utils.graphNav_wrapper import GraphNav
+
 class LocalGridTester:
     def __init__(self, power_off=False):
         ###################################################################
@@ -16,12 +18,13 @@ class LocalGridTester:
         logging.basicConfig(format=FORMAT)
         self.log = logging.getLogger("rosout")
         self.log.debug('Starting code.')
-        self.spot = SpotWrapper('admin', 
-                                'pvwmr4j08osj', 
-                                '192.168.80.3',  #'192.168.80.3','10.0.0.3', 
+        self.spot = SpotWrapper(os.getenv('BOSDYN_CLIENT_USERNAME'),
+                                os.getenv('BOSDYN_CLIENT_PASSWORD'),
+                                os.getenv('BOSDYN_CLIENT_IP'),
                                 logger=self.log,
                                 estop_timeout=9.0,)
         self.log.setLevel('DEBUG')
+        self.graphNav = GraphNav(self.spot._robot, self.spot._logger)
         
         self.log.debug('Powering on...')
         self.spot.getLease(hijack=True)
@@ -44,13 +47,13 @@ class LocalGridTester:
         self.spot._clear_graph()
 
         self.log.debug('Getting status of the recording...')
-        self.spot.get_recording_status()
+        self.graphNav.get_recording_status()
 
         self.log.debug('Attempting to start recording...')
-        self.spot.record()
+        self.graphNav.record()
 
         self.log.debug('Getting recording status')
-        self.spot.get_recording_status()
+        self.graphNav.get_recording_status()
 
         # Spot will walk forward in a zig-zag pattern while recording a GraphNav map
         self.log.debug('Walking forward ...')
@@ -67,15 +70,15 @@ class LocalGridTester:
         time.sleep(2)
 
         self.log.debug('Attempting to stop recording...')
-        self.spot.stop_recording()
+        self.graphNav.stop_recording()
 
         self.log.debug('Getting recording status')
-        self.spot.get_recording_status()
+        self.graphNav.get_recording_status()
 
         self.log.debug('Attempting to download the recording')
-        self.spot.download_recording(download_path)
+        self.graphNav.download_recording(download_path)
 
-        self.spot._clear_graph()
+        self.graphNav._clear_graph()
         self.log.debug("Uploading graph...") #Upload the graph to return it to the first point, very important it starts in the same spot
         self.spot._upload_graph_and_snapshots(download_path + "/downloaded_graph")
 
@@ -139,15 +142,15 @@ class LocalGridTester:
         """
         This function will give the lease to the tablet
         """
-        self.spot.record()
+        self.graphNav.record()
         self.log.debug("Started recording")
-        self.spot.releaseLease()
+        self.graphNav.releaseLease()
         self.log.debug("Releasing the lease, use the tablet now for movement...")
         #Take lease with the tablet here and move the robot around for a more insteresting path
         self.spot.getLease()
         self.log.debut("lease acquired again, stopping the recording and saving the results to the filepath")
-        self.spot.stop_recording()
-        self.spot.download_recording(download_path)
+        self.graphNav.stop_recording()
+        self.graphNav.download_recording(download_path)
 
 if __name__ == "__main__":
     download_path = os.getcwd() + "/scripts/examples"
