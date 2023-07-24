@@ -123,26 +123,32 @@ namespace navi_panel
     // Qt slot functions
     void ControlPanel::recordingToggle() {
         // TODO
+        return;
     }
 
     void ControlPanel::waypointToggle() {
         // TODO
+        return;
     }
 
     void ControlPanel::pointcloudToggle() {
         // TODO
+        return;
     }
 
     void ControlPanel::waypointNav() {
         // TODO
+        return;
     }
 
     void ControlPanel::graphLoad() {
         // TODO
+        return;
     }
 
     void ControlPanel::graphSave() {
         // TODO
+        return;
     }
 
     // Config file functions
