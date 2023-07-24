@@ -43,6 +43,8 @@ namespace navi_panel
 
         recordingTime = this->findChild<QLCDNumber*>("recordingTime");
 
+        statusBox = this->findChild<QTextEdit*>("statusBox");
+
         // Call Widget setup functions
         setupRecordingPanel();
         setupToggleButtons();
@@ -52,24 +54,64 @@ namespace navi_panel
         // Setup ROS topic subscribers now that everything is set up
         //** None **//
 
-        // TODO Connect Qt Signals and Slots
+        // Connect Qt Signals and Slots
+        connect(recordingToggleButton, SIGNAL(clicked()), this, SLOT(recordingToggle()));
+        connect(waypointToggleButton, SIGNAL(clicked()), this, SLOT(waypointToggle()));
+        connect(pointcloudToggleButton, SIGNAL(clicked()), this, SLOT(pointcloudToggle()));
+        connect(waypointNavButton, SIGNAL(clicked()), this, SLOT(waypointNav()));
+        connect(graphLoadButton, SIGNAL(clicked()), this, SLOT(graphLoad()));
+        connect(graphSaveButton, SIGNAL(clicked()), this, SLOT(graphSave()));
     }
 
     // Setup functions
     void ControlPanel::setupRecordingPanel() {
-        // TODO
+        recordingToggleButton = this->findChild<QPushButton*>("recordingToggleButton");
+        recordingToggleButton->setText(QString::fromUtf8("\u23FA Start Recording"));
+        QPalette pal = recordingToggleButton->palette();
+        pal.setColor(QPalette::Button, QColor(255, 85, 90));
+        recordingToggleButton->setAutoFillBackground(true);
+        recordingToggleButton->setPalette(pal);
+        recordingToggleButton->update();
+
+        recordingStatus = this->findChild<QLabel*>("recordingStatus");
+        recordingStatus->setText(QString::fromUtf8("Not Recording"));
+        recordingStatus->update();
+
+        recordingTime = this->findChild<QLCDNumber*>("recordingTime");
+        recordingTime->setDigitCount(4);
+        recordingTime->display(QString::fromUtf8("00:00"));
+        recordingTime->update();
     }
 
     void ControlPanel::setupToggleButtons() {
-        // TODO
+        waypointToggleButton = this->findChild<QPushButton*>("waypointToggleButton");
+        waypointToggleButton->setCheckable(true);
+        waypointToggleButton->setChecked(false);
+        waypointToggleButton->setText(QString::fromUtf8("Show Wapoints"));
+        waypointToggleButton->update();
+
+        pointcloudToggleButton = this->findChild<QPushButton*>("pointcloudToggleButton");
+        pointcloudToggleButton->setCheckable(true);
+        pointcloudToggleButton->setChecked(false);
+        pointcloudToggleButton->setText(QString::fromUtf8("Show Point Cloud"));
+        pointcloudToggleButton->update();
     }
 
     void ControlPanel::setupModalButtons() {
-        // TODO
+        graphLoadButton = this->findChild<QPushButton*>("graphLoadButton");
+        graphLoadButton->setText(QString::fromUtf8("Load Graph..."));
+        graphLoadButton->update();
+
+        graphSaveButton = this->findChild<QPushButton*>("graphSaveButton");
+        graphSaveButton->setText(QString::fromUtf8("Save Graph..."));
+        graphSaveButton->update();
     }
 
     void ControlPanel::setupStatusBox() {
-        // TODO
+        statusBox = this->findChild<QTextEdit*>("statusBox");
+        statusBox->setReadOnly(true);
+        statusBox->setPlainText(QString::fromUtf8("Log messages will appear here."));
+        statusBox->update();
     }
 
     // Custom functions

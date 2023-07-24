@@ -64,7 +64,7 @@ class ControlPanel : public rviz::Panel
 
     QLCDNumber* recordingTime;
 
-    QTextBrowser* statusBrowser;
+    QTextEdit* statusBox;
 
 
 }; // end class ControlPanel
