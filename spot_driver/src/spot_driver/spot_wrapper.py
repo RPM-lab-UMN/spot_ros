@@ -2006,7 +2006,7 @@ class SpotWrapper:
         for candidate in candidates: #Loop through entire array of candidates for the best position
             candidate = np.array(candidate)
             dist = np.linalg.norm(candidate-spot_position)
-            if(dist <= smallest_dist): #Run a comparison with the currently identified best distance
+            if(dist <= smallest_dist and dist > 0.5): #Run a comparison with the currently identified best distance
                 best_location = candidate
                 smallest_dist = dist
         return best_location
