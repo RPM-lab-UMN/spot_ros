@@ -951,27 +951,36 @@ class SpotROS:
         resp = self.spot_wrapper.get_docking_state()
         return GetDockStateResponse(GetDockStatesFromState(resp))
     
-    def handle_start_record(self):
+    def handle_start_record(self, req):
         """Start recording a GraphNav map"""
-        self.spot_wrapper.record()
+        resp = self.spot_wrapper.record()
+        return GraphNavResponse(resp[0], resp[1])
 
-    def handle_stop_record(self):
+    def handle_stop_record(self, req):
         """Stop recording a GraphNav map"""
-        self.spot_wrapper.stop_recording()
+        resp = self.spot_wrapper.stop_recording()
+        return GraphNavResponse(resp[0], resp[1])
+    def handle_get_recording_status(self, req):
+        resp = self.spot_wrapper.get_recording_status()
+        return GraphNavResponse(resp[0], resp[1])
 
-    def handle_download_recording(self, *args):
+    def handle_download_recording(self, req):
         """Download a recorded GraphNav map"""
-        # if any arguments are passed in, the first will be used as the download path for the GraphNav map
+        # if a nonempty path string is passed in, it will be used as the download path for the GraphNav map
         # otherwise, current working directory will be used.
-        if len(args) < 1:
-            self.spot_wrapper.download_recording()
+        if req.path == "":
+            resp = self.spot_wrapper.download_recording()
+        else:
+            resp = self.spot_wrapper.download_recording(req.path)
+        return GraphNavResponse(resp[0], resp[1])
 
-    def handle_upload_graph_and_snapshots(self, graph_filepath):
+    def handle_upload_graph_and_snapshots(self, req):
         """Upload a downloaded GraphNav map to spot"""
         try:
-            self.spot_wrapper._upload_graph_and_snapshots(graph_filepath)
+            self.spot_wrapper._upload_graph_and_snapshots(req.path)
+            return True, "Succesfully uploaded graph"
         except:
-            rospy.logerr("Error uploading graph from the provided filepath")
+            return False, "Error uploading graph"
 
     
 
@@ -1619,6 +1628,13 @@ class SpotROS:
             "force_trajectory", ArmForceTrajectory, self.handle_force_trajectory
         )
         rospy.Service("gripper_pose", HandPose, self.handle_hand_pose)
+
+        rospy.Service("start_recording", GraphNav, self.handle_start_record)
+        rospy.Service("stop_recording", GraphNav, self.handle_stop_record)
+        rospy.Service("get_recording_status", GraphNav, self.handle_get_recording_status)
+        rospy.Service("download_graph", GraphNav, self.handle_download_recording)
+        rospy.Service("upload_graph", GraphNav, self.handle_upload_graph_and_snapshots)
+
         #########################################################
 
         self.navigate_as = actionlib.SimpleActionServer(
