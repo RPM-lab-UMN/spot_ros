@@ -7,9 +7,11 @@ import os
 
 # IMPORTANT: This example will make spot walk forwards and backwards in a 
 # zig-zag pattern. Make sure there is at least 2 meters of space in front of spot
-# before executing
+# before executing, we assume our users have made the following environment variables in their os: BOSDYN_CLIENT_USERNAME, BOSDYN_CLIENT_PASSWORD, BOSDYN_CLIENT_IP
+# To make an environment variable, do something like export <variable-name> = '<value>', or have a bash script
 sys.path.append(os.getcwd() + "/src")
 from spot_driver.spot_wrapper import SpotWrapper
+from spot_driver.utils.graphNav_wrapper import GraphNav
 class MappingWrapperTester:
     def __init__(self, download_path, power_off=False):
         self.power_off = power_off
@@ -17,11 +19,13 @@ class MappingWrapperTester:
         logging.basicConfig(format=FORMAT)
         self.log = logging.getLogger("rosout")
         self.log.debug('Starting code.')
-        self.spot = SpotWrapper('admin', 
-                                'pvwmr4j08osj', 
-                                '192.168.80.3',  #'192.168.80.3','10.0.0.3', 
+        self.spot = SpotWrapper(os.getenv('BOSDYN_CLIENT_USERNAME'), 
+                                os.getenv('BOSDYN_CLIENT_PASSWORD'), 
+                                os.getenv('BOSDYN_CLIENT_IP'),
                                 logger=self.log,
                                 estop_timeout=9.0,)
+        
+        self.graphNav = GraphNav(self.spot._robot, self.spot._logger)
         
         self.log.setLevel('DEBUG')
         
@@ -34,36 +38,36 @@ class MappingWrapperTester:
         self.spot._clear_graph()
 
         self.log.debug('Getting status of the recording...')
-        self.spot.get_recording_status()
+        self.graphNav.get_recording_status()
 
         self.log.debug('Attempting to start recording...')
-        self.spot.record()
+        self.graphNav.record()
 
         self.log.debug('Getting recording status')
-        self.spot.get_recording_status()
+        self.graphNav.get_recording_status()
 
         # Spot will walk forward in a zig-zag pattern while recording a GraphNav map
         self.log.debug('Walking forward ...')
         self.spot.trajectory_cmd(1, 0, 0, 2)
 
         time.sleep(2)
-        self.spot.trajectory_cmd(0, 0, 0.6, 2)
-        time.sleep(2)
-        self.spot.trajectory_cmd(0.5, 0, 0, 2)
-        time.sleep(2)
-        self.spot.trajectory_cmd(0, 0, -1.2, 2)
-        time.sleep(2)
-        self.spot.trajectory_cmd(0.5, 0, 0, 2)
-        time.sleep(2)
+        self.spot.trajectory_cmd(0, 0, 0.6, 3)
+        time.sleep(3)
+        self.spot.trajectory_cmd(0.5, 0, 0, 3)
+        time.sleep(3)
+        self.spot.trajectory_cmd(0, 0, -1.2, 3)
+        time.sleep(3)
+        self.spot.trajectory_cmd(0.5, 0, 0, 3)
+        time.sleep(3)
 
         self.log.debug('Attempting to stop recording...')
-        self.spot.stop_recording()
+        self.graphNav.stop_recording()
 
         self.log.debug('Getting recording status')
-        self.spot.get_recording_status()
+        self.graphNav.get_recording_status()
 
         self.log.debug('Attempting to download the recording')
-        self.spot.download_recording(download_path)
+        self.graphNav.download_recording()
        
         # example of downloading and navigating a graph
         self.spot._clear_graph()
@@ -94,5 +98,5 @@ class MappingWrapperTester:
         self.log.debug(f'Done')
 if __name__ == "__main__":
     # specify the path to download and upload the graph here
-    download_path = os.getcwd() + "/scripts/examples"
+    download_path = os.getcwd()
     MappingWrapperTester(download_path)

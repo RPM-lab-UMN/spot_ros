@@ -8,6 +8,7 @@ import os
 # To make an environment variable, do something like export <variable-name> = '<value>', or have a bash script
 sys.path.append(os.getcwd() + "/src")
 from spot_driver.spot_wrapper import SpotWrapper
+from spot_driver.utils.graphNav_wrapper import GraphNav
 class ViewGraphExample:
     def __init__(self, power_off=False):
         self.power_off = power_off
@@ -23,15 +24,17 @@ class ViewGraphExample:
         
         self.log.setLevel('DEBUG')
         
+        self.graphNav = GraphNav(self.spot._robot, self.spot._logger)
+        
         self.log.debug('Powering on...')
         self.spot.getLease(hijack=True)
         self.spot.power_on()
         self.spot._clear_graph()
         self.log.debug('Attempting to start recording...')
-        self.spot.record()
+        self.graphNav.record()
 
         self.spot.stand() 
-        time.sleep(1)
+        """ time.sleep(1)
         self.spot.trajectory_cmd(-1, 0, 0, 2)
         time.sleep(2)
         self.spot.trajectory_cmd(0, 0.5, 0, 2)
@@ -39,10 +42,10 @@ class ViewGraphExample:
         self.spot.trajectory_cmd(1, 0, 0, 2)
         time.sleep(2)
         self.spot.stand()
-        time.sleep(2)
+        time.sleep(2) """
 
         self.log.debug('Attempting to stop recording...')
-        self.spot.stop_recording()
+        self.graphNav.stop_recording()
         data = self.spot.extract_waypoint_and_edge_points()
         write_ply(data, os.getcwd() + "/scripts/examples/map_point_clouds.ply")
         self.spot._clear_graph()
