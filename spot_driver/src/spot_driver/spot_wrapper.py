@@ -1373,7 +1373,61 @@ class SpotWrapper:
             graph, localization_id, self._logger
         )
         return self._current_annotation_name_to_wp_id, self._current_edges
-
+    def extract_waypoint_and_edge_points(self):
+        """
+        Extract visualizable x,y,z coordinates from graph nav waypoints and edges
+        Returns: A 3 x N numpy array of x,y,z point cordinates
+        """
+        graph = self._graph_nav_client.download_graph()
+        edges = graph.edges
+        ids_to_waypoints = {wp.id: wp for wp in graph.waypoints}
+        data = np.array([])
+        for edge in edges:
+            from_wp = ids_to_waypoints[edge.id.from_waypoint]
+            to_wp = ids_to_waypoints[edge.id.to_waypoint]
+            # convert waypoint poses into 3D vectors
+            from_vector = math_helpers.Vec3.from_proto(from_wp.waypoint_tform_ko.position)
+            to_vector = math_helpers.Vec3.from_proto(to_wp.waypoint_tform_ko.position)
+            # draw 100 points on the line represented by the edge
+            for i in range(101):
+                point_vector = from_vector + ((to_vector - from_vector) * 0.01 * i)
+                point_array = np.array([point_vector.x, point_vector.y, point_vector.z])
+                data = np.concatenate((data, point_array))
+        return np.reshape(data, (-1, 3))
+    
+    def extract_point_clouds_from_graph(self):
+        """
+        Extract point cloud data from the robot's active GraphNav map.
+        Returns: a 3 x N numpy array of x,y,z point coordinates of the waypoint's point clouds.
+        """
+        graph = self._graph_nav_client.download_graph()
+        waypoints = graph.waypoints
+        waypoint_snapshots = {}
+        for waypoint in waypoints:
+            if len(waypoint.snapshot_id) > 0:               
+                try:
+                    waypoint_snapshots[waypoint.snapshot_id] = self._graph_nav_client.download_waypoint_snapshot(
+                        waypoint.snapshot_id)
+                except Exception:
+                    # Failure in downloading waypoint snapshot. Continue to next snapshot.
+                    self._logger.error("Failed to download waypoint snapshot: " + waypoint.snapshot_id)
+        print(len(waypoint_snapshots))
+        print(len(waypoints))
+        data = None
+        for wp in waypoints:        
+            snapshot = waypoint_snapshots[wp.snapshot_id]
+            cloud = snapshot.point_cloud
+            odom_tform_cloud = get_a_tform_b(cloud.source.transforms_snapshot, ODOM_FRAME_NAME,
+                                            cloud.source.frame_name_sensor)
+            waypoint_tform_odom = bdSE3Pose.from_proto(wp.waypoint_tform_ko)
+            waypoint_tform_cloud = waypoint_tform_odom * odom_tform_cloud
+            point_cloud_data = np.frombuffer(cloud.data, dtype=np.float32).reshape(int(cloud.num_points), 3)
+            transformed_points = waypoint_tform_cloud.transform_cloud(point_cloud_data)
+            if data is None:
+                data = transformed_points
+            else:
+                data = np.concatenate((data, transformed_points))
+        return data
     def _upload_graph_and_snapshots(self, upload_filepath):
         """Upload the graph and snapshots to the robot."""
         self._logger.info("Loading the graph from disk into local storage...")
@@ -1470,7 +1524,8 @@ class SpotWrapper:
             # navigation command (with estop or killing the program).
             if obstacle_detected:
                 self._logger.info("Obstacle detected, removing it from path")
-                # TODO: call functions to remove obstacle
+                grid = self.get_obstacle_distance_grid()
+                self.obstacle_protocol(grid)
                 break
             nav_to_cmd_id = self._graph_nav_client.navigate_to(
                 destination_waypoint, 1.0, leases=[sublease.lease_proto]
@@ -1577,7 +1632,8 @@ class SpotWrapper:
                 # navigation command (with estop or killing the program).
                 if obstacle_detected:
                     self._logger.info("Obstacle detected, removing from path")
-                    # TODO: add functions for removing obstacles from path
+                    grid = self.get_obstacle_distance_grid()
+                    self.obstacle_protocol(grid)
                     break
                 nav_route_command_id = self._graph_nav_client.navigate_route(
                     route, cmd_duration=1.0, leases=[sublease.lease_proto]
@@ -1970,67 +2026,121 @@ class SpotWrapper:
         
     
         
-    #Code for Object Collision
-    #Main function for detecting and relocating an obstacle in the way
-    #Param is grid, which is a numpy integer array determining the distance an obstacle is from spot
     def obstacle_protocol(self, grid, *args):
-        #Step 1: Ensure a Stop of all movement to avoid collision
+        """
+        Purpose: Determines an open space to move an obstacle once the obstacle has been detected near spot
+        Parameters:
+            grid(nxn array): the local grid snapshot that returned the issue
+        Returns: a coordinate point in the body frame that is safe to relocate the object
+        """
+        #Ensure a Stop of all movement to avoid collision
         self.stop()
         self._logger.info("Obstacle ahead, trying to find a safe place to relocate it")
-        #Step 2: Determine a safe location to move the obstacle
+        #Determine a safe location to move the obstacle
         possible_obstacle_destinations = self._find_safe_place_for_obstacle(grid)
-        self._logger.info("Successfully generated candidate list of safe places, now trying to find best one")
-        best_obstacle_destination = self._weed_out_locations(possible_obstacle_destinations, np.array((128/2, 128/2))) #Right now its autofilled to be the center, later it will get spot's location
-        if(best_obstacle_destination == None): #Nothing was found, so spot sits down and waits
+        print(possible_obstacle_destinations)
+        if(len(possible_obstacle_destinations) == 0): #Nothing was found, so spot sits down and waits
+            self._logger.error("No good relocation places located. Spot will sit down now")
             self.sit()
             return
-        self._logger.info("Ideal destination located: ", best_obstacle_destination) #Debug statement
-        ##############################################################################################
-        #Current task is just to figure out the safest place, rest of the work will come in later iterations.
-        #Step 3: Prompt the Arm to grab the obstacle (ASSUME: It has an apriltag on it)
-
-        #Step 4: Determine a path to get to the safe place to move the obstacle
-
-        #Step 5: Navigate back to most recent waypoint and resume pathing
-
-        return
+        self._logger.info("Successfully generated candidate list of safe places, now trying to find best one")
+        #Extract Spot's location within the obstacle grid to determine the closes safe point
+        tform_to_obstacle_grid = self._get_transform_to_local_grid()
+        spot_location = self._get_obstacle_grid_coordinates(bdSE3Pose(0, 0, 0, bdQuat()), tform_to_obstacle_grid)
+        spot_location = np.array(spot_location)
+        self._logger.info("Spot is located at: ")
+        print(spot_location)
+        #Weed out the extraneous solutions
+        best_obstacle_destination = self._weed_out_locations(possible_obstacle_destinations, spot_location)
+        self._logger.info("Ideal destination located: ") #Debug statement
+        print(best_obstacle_destination)
+        #Convert the best obstacle destination back to a body frame coordinate, so spot can navigate there
+        tform_to_body_frame = tform_to_obstacle_grid.inverse()
+        obstacle_distance_grid_proto = self._local_grid_client.get_local_grids(["obstacle_distance"])[0]
+        cell_size = obstacle_distance_grid_proto.local_grid.extent.cell_size
+        best_obstacle_destination_body = tform_to_body_frame * bdSE3Pose(best_obstacle_destination[0]*cell_size, best_obstacle_destination[1]*cell_size, 0, bdQuat())
+        best_obstacle_destination_body_coords = [best_obstacle_destination_body.x, best_obstacle_destination_body.y]
+        self._logger.info("Body Frame translation: ")
+        print(best_obstacle_destination_body_coords)
+        return best_obstacle_destination_body_coords
     
     def _find_safe_place_for_obstacle(self, grid_array, *args):
+        """
+        Purpose: Helper function to determine all the safe spaces to relocate the object
+        Parameters: grid_array. nxn numpy array of integer values that detail how far each coordinate is away from the obstacle
+        Returns: Safe_places. List of coordinates in obstacle_grid frame that are determined "safe" to relocate the object
+        """
         Safe_places = [] #Ideally, there will be many safe place to choose from
-        #We will want to store the list of candidates to relocated our chair to
-        #Another function will prune the list for the best place
-        #Step 1: Loop through grid, so we need to extract the data
-        #We will just grab the first viable point
+        # We will want to store the list of candidates to relocated our chair to
+        # Another function will prune the list for the best place
+        # Loop through grid, searching candidate points
         rows = len(grid_array)
         columns = len(grid_array[0])
         for x in range(rows):
             for y in range(columns):
-                potential_point = grid[x][y]
-                if(potential_point >= 4): #Step 2: confirming the point, but also its neighbors
-                    if(_ensure_neighbors(x,y, grid_array)):
+                potential_point = grid_array[x][y]
+                if(potential_point >= 0.8): #Step 2: confirming the point, but also its neighbors
+                    if(self._ensure_neighbors(x,y, grid_array)):
                         Safe_places.append((x,y))
         if(len(Safe_places) == 0):
             self._logger.error("There are no safe places that could be found within the obstacle grid")
         return Safe_places
     
-    #Helper function extracts neighbors of a point and checks if all of them are safe
     def _ensure_neighbors(self, i, j, grid):
+        """
+        Purpose: Helper function Confirm the immediate surroundings of a candidate safe point are also safe.
+        Parameters:
+            i: row coordinate of a candidate point
+            j: column coordinate of the candidate point
+            grid: obstacle grid
+        Returns:
+            A boolean determining whether all immediate surroundings are safe
+        """
         rows = len(grid) #Extract rows
         columns = len(grid[0]) #Extract columns
-        neighbors = [] #Array that stores the neighbors of a point
-        for x in range(max(0, i-1), min(i+1, rows-1)):
-            for y in range(max(0, j-1), min(j+1, columns-1)):
-                if x != 1 or y != j:
-                    neighbors.append(grid[x][y])
-        neighbors = np.array(neighbors) #This is a list of neighbors, there should be 8 maximum, 3 minimum
-        #The neighbors must now be checked to confirm the point is safe
-        check_bool = np.all(neighbors >= 2) #Using >= 2 is safe on the obstacle grid
-        return check_bool
+        # Extract microgrid of maximum 20x20 with i,j at the center, since a cell size is approximately 3 cm
+        # First, find the boundaries of the x we can iterate over
+        min_x = i-10
+        for x in range(i-10, i):
+            if(x >= 0): # Stop at the first positive number because this will give us the widest range without going out of grid bounds
+                min_x = x
+                break
+
+        max_x = i+10
+        for x in range(i, rows): #Stop at the limit because this will prevent us from going out of grid bounds
+            if(x == rows-1):
+                max_x = x
+                break
+        # Next, do the same for y direction
+        min_y = j-10
+        for y in range(j-10, j):
+            if(y >= 0):
+                min_y = y
+                break
+
+        max_y = j+10
+        for y in range(j, columns):
+            if(y == columns-1):
+                max_y = y
+                break
+        # Next, extract the subgrid from the input grid for checking all the values
+        microgrid = grid[min_x:max_x][min_y:max_y]
+        # Loop over microgrid to check neighboring values
+        for x in range(len(microgrid)):
+            for y in range(len(microgrid[x])): 
+                if(microgrid[x][y] < 0.2):
+                    return False
+        return True
     
-    #Helper function to take in a list of candidate points and check which is closet linearly
     def _weed_out_locations(self, candidates, spot_position):
-        #Parameters are self,
-        #candidate: array of (x,y), refers to a bunch of x and y coordinates in the obstacle grid that satisfy a safe place criteria
+        """
+        Purpose: Helper function that prunes the list of candidate points to find the best one
+        Parameters:
+            candidates: list of points that have been verified with their immediate surroundings
+            Spot_position: location of spot on the obstacle grid
+        Returns:
+            best_location: obstacle grid coordinates of the best location
+        """
         if(len(candidates) ==0):
             self._logger.error("Candidates list is empty, prompting spot to sit down as no way to relocate object exists")
             return None
