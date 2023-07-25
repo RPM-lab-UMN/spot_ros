@@ -46,6 +46,7 @@ from spot_msgs.srv import SetVelocity, SetVelocityResponse
 from spot_msgs.srv import Dock, DockResponse, GetDockState, GetDockStateResponse
 from spot_msgs.srv import PosedStand, PosedStandResponse
 from spot_msgs.srv import SetSwingHeight, SetSwingHeightResponse
+from spot_msgs.srv import GraphRecording, GraphRecordingResponse
 from spot_msgs.srv import (
     ArmJointMovement,
     ArmJointMovementResponse,
@@ -956,15 +957,15 @@ class SpotROS:
     def handle_start_record(self, req):
         """Start recording a GraphNav map"""
         resp = self.graph_nav_wrapper.record()
-        return GraphNavResponse(resp[0], resp[1])
+        return GraphRecordingResponse(resp[0], resp[1])
 
     def handle_stop_record(self, req):
         """Stop recording a GraphNav map"""
         resp = self.graph_nav_wrapper.stop_recording()
-        return GraphNavResponse(resp[0], resp[1])
+        return GraphRecordingResponse(resp[0], resp[1])
     def handle_get_recording_status(self, req):
         resp = self.graph_nav_wrapper.get_recording_status()
-        return GraphNavResponse(resp[0], resp[1])
+        return GraphRecordingResponse(resp[0], resp[1])
 
     def handle_download_recording(self, req):
         """Download a recorded GraphNav map"""
@@ -974,7 +975,7 @@ class SpotROS:
             resp = self.graph_nav_wrapper.download_recording()
         else:
             resp = self.graph_nav_wrapper.download_recording(req.path)
-        return GraphNavResponse(resp[0], resp[1])
+        return GraphRecordingResponse(resp[0], resp[1])
 
     def handle_upload_graph_and_snapshots(self, req):
         """Upload a downloaded GraphNav map to spot"""
@@ -1634,11 +1635,11 @@ class SpotROS:
         )
         rospy.Service("gripper_pose", HandPose, self.handle_hand_pose)
 
-        rospy.Service("start_recording", GraphNav, self.handle_start_record)
-        rospy.Service("stop_recording", GraphNav, self.handle_stop_record)
-        rospy.Service("get_recording_status", GraphNav, self.handle_get_recording_status)
-        rospy.Service("download_graph", GraphNav, self.handle_download_recording)
-        rospy.Service("upload_graph", GraphNav, self.handle_upload_graph_and_snapshots)
+        rospy.Service("start_recording", GraphRecording, self.handle_start_record)
+        rospy.Service("stop_recording", GraphRecording, self.handle_stop_record)
+        rospy.Service("get_recording_status", GraphRecording, self.handle_get_recording_status)
+        rospy.Service("download_graph", GraphRecording, self.handle_download_recording)
+        rospy.Service("upload_graph", GraphRecording, self.handle_upload_graph_and_snapshots)
 
         #########################################################
 
