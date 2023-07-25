@@ -29,11 +29,12 @@ class LocalGridTester:
         self.spot.getLease(hijack=True)
         self.spot.power_on()
         self.spot.stand()
-        
+
     def get_a_path(self, download_path):
         """
         This function is just an example of recording and downloading a path
         This recorded path will be the path spot will attempt to clear, but then a chair will be placed in the way
+        This path is a default zig-zag path
         """
         self.log.debug('Attemptiong to clear maps...')
         self.spot._clear_graph()
@@ -100,7 +101,7 @@ class LocalGridTester:
     def upload_path_with_obstacles(self, upload_path):
         """
         This function uses the uploaded graph that was downloaded by the above function, or any likewise downloaded path
-        However, a chair or similar obstacle will be placed 
+        However, a chair or similar obstacle can be placed in the path, spot will stop and calculate where to relocate the obstacle
         """
         self.spot._clear_graph()
         self.log.debug("Uploading graph...")
@@ -116,7 +117,7 @@ class LocalGridTester:
         # current location
         self.spot._set_initial_localization_waypoint(waypoints[0])
 
-        # next we can tell spot to navigate the graph back to its first recorded waypoint
+        # next we can tell spot to navigate the graph to the last recorded waypoint
         self.log.debug("Navigating waypoints...")
 
         # when using navigate_to, must specify
