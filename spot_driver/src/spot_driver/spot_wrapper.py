@@ -256,6 +256,8 @@ class SpotWrapper:
                     self._docking_client = self._robot.ensure_client(
                         DockingClient.default_service_name
                     )
+                     self._local_grid_client = self._robot.ensure_client(
+                        LocalGridClient.default_service_name)
                     initialised = True
                 except Exception as e:
                     sleep_secs = 15

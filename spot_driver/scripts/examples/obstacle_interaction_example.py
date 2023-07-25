@@ -150,6 +150,6 @@ if __name__ == "__main__":
     download_path = os.getcwd() + "/scripts/examples"
     upload_path = download_path + "/downloaded_graph"
     testrun = LocalGridTester()
-    #testrun.get_a_path(download_path) # run first if there is no predefined path on your OS
+    testrun.get_a_path(download_path) # run first if there is no predefined path on your OS
     #testrun.use_tablet_for_mapping(download_path) # run if you wish to use the tablet for recording a path
-    testrun.upload_path_with_obstacles(upload_path) #run if you wish to test the path uploaded, with and without any obstacles
+    #testrun.upload_path_with_obstacles(upload_path) #run if you wish to test the path uploaded, with and without any obstacles
