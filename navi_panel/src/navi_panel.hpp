@@ -12,6 +12,7 @@
 #include <QLabel>
 #include <QLCDNumber>
 #include <QTextEdit>
+#include <QFileDialog>
 
 // TODO add necessary ROS messages
 
@@ -28,7 +29,8 @@ class ControlPanel : public rviz::Panel
     virtual void load(const rviz::Config& config);
 
     // Member variables
- private: bool isRecording;
+ private: 
+    bool isRecording;
 
     // Qt Slots
     private Q_SLOTS:
@@ -45,6 +47,9 @@ class ControlPanel : public rviz::Panel
     void setupToggleButtons();
     void setupModalButtons();
     void setupStatusBox();
+
+    // Custom functions
+    void logStatus(QString msg);
 
     // ROS service clients
     //** None **//

@@ -64,7 +64,7 @@ namespace navi_panel
     // Setup functions
     void ControlPanel::setupRecordingPanel() {
         recordingToggleButton = this->findChild<QPushButton*>("recordingToggleButton");
-        recordingToggleButton->setText(QString::fromUtf8("\u23FA Start Recording"));
+        recordingToggleButton->setText(QString::fromUtf8("Start Recording"));
         QPalette pal = recordingToggleButton->palette();
         pal.setColor(QPalette::Button, QColor(255, 85, 90));
         recordingToggleButton->setAutoFillBackground(true);
@@ -99,6 +99,13 @@ namespace navi_panel
         graphSaveButton = this->findChild<QPushButton*>("graphSaveButton");
         graphSaveButton->setText(QString::fromUtf8("Save Graph..."));
         graphSaveButton->update();
+
+        waypointNavButton = this->findChild<QPushButton*>("waypointNavButton");
+        QPalette pal = waypointNavButton->palette();
+        pal.setColor(QPalette::Button, QColor(85, 90, 255));
+        waypointNavButton->setAutoFillBackground(true);
+        waypointNavButton->setPalette(pal);
+        waypointNavButton->update();
     }
 
     void ControlPanel::setupStatusBox() {
@@ -109,39 +116,79 @@ namespace navi_panel
     }
 
     // Custom functions
-    //** None **//
+    void ControlPanel::logStatus(QString msg) {
+        statusBox->append(msg);
+    }
 
     // ROS message callbacks
     //** None **//
 
     // Qt slot functions
     void ControlPanel::recordingToggle() {
-        // TODO
+        QPalette pal = recordingToggleButton->palette();
+
+        if (isRecording) {
+            logStatus(QString::fromUtf8("Stopping recording..."));
+            pal.setColor(QPalette::Button, QColor(85, 255, 90));
+            recordingToggleButton->setText(QString::fromUtf8("Start Recording"));
+
+            // TODO stop & reset recording timer
+            // TODO stop recording
+
+            isRecording = false;
+        } else {
+            logStatus(QString::fromUtf8("Starting recording..."));
+            pal.setColor(QPalette::Button, QColor(255, 85, 90));
+            recordingToggleButton->setText(QString::fromUtf8("Stop Recording"));
+
+            // TODO start recording timer
+            // TODO start recording
+
+            isRecording = true;
+        }
+
+        recordingToggleButton->setPalette(pal);
+        recordingToggleButton->repaint();
+
         return;
     }
 
     void ControlPanel::waypointToggle() {
-        // TODO
+        logStatus(QString::fromUtf8("Toggling waypoint visibility..."));
+
+        // TODO toggle waypoint display
+
         return;
     }
 
     void ControlPanel::pointcloudToggle() {
-        // TODO
+        logStatus(QString::fromUtf8("Toggling pointcloud visibility..."));
+
+        // TODO toggle pointcloud display
+
         return;
     }
 
     void ControlPanel::waypointNav() {
-        // TODO
+        logStatus(QString::fromUtf8("Opening navigation modal..."));
+
+        // TODO open custom modal
+
         return;
     }
 
     void ControlPanel::graphLoad() {
-        // TODO
+        logStatus(QString::fromUtf8("Opening file picker..."));
+
+        // TODO open file picker
+
         return;
     }
 
     void ControlPanel::graphSave() {
-        // TODO
+        logStatus(QString::fromUtf8("Opening file picker..."));
+
+        // TODO open file picker
         return;
     }
 
