@@ -182,8 +182,8 @@ namespace navi_panel
     void ControlPanel::graphLoad() {
         logStatus(QString::fromUtf8("Opening file browser..."));
 
-        QString filePath = QFileDialog::getOpenFileName(this, "Load Graph From File", QDir::currentPath());
-        logStatus(filePath);
+        QString dir = QFileDialog::getExistingDirectory(this, "Load Graph from Directory", QDir::currentPath(), QFileDialog::ShowDirsOnly | QFileDialog::ReadOnly);
+        logStatus(dir);
 
         // TODO load graph data
 
@@ -193,8 +193,8 @@ namespace navi_panel
     void ControlPanel::graphSave() {
         logStatus(QString::fromUtf8("Opening file browser..."));
 
-        QString filePath = QFileDialog::getSaveFileName(this, "Save Graph To File", QDir::currentPath());
-        logStatus(filePath);
+        QString dirPath = QFileDialog::getSaveFileName(this, "Save Graph to Directory", QDir::currentPath(), QFileDialog::ShowDirsOnly);
+        logStatus(dirPath);
 
         // TODO save graph data
 
