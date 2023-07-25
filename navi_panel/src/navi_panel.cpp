@@ -191,9 +191,17 @@ namespace navi_panel
     }
 
     void ControlPanel::graphSave() {
-        logStatus(QString::fromUtf8("Opening file browser..."));
+        QFileDialog dialog(this);
+        dialog.setWindowTitle("Save Graph to Directory");
+        dialog.setDirectory(QDir::currentPath());
+        dialog.setFileMode(QFileDialog::Directory);
+        dialog.setOption(QFileDialog::ShowDirsOnly, true);
+        dialog.setAcceptMode(QFileDialog::AcceptSave);
+        dialog.setOption(QFileDialog::DontUseNativeDialog, true);
 
-        QString dirPath = QFileDialog::getSaveFileName(this, "Save Graph to Directory", QDir::currentPath(), QFileDialog::ShowDirsOnly);
+        logStatus(QString::fromUtf8("Opening file browser..."));
+        dialog.exec();
+        QString dirPath = dialog.selectedFiles()[0];
         logStatus(dirPath);
 
         // TODO save graph data
