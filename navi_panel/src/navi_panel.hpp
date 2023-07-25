@@ -30,9 +30,12 @@ class ControlPanel : public rviz::Panel
     // Member variables
  private: 
     bool isRecording;
+    QTimer* recTimer;
+    unsigned int elapsedSecs;
 
     // Qt Slots
     private Q_SLOTS:
+        void incrementTimer();
         void recordingToggle();
         void waypointToggle();
         void pointcloudToggle();

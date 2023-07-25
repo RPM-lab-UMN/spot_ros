@@ -29,6 +29,8 @@ namespace navi_panel
 
         // member variables
         isRecording = false;
+        recTimer = new QTimer(this);
+        elapsedSecs = 0;
 
         // Setup ROS service clients
         //** None **//
@@ -56,6 +58,7 @@ namespace navi_panel
 
         // Connect Qt Signals and Slots
         connect(recordingToggleButton, SIGNAL(clicked()), this, SLOT(recordingToggle()));
+        connect(recTimer, SIGNAL(timeout()), this, SLOT(incrementTimer()));
         connect(waypointToggleButton, SIGNAL(clicked()), this, SLOT(waypointToggle()));
         connect(pointcloudToggleButton, SIGNAL(clicked()), this, SLOT(pointcloudToggle()));
         connect(waypointNavButton, SIGNAL(clicked()), this, SLOT(waypointNav()));
@@ -134,7 +137,11 @@ namespace navi_panel
             pal.setColor(QPalette::Button, QColor(85, 255, 90));
             recordingToggleButton->setText(QString::fromUtf8("Start Recording"));
 
-            // TODO stop & reset recording timer
+            // stop & reset recording timer
+            recTimer->stop();
+            elapsedSecs = 0;
+            recordingTime->display("00:00");
+
             // TODO stop recording
 
             isRecording = false;
@@ -143,7 +150,10 @@ namespace navi_panel
             pal.setColor(QPalette::Button, QColor(255, 85, 90));
             recordingToggleButton->setText(QString::fromUtf8("Stop Recording"));
 
-            // TODO start recording timer
+            // start recording timer
+            recTimer->start(1000);
+
+
             // TODO start recording
 
             isRecording = true;
@@ -153,6 +163,15 @@ namespace navi_panel
         recordingToggleButton->repaint();
 
         return;
+    }
+
+    void ControlPanel::incrementTimer() {
+        elapsedSecs++;
+        unsigned int mins = elapsedSecs / 60;
+        unsigned int secs = elapsedSecs % 60;
+        text = std::to_string(mins) + ":" + std::to_string(secs);
+        if (secs % 2 == 0) {text[2] = " "};
+        recordingTime->display(text);
     }
 
     void ControlPanel::waypointToggle() {
