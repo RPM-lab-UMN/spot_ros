@@ -1,13 +1,9 @@
 import time
 import math
-#################################
-# Additional import statements for recording
 import os
 import sys
 import argparse
 import logging
-#Source: Required for recording_command_line.py in the Spot SDK examples
-#################################
 
 import numpy as np
 
@@ -53,13 +49,10 @@ from bosdyn.client.math_helpers import SE2Pose as bdSE2Pose
 from bosdyn.client.math_helpers import SE3Pose as bdSE3Pose
 from bosdyn.client.math_helpers import Quat as bdQuat
 
-#################### Added code ######################
 from bosdyn.client.recording import GraphNavRecordingServiceClient
 from bosdyn.client.map_processing import MapProcessingServiceClient
-# Sourced from recording_command_line.py in Spot-SDK, required to record
-# adding local grid client
 from bosdyn.client.local_grid import LocalGridClient
-######################################################
+
 
 from . import graph_nav_util
 from .utils.feedback_handlers import (
@@ -157,7 +150,7 @@ class SpotWrapper:
         estop_timeout=9.0,
         rates={},
         callbacks={},
-        client_metadata=None, ############ Added this for recording ##############
+        client_metadata=None,
     ):
         self._username = username
         self._password = password
@@ -263,16 +256,6 @@ class SpotWrapper:
                     self._docking_client = self._robot.ensure_client(
                         DockingClient.default_service_name
                     )
-                    ############################################ Added code begins here
-                    # Setup the recording service client.
-                    # What this says is "Initialize the space on the robot to hold the recording
-                    # and signal to the client we are doing so"
-                    self._recording_client = self._robot.ensure_client(
-                        GraphNavRecordingServiceClient.default_service_name)
-                    #############################################
-                    # adding local grid client
-                    self._local_grid_client = self._robot.ensure_client(
-                        LocalGridClient.default_service_name)
                     initialised = True
                 except Exception as e:
                     sleep_secs = 15
@@ -353,15 +336,7 @@ class SpotWrapper:
 
             self._robot_id = None
             self._lease = None
-        ###############################################################
-        # Create the recording environment.
-        # Translation: "Set up more backend framework for ensuring we are able to store recorded info"
-        self._recording_environment = GraphNavRecordingServiceClient.make_recording_environment(
-            waypoint_env=GraphNavRecordingServiceClient.make_waypoint_environment(
-                client_metadata=client_metadata))
-        #Source in recording_command_line.py example in Spot-SDK
-        ################################################################
-
+            
     def _make_image_service(self, cb_name, data_requester):
         '''Helper function to create an AsyncImageService'''
         rate = max(0.0, self._rates.get(cb_name, 0.0))
