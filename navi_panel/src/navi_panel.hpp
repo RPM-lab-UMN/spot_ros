@@ -12,7 +12,6 @@
 #include <QLabel>
 #include <QLCDNumber>
 #include <QTextEdit>
-#include <QFileDialog>
 
 // TODO add necessary ROS messages
 

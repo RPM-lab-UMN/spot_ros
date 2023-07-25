@@ -1,6 +1,8 @@
 #include "navi_panel.hpp"
 
 #include <QFile>
+#include <QDir>
+#include <QFileDialog>
 #include <QUiLoader>
 #include <QVBoxLayout>
 #include <ros/package.h>
@@ -178,17 +180,24 @@ namespace navi_panel
     }
 
     void ControlPanel::graphLoad() {
-        logStatus(QString::fromUtf8("Opening file picker..."));
+        logStatus(QString::fromUtf8("Opening file browser..."));
 
-        // TODO open file picker
+        QString filePath = QFileDialog::getOpenFileName(this, "Load Graph From File", QDir::currentPath());
+        logStatus(filePath);
+
+        // TODO load graph data
 
         return;
     }
 
     void ControlPanel::graphSave() {
-        logStatus(QString::fromUtf8("Opening file picker..."));
+        logStatus(QString::fromUtf8("Opening file browser..."));
 
-        // TODO open file picker
+        QString filePath = QFileDialog::getSaveFileName(this, "Save Graph To File", QDir::currentPath());
+        logStatus(filePath);
+
+        // TODO save graph data
+
         return;
     }
 
