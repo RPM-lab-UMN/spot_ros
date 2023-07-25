@@ -1894,7 +1894,6 @@ class SpotWrapper:
         self._logger.info("Obstacle ahead, trying to find a safe place to relocate it")
         #Determine a safe location to move the obstacle
         possible_obstacle_destinations = self._find_safe_place_for_obstacle(grid)
-        print(possible_obstacle_destinations)
         if(len(possible_obstacle_destinations) == 0): #Nothing was found, so spot sits down and waits
             self._logger.error("No good relocation places located. Spot will sit down now")
             self.sit()
@@ -1904,12 +1903,9 @@ class SpotWrapper:
         tform_to_obstacle_grid = self._get_transform_to_local_grid()
         spot_location = self._get_obstacle_grid_coordinates(bdSE3Pose(0, 0, 0, bdQuat()), tform_to_obstacle_grid)
         spot_location = np.array(spot_location)
-        self._logger.info("Spot is located at: ")
-        print(spot_location)
         #Weed out the extraneous solutions
         best_obstacle_destination = self._weed_out_locations(possible_obstacle_destinations, spot_location)
         self._logger.info("Ideal destination located: ") #Debug statement
-        print(best_obstacle_destination)
         #Convert the best obstacle destination back to a body frame coordinate, so spot can navigate there
         tform_to_body_frame = tform_to_obstacle_grid.inverse()
         obstacle_distance_grid_proto = self._local_grid_client.get_local_grids(["obstacle_distance"])[0]
@@ -1984,7 +1980,7 @@ class SpotWrapper:
         # Loop over microgrid to check neighboring values
         for x in range(len(microgrid)):
             for y in range(len(microgrid[x])): 
-                if(microgrid[x][y] < 0.1):
+                if(microgrid[x][y] < 0.05):
                     return False
         return True
     
@@ -2000,13 +1996,20 @@ class SpotWrapper:
         if(len(candidates) ==0):
             self._logger.error("Candidates list is empty, prompting spot to sit down as no way to relocate object exists")
             return None
-        best_location = candidates[0] #Default return value
+        new_candidates = []
+        for candidate in candidates:
+            if(np.linalg.norm(candidate-spot_position) <= 2.5): # We don't want it moving too far out of its way
+                new_candidates.append(candidate)
+        if(len(new_candidates) == 0):
+            self._logger.error("All locations are more than 2.5 meters away. Returning the first candidate point")
+            return candidates[0]
+        best_location = new_candidates[0] #Default return value
         best_location = np.array(best_location) #convert to linalg array
-        smallest_dist = np.linalg.norm(best_location-spot_position) #Calculate Euclidean distance
-        for candidate in candidates: #Loop through entire array of candidates for the best position
+        largest_dist = np.linalg.norm(best_location-spot_position) #Calculate Euclidean distance, use largest because smallest would be on top of spot and still in the way
+        for candidate in new_candidates: #Loop through entire array of candidates for the best position
             candidate = np.array(candidate)
             dist = np.linalg.norm(candidate-spot_position)
-            if(dist <= smallest_dist and dist > 0.5): #Run a comparison with the currently identified best distance
+            if(dist >= largest_dist and dist <= 2): #Run a comparison with the currently identified best
                 best_location = candidate
-                smallest_dist = dist
+                largest_dist = dist
         return best_location

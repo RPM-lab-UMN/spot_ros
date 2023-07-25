@@ -76,9 +76,9 @@ class LocalGridTester:
         self.graphNav.get_recording_status()
 
         self.log.debug('Attempting to download the recording')
-        self.graphNav.download_recording(download_path)
+        self.graphNav.download_recording(download_path + "/downloaded_graph")
 
-        self.graphNav._clear_graph()
+        self.spot._clear_graph()
         self.log.debug("Uploading graph...") #Upload the graph to return it to the first point, very important it starts in the same spot
         self.spot._upload_graph_and_snapshots(download_path + "/downloaded_graph")
 

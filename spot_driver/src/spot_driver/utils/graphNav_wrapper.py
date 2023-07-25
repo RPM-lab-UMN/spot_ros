@@ -185,7 +185,9 @@ class GraphNav(object):
             self._logger.info("Downloaded {} of the total {} edge snapshots.".format(
                 num_edge_snapshots_downloaded, num_to_download))
 
-    def download_recording(self, path = self._download_filepath):
+    def download_recording(self, path = None):
+        if(path is None):
+            path = self._download_filepath
         """Downloads the graph that has been recorded and writes it into subdirectory"""
         graph = self._graph_nav_client.download_graph()
         if graph is None:
