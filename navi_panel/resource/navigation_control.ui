@@ -20,7 +20,7 @@
    <item>
     <layout class="QHBoxLayout" name="recordingLayout">
      <item>
-      <widget class="QPushButton" name="recordButton">
+      <widget class="QPushButton" name="recordingToggleButton">
        <property name="enabled">
         <bool>true</bool>
        </property>
@@ -69,7 +69,7 @@
    <item>
     <layout class="QVBoxLayout" name="togglesLayout">
      <item>
-      <widget class="QPushButton" name="waypointToggle">
+      <widget class="QPushButton" name="waypointToggleButton">
        <property name="sizePolicy">
         <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
          <horstretch>0</horstretch>
@@ -103,7 +103,7 @@
       </widget>
      </item>
      <item>
-      <widget class="QPushButton" name="pointcloudToggle">
+      <widget class="QPushButton" name="pointcloudToggleButton">
        <property name="sizePolicy">
         <sizepolicy hsizetype="Minimum" vsizetype="Expanding">
          <horstretch>0</horstretch>
