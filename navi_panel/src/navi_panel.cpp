@@ -39,8 +39,6 @@ namespace navi_panel
         graphLoadButton = this->findChild<QPushButton*>("graphLoadButton");
         graphSaveButton = this->findChild<QPushButton*>("graphSaveButton");
 
-        recordingStatus = this->findChild<QLabel*>("recordingStatus");
-
         recordingTime = this->findChild<QLCDNumber*>("recordingTime");
 
         statusBox = this->findChild<QTextEdit*>("statusBox");
@@ -72,10 +70,6 @@ namespace navi_panel
         recordingToggleButton->setAutoFillBackground(true);
         recordingToggleButton->setPalette(pal);
         recordingToggleButton->update();
-
-        recordingStatus = this->findChild<QLabel*>("recordingStatus");
-        recordingStatus->setText(QString::fromUtf8("Not Recording"));
-        recordingStatus->update();
 
         recordingTime = this->findChild<QLCDNumber*>("recordingTime");
         recordingTime->setDigitCount(4);

@@ -11,7 +11,7 @@
 #include <QPushButton>
 #include <QLabel>
 #include <QLCDNumber>
-#include <QTextBrowser>
+#include <QTextEdit>
 
 // TODO add necessary ROS messages
 
@@ -59,8 +59,6 @@ class ControlPanel : public rviz::Panel
     QPushButton* waypointNavButton;
     QPushButton* graphLoadButton;
     QPushButton* graphSaveButton;
-
-    QLabel* recordingStatus;
 
     QLCDNumber* recordingTime;
 
