@@ -1770,8 +1770,7 @@ class SpotWrapper:
         """Get docking state of robot."""
         state = self._docking_client.get_docking_state(**kwargs)
         return state
-    ############################################################################
-    # Additional code begins here, for obstacle detection
+   
     def get_obstacle_distance_grid(self):
         """
         Gives the obstacle distance grid of the robot, which represents how close points surrounding the robot are
@@ -1905,6 +1904,10 @@ class SpotWrapper:
         spot_location = np.array(spot_location)
         #Weed out the extraneous solutions
         best_obstacle_destination = self._weed_out_locations(possible_obstacle_destinations, spot_location)
+        if(best_obstacle_destination is None): #Nothing was found, so spot sits down and waits
+            self._logger.error("No good relocation places located. Spot will sit down now")
+            self.sit()
+            return
         self._logger.info("Ideal destination located: ") #Debug statement
         #Convert the best obstacle destination back to a body frame coordinate, so spot can navigate there
         tform_to_body_frame = tform_to_obstacle_grid.inverse()
@@ -1953,24 +1956,24 @@ class SpotWrapper:
         # Extract microgrid of maximum 20x20 with i,j at the center, since a cell size is approximately 3 cm
         # First, find the boundaries of the x we can iterate over
         min_x = i-10
-        for x in range(i-10, i):
+        for x in range(i-8, i):
             if(x >= 0): # Stop at the first positive number because this will give us the widest range without going out of grid bounds
                 min_x = x
                 break
 
-        max_x = i+10
+        max_x = i+8
         for x in range(i, rows): #Stop at the limit because this will prevent us from going out of grid bounds
             if(x == rows-1):
                 max_x = x
                 break
         # Next, do the same for y direction
-        min_y = j-10
-        for y in range(j-10, j):
+        min_y = j-8
+        for y in range(j-8, j):
             if(y >= 0):
                 min_y = y
                 break
 
-        max_y = j+10
+        max_y = j+8
         for y in range(j, columns):
             if(y == columns-1):
                 max_y = y
@@ -1997,19 +2000,21 @@ class SpotWrapper:
             self._logger.error("Candidates list is empty, prompting spot to sit down as no way to relocate object exists")
             return None
         new_candidates = []
+        obstacle_distance_grid_proto = self._local_grid_client.get_local_grids(["obstacle_distance"])[0] #Have to translate distance from real-life to cell-sizes
+        cell_size = obstacle_distance_grid_proto.local_grid.extent.cell_size
         for candidate in candidates:
-            if(np.linalg.norm(candidate-spot_position) <= 2.5): # We don't want it moving too far out of its way
+            if(np.linalg.norm(candidate-spot_position) <= 2/cell_size and np.linalg.norm(candidate-spot_position) > 1/cell_size): # We want it reasonably out of the way
                 new_candidates.append(candidate)
         if(len(new_candidates) == 0):
-            self._logger.error("All locations are more than 2.5 meters away. Returning the first candidate point")
-            return candidates[0]
+            self._logger.error("All locations are more than 2 meters away or less than half a meter away. This is extraneous in terms of relocation")
+            return None
         best_location = new_candidates[0] #Default return value
         best_location = np.array(best_location) #convert to linalg array
-        largest_dist = np.linalg.norm(best_location-spot_position) #Calculate Euclidean distance, use largest because smallest would be on top of spot and still in the way
+        smallest_dist = np.linalg.norm(best_location-spot_position) #Calculate Euclidean distance, use largest because smallest would be on top of spot and still in the way
         for candidate in new_candidates: #Loop through entire array of candidates for the best position
             candidate = np.array(candidate)
             dist = np.linalg.norm(candidate-spot_position)
-            if(dist >= largest_dist and dist <= 2): #Run a comparison with the currently identified best
+            if(dist < smallest_dist): #Run a comparison with the currently identified best
                 best_location = candidate
-                largest_dist = dist
+                smallest_dist = dist
         return best_location

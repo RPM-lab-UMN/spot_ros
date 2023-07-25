@@ -144,11 +144,12 @@ class LocalGridTester:
         """
         self.graphNav.record()
         self.log.debug("Started recording")
-        self.graphNav.releaseLease()
+        self.spot.releaseLease()
         self.log.debug("Releasing the lease, use the tablet now for movement...")
         #Take lease with the tablet here and move the robot around for a more insteresting path
-        self.spot.getLease()
-        self.log.debut("lease acquired again, stopping the recording and saving the results to the filepath")
+        time.sleep(90) #90 second buffer to do stuff
+        self.spot.getLease(hijack=True)
+        self.log.debug("lease acquired again, stopping the recording and saving the results to the filepath")
         self.graphNav.stop_recording()
         self.graphNav.download_recording(download_path)
 
@@ -158,4 +159,4 @@ if __name__ == "__main__":
     testrun = LocalGridTester()
     #testrun.get_a_path(download_path) # run first if there is no predefined path on your OS
     #testrun.use_tablet_for_mapping(download_path) # run if you wish to use the tablet for recording a path
-    testrun.upload_path_with_obstacles(upload_path)
+    testrun.upload_path_with_obstacles(upload_path) #run if you wish to test the path uploaded, with and without any obstacles
