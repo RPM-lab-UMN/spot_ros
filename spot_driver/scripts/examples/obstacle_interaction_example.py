@@ -12,7 +12,6 @@ from spot_driver.utils.graphNav_wrapper import GraphNav
 
 class LocalGridTester:
     def __init__(self, power_off=False):
-        ###################################################################
         self.power_off = power_off
         FORMAT = '%(message)s'
         logging.basicConfig(format=FORMAT)
@@ -30,14 +29,7 @@ class LocalGridTester:
         self.spot.getLease(hijack=True)
         self.spot.power_on()
         self.spot.stand()
-        ######################################################### Default startup protocol
-        #Assumptions:
-        #1. The grid info is passed as 128x128 array, which will grow as spot moves around (obstacle frame is loosely based on ODOM frame)
-        #2. The grid's cells translate to body frame coordinates (see spot_wrapper.py)
-        #3. The path to relocate an object is linear is always open (i.e. there's no objects in the way)
-        #4. The values in the obstacle grid are given as floats representing a distance away (i.e. a heuristic rating of safety)
-        #5. Spot will have some pre-recorded path on, but there is an obstacle now along the path when there wasn't before
-
+        
     def get_a_path(self, download_path):
         """
         This function is just an example of recording and downloading a path
