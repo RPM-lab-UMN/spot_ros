@@ -5,7 +5,10 @@ import sys
 import argparse
 import logging
 
+import math
 import numpy as np
+import matplotlib as mpl
+import matplotlib.pyplot as plt
 
 import bosdyn.client.auth
 from bosdyn.client import create_standard_sdk, ResponseError, RpcError
@@ -1797,6 +1800,7 @@ class SpotWrapper:
         grid_frame = obstacle_distance_grid_proto.local_grid.frame_name_local_grid_data
         # get a transformation from the provided frame into the local grid frame
         return  get_a_tform_b(grid_snapshot, grid_frame, frame)
+    
     def _get_obstacle_grid_coordinates(self, pose, transform, obstacle_distance_grid_proto = None):
         """
         Get the coordinates of a pose in spot's obstacle_distance_grid
@@ -1896,6 +1900,7 @@ class SpotWrapper:
         best_obstacle_destination_body_coords = [best_obstacle_destination_body.x, best_obstacle_destination_body.y]
         self._logger.info("Body Frame translation: ")
         print(best_obstacle_destination_body_coords)
+        self._graph_nearby_obstacles(grid, best_obstacle_destination_body_coords) #Graphing statement if desired to see how spot sees obstacles
         return best_obstacle_destination_body_coords
     
     def _find_safe_place_for_obstacle(self, grid_array, *args):
@@ -1913,7 +1918,7 @@ class SpotWrapper:
         for x in range(rows):
             for y in range(columns):
                 potential_point = grid_array[x][y]
-                if(potential_point >= 0.35): #Step 2: confirming the point, but also its neighbors
+                if(potential_point >= 0.40): #Step 2: confirming the point, but also its neighbors
                     if(self._ensure_neighbors(x,y, grid_array)):
                         Safe_places.append((x,y))
         if(len(Safe_places) == 0):
@@ -1934,14 +1939,14 @@ class SpotWrapper:
         columns = len(grid[0]) #Extract columns
         # Extract microgrid of maximum 20x20 with i,j at the center, since a cell size is approximately 3 cm
         # First, find the boundaries of the x we can iterate over
-        min_x = i-10
+        min_x = i-8
         for x in range(i-8, i):
             if(x >= 0): # Stop at the first positive number because this will give us the widest range without going out of grid bounds
                 min_x = x
                 break
 
         max_x = i+8
-        for x in range(i, rows): #Stop at the limit because this will prevent us from going out of grid bounds
+        for x in range(i, i+8): #Stop at the limit because this will prevent us from going out of grid bounds
             if(x == rows-1):
                 max_x = x
                 break
@@ -1953,7 +1958,7 @@ class SpotWrapper:
                 break
 
         max_y = j+8
-        for y in range(j, columns):
+        for y in range(j, j+8):
             if(y == columns-1):
                 max_y = y
                 break
@@ -1962,7 +1967,7 @@ class SpotWrapper:
         # Loop over microgrid to check neighboring values
         for x in range(len(microgrid)):
             for y in range(len(microgrid[x])): 
-                if(microgrid[x][y] < 0.05):
+                if(microgrid[x][y] < 0.07):
                     return False
         return True
     
@@ -1982,10 +1987,10 @@ class SpotWrapper:
         obstacle_distance_grid_proto = self._local_grid_client.get_local_grids(["obstacle_distance"])[0] #Have to translate distance from real-life to cell-sizes
         cell_size = obstacle_distance_grid_proto.local_grid.extent.cell_size
         for candidate in candidates:
-            if(np.linalg.norm(candidate-spot_position) <= 2/cell_size and np.linalg.norm(candidate-spot_position) > 1/cell_size): # We want it reasonably out of the way
+            if(np.linalg.norm(candidate-spot_position) <= 1.7/cell_size and np.linalg.norm(candidate-spot_position) > 1/cell_size): # We want it reasonably out of the way
                 new_candidates.append(candidate)
         if(len(new_candidates) == 0):
-            self._logger.error("All locations are more than 2 meters away or less than half a meter away. This is extraneous in terms of relocation")
+            self._logger.error("All locations are more than 1.7 meters away or less than half a meter away. This is extraneous in terms of relocation")
             return None
         best_location = new_candidates[0] #Default return value
         best_location = np.array(best_location) #convert to linalg array
@@ -1997,3 +2002,76 @@ class SpotWrapper:
                 best_location = candidate
                 smallest_dist = dist
         return best_location
+    
+    def _graph_nearby_obstacles(self, grid, destination_body_coords):
+        '''
+        Purpose: helper function that plots the area Spot sees, with points for where obstacles are and points where obstacles will be moved
+        Parameters: 
+            grid - the obstacle grid snapshot that triggered the obstacle protocol
+            destination_body_coords: the body frame coordinates found by the obstacle protocol
+        Returns: None; just shows the graph
+
+        Color key:
+        blue = spot's location
+        red = destination to move the obstacle
+        green = field of vision for spot's obstacle frame
+        orange = obstacles
+        black = chair in its current place
+        '''
+        # List some constants we will be needing
+        obstacle_distance_grid_proto = self._local_grid_client.get_local_grids(["obstacle_distance"])[0]
+        cell_size = obstacle_distance_grid_proto.local_grid.extent.cell_size
+        tform_to_obstacle_grid = self._get_transform_to_local_grid()
+        tform_to_body_frame = tform_to_obstacle_grid.inverse()
+        spot_location = self._get_obstacle_grid_coordinates(bdSE3Pose(0, 0, 0, bdQuat()), tform_to_obstacle_grid)
+        grid_size = np.shape(grid)
+        # Extract the borders of the grid
+        border_coordsx = []
+        border_coordsy = []
+        for row in range(len(grid)):
+            for col in range(len(grid[row])):
+                if(row == 0 or row == len(grid)-1 or col == 0 or col == len(grid[row])-1):
+                    new_coord = tform_to_body_frame * bdSE3Pose(row*cell_size, col*cell_size, 0, bdQuat())
+                    border_coordsx.append(new_coord.x)
+                    border_coordsy.append(new_coord.y)
+        xs = []
+        ys = []
+        poses = []
+        # Use local grid to find all points in robot's body frame that have a negative obstacle distance
+        # meaning that those points are inside of obstacles
+        for y_distance in range(-14, 14):
+            for x_distance in range(-14, 14):
+                poses.append(bdSE3Pose(x_distance * 0.1, y_distance * 0.1, 0, bdQuat()))
+                xs.append(x_distance * 0.1)
+                ys.append(y_distance * 0.1)
+        obstacle_xs = []
+        obstacle_ys = []
+        distances = self.check_proximity_to_obstacles(poses)
+        for i in range(len(distances)):
+            if distances[i] < 0:
+                obstacle_xs.append(xs[i])
+                obstacle_ys.append(ys[i])
+        # We will need to find the one with the shortest distance to label a different color, as this one is the chair
+        num_obstacles = len(obstacle_xs)
+        chair_idx = 0 #index storing which one's the chair
+        first_obstacle = np.array([obstacle_xs[chair_idx],obstacle_ys[chair_idx]])
+        chair_dist = np.linalg.norm(first_obstacle-spot_location)
+        for count in range(num_obstacles):
+            obstacle_coordinate = np.array([obstacle_xs[count],obstacle_ys[count]])
+            new_dist = np.linalg.norm(obstacle_coordinate-spot_location)
+            if(new_dist <= chair_dist): #i.e. the tripped coordinate has a distance less than the one before it
+                chair_dist = new_dist
+                chair_idx = count
+        # Now we can plot everything 
+        plt.scatter(border_coordsy, border_coordsx, c="green", label='grid boundaries')
+        plt.scatter(destination_body_coords[0], destination_body_coords[1], c="red", label='destination')
+        plt.scatter(0,0, c="blue",label='spot')
+        plt.scatter(obstacle_ys, obstacle_xs, c="orange", label='obstacles')
+        plt.scatter(obstacle_ys[chair_idx], obstacle_xs[chair_idx], c="black", label='current location')
+        plt.title("2D graphical Representation of Where Spot Wants to Move the Obstacle")
+        plt.xlabel("y direction of body frame [m] (left = positive)")
+        plt.ylabel("x direction of body frame [m] (up = positive)")
+        plt.legend(loc='upper right')
+        plt.show()
+        return
+
