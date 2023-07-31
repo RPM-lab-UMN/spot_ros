@@ -2,6 +2,7 @@
 
 #include <QFile>
 #include <QDir>
+#include <QTimer>
 #include <QFileDialog>
 #include <QUiLoader>
 #include <QVBoxLayout>
@@ -169,8 +170,8 @@ namespace navi_panel
         elapsedSecs++;
         unsigned int mins = elapsedSecs / 60;
         unsigned int secs = elapsedSecs % 60;
-        text = std::to_string(mins) + ":" + std::to_string(secs);
-        if (secs % 2 == 0) {text[2] = " "};
+        QString text = QString::number(mins) + QLatin1Char(':') + QString::number(secs);
+        if (secs % 2 == 0) {text[2] = ' ';}
         recordingTime->display(text);
     }
 
