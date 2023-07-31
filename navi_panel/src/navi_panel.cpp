@@ -78,7 +78,7 @@ namespace navi_panel
         recordingToggleButton->update();
 
         recordingTime = this->findChild<QLCDNumber*>("recordingTime");
-        recordingTime->setDigitCount(4);
+        recordingTime->setDigitCount(5);
         recordingTime->display(QString::fromUtf8("00:00"));
         recordingTime->update();
     }
@@ -141,7 +141,7 @@ namespace navi_panel
             // stop & reset recording timer
             recTimer->stop();
             recElapsedTime.setHMS(0, 0, 0);
-            recordingTime->display(recElapsedTime.toString("hh:mm"));
+            recordingTime->display(recElapsedTime.toString("mm:ss"));
 
             // TODO stop recording
 
@@ -167,10 +167,11 @@ namespace navi_panel
     }
 
     void ControlPanel::tick() {
-        recElapsedTime = recElapsedTime.addSecs(1);
-        QString text = recElapsedTime.toString("hh:mm");
-        if (recElapsedTime.second() % 2 == 0) text[2] = ' ';
+        QTime newTime = recElapsedTime.addSecs(1);
+        QString text = newTime.toString("mm:ss");
+        if (newTime.second() % 2 == 0) text[2] = ' ';
         recordingTime->display(text);
+        recElapsedTime = newTime;
     }
 
     void ControlPanel::waypointToggle() {
