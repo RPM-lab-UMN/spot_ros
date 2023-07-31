@@ -31,7 +31,7 @@ namespace navi_panel
         // member variables
         isRecording = false;
         recTimer = new QTimer(this);
-        elapsedSecs = 0;
+        recElapsedTime = QTime(0, 0);
 
         // Setup ROS service clients
         //** None **//
@@ -59,7 +59,7 @@ namespace navi_panel
 
         // Connect Qt Signals and Slots
         connect(recordingToggleButton, SIGNAL(clicked()), this, SLOT(recordingToggle()));
-        connect(recTimer, SIGNAL(timeout()), this, SLOT(incrementTimer()));
+        connect(recTimer, SIGNAL(timeout()), this, SLOT(tick()));
         connect(waypointToggleButton, SIGNAL(clicked()), this, SLOT(waypointToggle()));
         connect(pointcloudToggleButton, SIGNAL(clicked()), this, SLOT(pointcloudToggle()));
         connect(waypointNavButton, SIGNAL(clicked()), this, SLOT(waypointNav()));
@@ -140,8 +140,8 @@ namespace navi_panel
 
             // stop & reset recording timer
             recTimer->stop();
-            elapsedSecs = 0;
-            recordingTime->display("00:00");
+            recElapsedTime.setHMS(0, 0, 0);
+            recordingTime->display(recElapsedTime.toString("hh:mm"));
 
             // TODO stop recording
 
@@ -166,12 +166,10 @@ namespace navi_panel
         return;
     }
 
-    void ControlPanel::incrementTimer() {
-        elapsedSecs++;
-        unsigned int mins = elapsedSecs / 60;
-        unsigned int secs = elapsedSecs % 60;
-        QString text = QString::number(mins) + QLatin1Char(':') + QString::number(secs);
-        if (secs % 2 == 0) {text[2] = ' ';}
+    void ControlPanel::tick() {
+        recElapsedTime = recElapsedTime.addSecs(1);
+        QString text = recElapsedTime.toString("hh:mm");
+        if (recElapsedTime.second() % 2 == 0) text[2] = ' ';
         recordingTime->display(text);
     }
 

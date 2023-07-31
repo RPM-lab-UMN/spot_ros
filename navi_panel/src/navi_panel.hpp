@@ -10,6 +10,7 @@
 #include <map>
 #include <QPushButton>
 #include <QLabel>
+#include <QTime>
 #include <QLCDNumber>
 #include <QTextEdit>
 
@@ -31,11 +32,11 @@ class ControlPanel : public rviz::Panel
  private: 
     bool isRecording;
     QTimer* recTimer;
-    unsigned int elapsedSecs;
+    QTime recElapsedTime;
 
     // Qt Slots
     private Q_SLOTS:
-        void incrementTimer();
+        void tick();
         void recordingToggle();
         void waypointToggle();
         void pointcloudToggle();
