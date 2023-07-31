@@ -6,7 +6,7 @@ from std_msgs.msg import Bool
 from tf2_msgs.msg import TFMessage
 from sensor_msgs.msg import Image, CameraInfo
 from sensor_msgs.msg import JointState
-from geometry_msgs.msg import TwistWithCovarianceStamped, Twist, Pose, PoseStamped
+from geometry_msgs.msg import TwistWithCovarianceStamped, Twist, Pose, PoseStamped, Point
 from nav_msgs.msg import Odometry
 
 from sensor_msgs.msg import PointCloud2
@@ -118,6 +118,7 @@ class SpotROS:
         self.callbacks["front_pointcloud"] = self.FrontPointcloudCB
         self.callbacks["rear_pointcloud"] = self.RearPointcloudCB
         self.callbacks["side_pointcloud"] = self.SidePointcloudCB
+        self.callbacks["graph_points"] = self.GraphPointsCB
 
 
     def RobotStateCB(self, results):
@@ -360,6 +361,11 @@ class SpotROS:
 
     def RearPointcloudCB(self, results):
         self._colored_points_pub_helper(0, 2, results, self.rear_points_pub)
+
+    def GraphPointsCB(self):
+        self.logger.info("Publishing graph nav points")
+        points = self.spot_wrapper.extract_waypoint_and_edge_points()
+        self.graph_points_pub(points)
 
     #######################################################################
     
@@ -983,7 +989,11 @@ class SpotROS:
             self.spot_wrapper._upload_graph_and_snapshots(req.path)
             return True, "Succesfully uploaded graph"
         except:
+            self.logger.info("Must pass a valid path to a downloaded graph, and have lease claim for robot.")
             return False, "Error uploading graph"
+    def handle_clear_graph(self, req):
+        self.logger.info(self.spot_wrapper._clear_graph())
+        return True, "Graph Cleared"
 
     
 
@@ -1119,9 +1129,9 @@ class SpotROS:
         mobility_params.body_control.CopyFrom(body_control)
         self.spot_wrapper.set_mobility_params(mobility_params)
 
-    def handle_list_graph(self, upload_path):
+    def handle_list_graph(self, req):
         """ROS service handler for listing graph_nav waypoint_ids"""
-        resp = self.spot_wrapper.list_graph(upload_path)
+        resp = self.spot_wrapper.list_graph()
         return ListGraphResponse(resp)
 
     def handle_navigate_to_feedback(self):
@@ -1438,6 +1448,8 @@ class SpotROS:
         self.left_points_pub =          rospy.Publisher('colored_points/left',        **cpc_params) 
         self.right_points_pub =         rospy.Publisher('colored_points/right',       **cpc_params) 
         self.rear_points_pub =          rospy.Publisher('colored_points/rear',        **cpc_params)
+        graph_points_params = {'data_class': Point, 'queue_size': 2}
+        self.graph_points_pub =     rospy.Publisher('graph_points',                   **graph_points_params)
 
 
         # Images #
@@ -1640,6 +1652,7 @@ class SpotROS:
         rospy.Service("get_recording_status", GraphRecording, self.handle_get_recording_status)
         rospy.Service("download_graph", GraphRecording, self.handle_download_recording)
         rospy.Service("upload_graph", GraphRecording, self.handle_upload_graph_and_snapshots)
+        rospy.Service("clear_graph", GraphRecording, self.handle_clear_graph)
 
         #########################################################
 
