@@ -1939,29 +1939,11 @@ class SpotWrapper:
         columns = len(grid[0]) #Extract columns
         # Extract microgrid of maximum 20x20 with i,j at the center, since a cell size is approximately 3 cm
         # First, find the boundaries of the x we can iterate over
-        min_x = i-8
-        for x in range(i-8, i):
-            if(x >= 0): # Stop at the first positive number because this will give us the widest range without going out of grid bounds
-                min_x = x
-                break
-
-        max_x = i+8
-        for x in range(i, i+8): #Stop at the limit because this will prevent us from going out of grid bounds
-            if(x == rows-1):
-                max_x = x
-                break
-        # Next, do the same for y direction
-        min_y = j-8
-        for y in range(j-8, j):
-            if(y >= 0):
-                min_y = y
-                break
-
-        max_y = j+8
-        for y in range(j, j+8):
-            if(y == columns-1):
-                max_y = y
-                break
+        min_x = min(0, i-8)
+        max_x = max(i+8,rows-1)
+        min_y = min(0,j-8)
+        max_y = max(j+8,columns-1)
+        
         # Next, extract the subgrid from the input grid for checking all the values
         microgrid = grid[min_x:max_x][min_y:max_y]
         # Loop over microgrid to check neighboring values
