@@ -8,6 +8,9 @@
 #include <QVBoxLayout>
 #include <ros/package.h>
 #include <string.h>
+#include <spot_msgs/ListGraph.h>
+#include <spot_msgs/GraphRecording.h>
+#include "ros/ros.h"
 
 
 namespace navi_panel
@@ -34,7 +37,11 @@ namespace navi_panel
         recElapsedTime = QTime(0, 0);
 
         // Setup ROS service clients
-        //** None **//
+        startRecordingService_ = nh_.serviceClient<spot_msgs::GraphRecording>("/spot/start_recording");
+        stopRecordingService_ = nh_.serviceClient<spot_msgs::GraphRecording>("/spot/stop_recording");
+        getRecordingStatusService_ = nh_.serviceClient<spot_msgs::GraphRecording>("/spot/get_recording_status");
+        downloadGraphService_ = nh_.serviceClient<spot_msgs::GraphRecording>("/spot/download_graph");
+        uploadGraphService_ = nh_.serviceClient<spot_msgs::GraphRecording>("/spot/upload_graph");
 
         // Get Qt Widget handles
         recordingToggleButton = this->findChild<QPushButton*>("recordingToggleButton");
@@ -55,7 +62,9 @@ namespace navi_panel
         setupStatusBox();
 
         // Setup ROS topic subscribers now that everything is set up
-        //** None **//
+        // TODO: give these callback functions to subscribe to
+        // graphWaypointsSub_ = nh_.subscribe("/spot/graph_waypoints", 1, &ControlPanel::waypointToggle, this);
+        // graphEdgesSub_ = nh_.subscribe("/spot/graph_edges", 1, &ControlPanel::waypointToggle, this);
 
         // Connect Qt Signals and Slots
         connect(recordingToggleButton, SIGNAL(clicked()), this, SLOT(recordingToggle()));
@@ -127,7 +136,25 @@ namespace navi_panel
     }
 
     // ROS message callbacks
-    //** None **//
+    bool ControlPanel::callGraphRecordingServices(ros::ServiceClient service, std::string serviceName, spot_msgs::GraphRecording serviceRequest) {
+        std::string labelText = "Calling " + serviceName + " service";
+        statusBox->setText(QString(labelText.c_str()));
+        if (service.call(serviceRequest)) {
+            if (serviceRequest.response.success) {
+                labelText = "Successfully called " + serviceName + " service";
+                statusBox->setText(QString(labelText.c_str()));
+                return true;
+            } else {
+                labelText = serviceName + " service failed: " + serviceRequest.response.message;
+                statusBox->setText(QString(labelText.c_str()));
+                return false;
+            }
+        } else {
+            labelText = "Failed to call " + serviceName + " service" + serviceRequest.response.message;
+            statusBox->setText(QString(labelText.c_str()));
+            return false;
+        }
+    }
 
     // Qt slot functions
     void ControlPanel::recordingToggle() {
@@ -143,7 +170,9 @@ namespace navi_panel
             recElapsedTime.setHMS(0, 0, 0);
             recordingTime->display(recElapsedTime.toString("mm:ss"));
 
-            // TODO stop recording
+            spot_msgs::GraphRecording req;
+            req.request.path = std::string("");
+            callGraphRecordingServices(stopRecordingService_, "stop recording", req);
 
             isRecording = false;
         } else {
@@ -155,7 +184,9 @@ namespace navi_panel
             recTimer->start(1000);
 
 
-            // TODO start recording
+            spot_msgs::GraphRecording req;
+            req.request.path = std::string("");
+            callGraphRecordingServices(startRecordingService_, "start recording", req);
 
             isRecording = true;
         }
@@ -204,7 +235,9 @@ namespace navi_panel
         QString dir = QFileDialog::getExistingDirectory(this, "Load Graph from Directory", QDir::currentPath(), QFileDialog::ShowDirsOnly | QFileDialog::ReadOnly);
         logStatus(dir);
 
-        // TODO load graph data
+        spot_msgs::GraphRecording req;
+        req.request.path = dir.toStdString();
+        callGraphRecordingServices(uploadGraphService_, "start recording", req);
 
         return;
     }
@@ -223,7 +256,9 @@ namespace navi_panel
         QString dirPath = dialog.selectedFiles()[0];
         logStatus(dirPath);
 
-        // TODO save graph data
+        spot_msgs::GraphRecording req;
+        req.request.path = dirPath.toStdString();
+        callGraphRecordingServices(uploadGraphService_, "start recording", req);    
 
         return;
     }

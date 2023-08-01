@@ -8,7 +8,7 @@ project(navi_panel)
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
-  rviz
+  rviz spot_msgs
 )
 
 catkin_package()
