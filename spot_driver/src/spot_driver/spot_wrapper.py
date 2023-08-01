@@ -2032,7 +2032,7 @@ class SpotWrapper:
                 if(row == 0 or row == len(grid)-1 or col == 0 or col == len(grid[row])-1):
                     new_coord = tform_to_body_frame * bdSE3Pose(row*cell_size, col*cell_size, 0, bdQuat())
                     border_coordsx.append(new_coord.x)
-                    border_coordsy.append(new_coord.y)
+                    border_coordsy.append(-1 * new_coord.y)
         xs = []
         ys = []
         poses = []
@@ -2042,7 +2042,7 @@ class SpotWrapper:
             for x_distance in range(-14, 14):
                 poses.append(bdSE3Pose(x_distance * 0.1, y_distance * 0.1, 0, bdQuat()))
                 xs.append(x_distance * 0.1)
-                ys.append(y_distance * 0.1)
+                ys.append(- y_distance * 0.1)
         obstacle_xs = []
         obstacle_ys = []
         distances = self.check_proximity_to_obstacles(poses)
@@ -2050,23 +2050,23 @@ class SpotWrapper:
             if distances[i] < 0:
                 obstacle_xs.append(xs[i])
                 obstacle_ys.append(ys[i])
-        # We will need to find the one with the shortest distance to label a different color, as this one is the chair
+        # We will need to find the one with the shortest distance to label a different color, as this one triggered obstacle_protocol
         num_obstacles = len(obstacle_xs)
-        chair_idx = 0 #index storing which one's the chair
-        first_obstacle = np.array([obstacle_xs[chair_idx],-1 * obstacle_ys[chair_idx]])
-        chair_dist = np.linalg.norm(first_obstacle-spot_location)
+        trigger_idx = 0 #index storing which one's the trigger
+        first_obstacle = np.array([obstacle_xs[trigger_idx],-1 * obstacle_ys[trigger_idx]])
+        trigger_dist = np.linalg.norm(first_obstacle-spot_location)
         for count in range(num_obstacles):
             obstacle_coordinate = np.array([obstacle_xs[count],-1 * obstacle_ys[count]])
             new_dist = np.linalg.norm(obstacle_coordinate-spot_location)
-            if(new_dist <= chair_dist): #i.e. the tripped coordinate has a distance less than the one before it
-                chair_dist = new_dist
-                chair_idx = count
+            if(new_dist <= trigger_dist): #i.e. the tripped coordinate has a distance less than the one before it
+                trigger_dist = new_dist
+                trigger_idx = count
         # Now we can plot everything 
         plt.scatter(border_coordsy, border_coordsx, c="green", label='grid boundaries')
         plt.scatter(-destination_body_coords[1], destination_body_coords[0], c="red", label='destination')
         plt.scatter(0,0, c="blue",label='spot')
         plt.scatter(obstacle_ys, obstacle_xs, c="orange", label='obstacles')
-        plt.scatter(obstacle_ys[chair_idx], obstacle_xs[chair_idx], c="black", label='current location')
+        plt.scatter(obstacle_ys[trigger_idx], obstacle_xs[trigger_idx], c="black", label='current location')
         plt.title("2D graphical Representation of Where Spot Wants to Move the Obstacle")
         plt.xlabel("y direction of body frame [m] (left = positive)")
         plt.ylabel("x direction of body frame [m] (up = positive)")
