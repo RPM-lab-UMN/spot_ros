@@ -1,0 +1,9 @@
+<library path="lib/libnavi_panel">
+    <class name="navi_panel/NavigationControlPanel"
+           type="navi_panel::ControlPanel"
+           base_class_type="rviz::Panel">
+        <description>
+            A panel for controlling the navigation functionality implemented by the RPM lab's Spot project
+        </description>
+    </class>
+</library>
