@@ -364,8 +364,10 @@ class SpotROS:
 
     def GraphPointsCB(self):
         self.logger.info("Publishing graph nav points")
-        points = self.spot_wrapper.extract_waypoint_and_edge_points()
-        self.graph_points_pub(points)
+        waypoints_and_edges = self.spot_wrapper.extract_waypoint_and_edge_points()
+        self.graph_waypoints_pub.publish(waypoints_and_edges[0])
+        self.graph_edges_pub.publish(waypoints_and_edges[1])
+        
 
     #######################################################################
     
@@ -1448,8 +1450,10 @@ class SpotROS:
         self.left_points_pub =          rospy.Publisher('colored_points/left',        **cpc_params) 
         self.right_points_pub =         rospy.Publisher('colored_points/right',       **cpc_params) 
         self.rear_points_pub =          rospy.Publisher('colored_points/rear',        **cpc_params)
-        graph_points_params = {'data_class': Point, 'queue_size': 2}
-        self.graph_points_pub =     rospy.Publisher('graph_points',                   **graph_points_params)
+        graph_edges_params = {'data_class': Point, 'queue_size': 2}
+        self.graph_edges_pub =     rospy.Publisher('graph_edges',                   **graph_edges_params)
+        #TODO: change this to publish interactive markers
+        self.graph_waypoints_pub = rospy.Publisher('graph_waypoints',               **graph_edges_params)
 
 
         # Images #

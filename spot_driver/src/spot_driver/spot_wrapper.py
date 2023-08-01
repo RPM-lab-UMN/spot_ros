@@ -1358,12 +1358,20 @@ class SpotWrapper:
     def extract_waypoint_and_edge_points(self):
         """
         Extract visualizable x,y,z coordinates from graph nav waypoints and edges
-        Returns: A 3 x N numpy array of x,y,z point cordinates
+        Returns: A tuple containing two 3 x N numpy arrays of x,y,z point cordinates,
+        the first for the graph's waypoints and the second for its edges.
         """
         graph = self._graph_nav_client.download_graph()
         edges = graph.edges
         ids_to_waypoints = {wp.id: wp for wp in graph.waypoints}
-        data = np.array([])
+        waypoint_data = np.array([])
+        # extract coordinates from all waypoints
+        for waypoint in ids_to_waypoints.values():
+            waypoint_coords = math_helpers.Vec3.from_proto(waypoint.waypoint_tform_ko.position)
+            point_array = np.array([waypoint_coords.x, waypoint_coords.y, waypoint_coords.z])
+            waypoint_data = np.concatenate((waypoint_data, point_array))
+        edge_data = np.array([])
+        # extract 101 coordinates between each edge
         for edge in edges:
             from_wp = ids_to_waypoints[edge.id.from_waypoint]
             to_wp = ids_to_waypoints[edge.id.to_waypoint]
@@ -1374,8 +1382,8 @@ class SpotWrapper:
             for i in range(101):
                 point_vector = from_vector + ((to_vector - from_vector) * 0.01 * i)
                 point_array = np.array([point_vector.x, point_vector.y, point_vector.z])
-                data = np.concatenate((data, point_array))
-        return np.reshape(data, (-1, 3))
+                edge_data = np.concatenate((edge_data, point_array))
+        return np.reshape(waypoint_data, (-1, 3)), np.reshape(edge_data, (-1, 3)) 
     
     def extract_point_clouds_from_graph(self):
         """
