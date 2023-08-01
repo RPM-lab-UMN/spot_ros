@@ -1,2 +1,24 @@
 #!/usr/bin/env python3
 
+from interactive_markers.interactive_marker_server import *
+from visualization_msgs.msg import *
+
+import numpy as np
+import rospy
+
+from interactive_marker_utils import (
+    create_waypoint_marker
+)
+
+def main():
+    rospy.init_node("spot_graphnav_markers", anonymous=True)
+    server = InteractiveMarkerServer("navigation_waypoints")
+
+    marker1 = create_waypoint_marker("marker1")
+
+    server.insert(marker1, lambda feedback: feedback)
+
+    rospy.spin()
+
+if __name__ == "__main__":
+    main()
