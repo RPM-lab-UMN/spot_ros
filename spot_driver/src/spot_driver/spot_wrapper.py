@@ -1358,20 +1358,12 @@ class SpotWrapper:
     def extract_waypoint_and_edge_points(self):
         """
         Extract visualizable x,y,z coordinates from graph nav waypoints and edges
-        Returns: A tuple containing two 3 x N numpy arrays of x,y,z point cordinates,
-        the first for the graph's waypoints and the second for its edges.
+        Returns: A 3 x N numpy array of x,y,z point cordinates
         """
         graph = self._graph_nav_client.download_graph()
         edges = graph.edges
         ids_to_waypoints = {wp.id: wp for wp in graph.waypoints}
-        waypoint_data = np.array([])
-        # extract coordinates from all waypoints
-        for waypoint in ids_to_waypoints.values():
-            waypoint_coords = math_helpers.Vec3.from_proto(waypoint.waypoint_tform_ko.position)
-            point_array = np.array([waypoint_coords.x, waypoint_coords.y, waypoint_coords.z])
-            waypoint_data = np.concatenate((waypoint_data, point_array))
-        edge_data = np.array([])
-        # extract 101 coordinates between each edge
+        data = np.array([])
         for edge in edges:
             from_wp = ids_to_waypoints[edge.id.from_waypoint]
             to_wp = ids_to_waypoints[edge.id.to_waypoint]
@@ -1382,8 +1374,8 @@ class SpotWrapper:
             for i in range(101):
                 point_vector = from_vector + ((to_vector - from_vector) * 0.01 * i)
                 point_array = np.array([point_vector.x, point_vector.y, point_vector.z])
-                edge_data = np.concatenate((edge_data, point_array))
-        return np.reshape(waypoint_data, (-1, 3)), np.reshape(edge_data, (-1, 3)) 
+                data = np.concatenate((data, point_array))
+        return np.reshape(data, (-1, 3))
     
     def extract_point_clouds_from_graph(self):
         """
@@ -2031,8 +2023,7 @@ class SpotWrapper:
         cell_size = obstacle_distance_grid_proto.local_grid.extent.cell_size
         tform_to_obstacle_grid = self._get_transform_to_local_grid()
         tform_to_body_frame = tform_to_obstacle_grid.inverse()
-        spot_location = self._get_obstacle_grid_coordinates(bdSE3Pose(0, 0, 0, bdQuat()), tform_to_obstacle_grid)
-        grid_size = np.shape(grid)
+        spot_location = np.array(self._get_obstacle_grid_coordinates(bdSE3Pose(0, 0, 0, bdQuat()), tform_to_obstacle_grid))
         # Extract the borders of the grid
         border_coordsx = []
         border_coordsy = []
@@ -2062,17 +2053,17 @@ class SpotWrapper:
         # We will need to find the one with the shortest distance to label a different color, as this one is the chair
         num_obstacles = len(obstacle_xs)
         chair_idx = 0 #index storing which one's the chair
-        first_obstacle = np.array([obstacle_xs[chair_idx],obstacle_ys[chair_idx]])
+        first_obstacle = np.array([obstacle_xs[chair_idx],-1 * obstacle_ys[chair_idx]])
         chair_dist = np.linalg.norm(first_obstacle-spot_location)
         for count in range(num_obstacles):
-            obstacle_coordinate = np.array([obstacle_xs[count],obstacle_ys[count]])
+            obstacle_coordinate = np.array([obstacle_xs[count],-1 * obstacle_ys[count]])
             new_dist = np.linalg.norm(obstacle_coordinate-spot_location)
             if(new_dist <= chair_dist): #i.e. the tripped coordinate has a distance less than the one before it
                 chair_dist = new_dist
                 chair_idx = count
         # Now we can plot everything 
         plt.scatter(border_coordsy, border_coordsx, c="green", label='grid boundaries')
-        plt.scatter(destination_body_coords[0], destination_body_coords[1], c="red", label='destination')
+        plt.scatter(-destination_body_coords[1], destination_body_coords[0], c="red", label='destination')
         plt.scatter(0,0, c="blue",label='spot')
         plt.scatter(obstacle_ys, obstacle_xs, c="orange", label='obstacles')
         plt.scatter(obstacle_ys[chair_idx], obstacle_xs[chair_idx], c="black", label='current location')
