@@ -14,7 +14,8 @@
 #include <QLCDNumber>
 #include <QTextEdit>
 
-// TODO add necessary ROS messages
+#include <spot_msgs/ListGraph.h>
+#include <spot_msgs/GraphRecording.h>
 
 namespace navi_panel
 {
@@ -27,6 +28,7 @@ class ControlPanel : public rviz::Panel
     ControlPanel(QWidget *parent=0);
     virtual void save(rviz::Config config) const;
     virtual void load(const rviz::Config& config);
+    bool callGraphRecordingServices(ros::ServiceClient service, std::string serviceName, spot_msgs::GraphRecording serviceRequest);
 
     // Member variables
  private: 
@@ -54,11 +56,18 @@ class ControlPanel : public rviz::Panel
     // Custom functions
     void logStatus(QString msg);
 
-    // ROS service clients
-    //** None **//
+    // ROS services
+    ros::NodeHandle nh_;
+    ros::ServiceClient startRecordingService_;
+    ros::ServiceClient stopRecordingService_;
+    ros::ServiceClient getRecordingStatusService_;
+    ros::ServiceClient downloadGraphService_;
+    ros::ServiceClient uploadGraphService_;
+    ros::ServiceClient listGraphService_;
 
     // ROS topic subscribers
-    //** None **//
+    ros::Subscriber graphWaypointsSub_;
+    ros::Subscriber graphEdgesSub_;
 
     // QT UI Widgets
     QPushButton* recordingToggleButton;
