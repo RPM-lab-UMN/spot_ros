@@ -12,19 +12,19 @@ import rospy
 
 def create_waypoint_marker(name, reference_frame='odom', position=[1,1,1], orientation=[0,0,0,1]):
     marker = Marker()
-    marker.type = CYLINDER
+    marker.type = Marker.CYLINDER
 
     int_marker_msg = InteractiveMarker()
-    int_marker_msg.frame_id = reference_frame
+    int_marker_msg.header.frame_id = reference_frame
     pos = int_marker_msg.pose.position
     pos.x, pos.y, pos.z = tuple(position)
     ori = int_marker_msg.pose.orientation
-    ori.x, ori.y, ori.z = tuple(orientation)
+    ori.x, ori.y, ori.z, ori.w = tuple(orientation)
     int_marker_msg.name = name
     int_marker_msg.description = "description"
 
     marker_control = InteractiveMarkerControl()
-    marker_control.interaction_mode = BUTTON
+    marker_control.interaction_mode = InteractiveMarkerControl.BUTTON
     marker_control.always_visible = True
     marker_control.name = "waypoint-click-button"
     marker_control.markers.append(marker)
