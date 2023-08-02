@@ -7,8 +7,6 @@ import logging
 
 import math
 import numpy as np
-import matplotlib as mpl
-import matplotlib.pyplot as plt
 
 import bosdyn.client.auth
 from bosdyn.client import create_standard_sdk, ResponseError, RpcError
@@ -1900,7 +1898,6 @@ class SpotWrapper:
         best_obstacle_destination_body_coords = [best_obstacle_destination_body.x, best_obstacle_destination_body.y]
         self._logger.info("Body Frame translation: ")
         print(best_obstacle_destination_body_coords)
-        self._graph_nearby_obstacles(grid, best_obstacle_destination_body_coords) #Graphing statement if desired to see how spot sees obstacles
         return best_obstacle_destination_body_coords
     
     def _find_safe_place_for_obstacle(self, grid_array, *args):
@@ -1984,75 +1981,4 @@ class SpotWrapper:
                 best_location = candidate
                 smallest_dist = dist
         return best_location
-    
-    def _graph_nearby_obstacles(self, grid, destination_body_coords):
-        '''
-        Purpose: helper function that plots the area Spot sees, with points for where obstacles are and points where obstacles will be moved
-        Parameters: 
-            grid - the obstacle grid snapshot that triggered the obstacle protocol
-            destination_body_coords: the body frame coordinates found by the obstacle protocol
-        Returns: None; just shows the graph
-
-        Color key:
-        blue = spot's location
-        red = destination to move the obstacle
-        green = field of vision for spot's obstacle frame
-        orange = obstacles
-        black = chair in its current place
-        '''
-        # List some constants we will be needing
-        obstacle_distance_grid_proto = self._local_grid_client.get_local_grids(["obstacle_distance"])[0]
-        cell_size = obstacle_distance_grid_proto.local_grid.extent.cell_size
-        tform_to_obstacle_grid = self._get_transform_to_local_grid()
-        tform_to_body_frame = tform_to_obstacle_grid.inverse()
-        spot_location = np.array(self._get_obstacle_grid_coordinates(bdSE3Pose(0, 0, 0, bdQuat()), tform_to_obstacle_grid))
-        # Extract the borders of the grid
-        border_coordsx = []
-        border_coordsy = []
-        for row in range(len(grid)):
-            for col in range(len(grid[row])):
-                if(row == 0 or row == len(grid)-1 or col == 0 or col == len(grid[row])-1):
-                    new_coord = tform_to_body_frame * bdSE3Pose(row*cell_size, col*cell_size, 0, bdQuat())
-                    border_coordsx.append(new_coord.x)
-                    border_coordsy.append(-1 * new_coord.y)
-        xs = []
-        ys = []
-        poses = []
-        # Use local grid to find all points in robot's body frame that have a negative obstacle distance
-        # meaning that those points are inside of obstacles
-        for y_distance in range(-14, 14):
-            for x_distance in range(-14, 14):
-                poses.append(bdSE3Pose(x_distance * 0.1, y_distance * 0.1, 0, bdQuat()))
-                xs.append(x_distance * 0.1)
-                ys.append(- y_distance * 0.1)
-        obstacle_xs = []
-        obstacle_ys = []
-        distances = self.check_proximity_to_obstacles(poses)
-        for i in range(len(distances)):
-            if distances[i] < 0:
-                obstacle_xs.append(xs[i])
-                obstacle_ys.append(ys[i])
-        # We will need to find the one with the shortest distance to label a different color, as this one triggered obstacle_protocol
-        num_obstacles = len(obstacle_xs)
-        trigger_idx = 0 #index storing which one's the trigger
-        first_obstacle = np.array([obstacle_xs[trigger_idx],-1 * obstacle_ys[trigger_idx]])
-        trigger_dist = np.linalg.norm(first_obstacle-spot_location)
-        for count in range(num_obstacles):
-            obstacle_coordinate = np.array([obstacle_xs[count],-1 * obstacle_ys[count]])
-            new_dist = np.linalg.norm(obstacle_coordinate-spot_location)
-            if(new_dist <= trigger_dist): #i.e. the tripped coordinate has a distance less than the one before it
-                trigger_dist = new_dist
-                trigger_idx = count
-        # Now we can plot everything 
-        plt.scatter(border_coordsy, border_coordsx, c="green", label='grid boundaries')
-        plt.scatter(-destination_body_coords[1], destination_body_coords[0], c="red", label='destination')
-        plt.scatter(0,0, c="blue",label='spot')
-        plt.scatter(obstacle_ys, obstacle_xs, c="orange", label='obstacles')
-        plt.scatter(obstacle_ys[trigger_idx], obstacle_xs[trigger_idx], c="black", label='current location')
-        plt.title("2D graphical Representation of Where Spot Wants to Move the Obstacle")
-        plt.xlabel("y direction of body frame [m] (left = positive)")
-        plt.ylabel("x direction of body frame [m] (up = positive)")
-        plt.legend(loc='upper right')
-        plt.show()
-        return
 
