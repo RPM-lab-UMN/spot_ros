@@ -291,11 +291,6 @@ class MultiGraspActionCallback(object):
         # Filter out disabled grasps
         enabled_grasps = [grasp for grasp in self._grasps if grasp['multigrasp_enabled']]
 
-        # Pull poses and weights for enabled grasps into separate lists
-        enabled_grasp_poses = [_get_perpendicular_pose(ros_pose.pose, rot_vec=grasp['grasp_R'], offset=grasp['grasp_t'])
-                               for grasp in enabled_grasps]
-        enabled_grasp_weights = [grasp['weight'] for grasp in enabled_grasps]
-
         # Pull weights into own list
         weights = [grasp['weight'] for grasp in enabled_grasps]
 
