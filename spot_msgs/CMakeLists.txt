@@ -17,6 +17,8 @@ add_message_files(
   BehaviorFault.msg
   EStopStateArray.msg
   FootStateArray.msg
+  GraphWaypoint.msg
+  GraphEdge.msg
   LeaseArray.msg
   LeaseOwner.msg
   Metrics.msg

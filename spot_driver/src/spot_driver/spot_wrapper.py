@@ -1355,25 +1355,20 @@ class SpotWrapper:
         return self._current_annotation_name_to_wp_id, self._current_edges
     def extract_waypoint_and_edge_points(self):
         """
-        Extract visualizable x,y,z coordinates from graph nav waypoints and edges
-        Returns: A 3 x N numpy array of x,y,z point cordinates
+        Extract publishable data for graph waypoints and edges,
+        which include the waypoint's pose and id
+        Returns: tuple, the first element being a dictionary mapping waypoint ids to poses
+        and the second element being a list of tuples, where each contains the waypoint ids
+        of the two points being connected
         """
         graph = self._graph_nav_client.download_graph()
         edges = graph.edges
-        ids_to_waypoints = {wp.id: wp for wp in graph.waypoints}
-        data = np.array([])
+        ids_to_waypoint_poses = {wp.id: wp.waypoint_tform_ko for wp in graph.waypoints}
+        publishable_edges = []
         for edge in edges:
-            from_wp = ids_to_waypoints[edge.id.from_waypoint]
-            to_wp = ids_to_waypoints[edge.id.to_waypoint]
-            # convert waypoint poses into 3D vectors
-            from_vector = math_helpers.Vec3.from_proto(from_wp.waypoint_tform_ko.position)
-            to_vector = math_helpers.Vec3.from_proto(to_wp.waypoint_tform_ko.position)
-            # draw 100 points on the line represented by the edge
-            for i in range(101):
-                point_vector = from_vector + ((to_vector - from_vector) * 0.01 * i)
-                point_array = np.array([point_vector.x, point_vector.y, point_vector.z])
-                data = np.concatenate((data, point_array))
-        return np.reshape(data, (-1, 3))
+            publishable_edges.append((edge.id.from_waypoint, edge.id.to_waypoint))
+
+        return ids_to_waypoint_poses, publishable_edges
     
     def extract_point_clouds_from_graph(self):
         """

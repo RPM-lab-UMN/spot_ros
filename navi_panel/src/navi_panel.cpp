@@ -237,7 +237,7 @@ namespace navi_panel
 
         spot_msgs::GraphRecording req;
         req.request.path = dir.toStdString();
-        callGraphRecordingServices(uploadGraphService_, "start recording", req);
+        callGraphRecordingServices(uploadGraphService_, "upload recording", req);
 
         return;
     }
@@ -257,8 +257,9 @@ namespace navi_panel
         logStatus(dirPath);
 
         spot_msgs::GraphRecording req;
-        req.request.path = dirPath.toStdString();
-        callGraphRecordingServices(uploadGraphService_, "start recording", req);    
+        req.request.path = dirPath.toStdString() + std::string("/downloaded_graph");
+
+        callGraphRecordingServices(downloadGraphService_, "save graph", req);    
 
         return;
     }
