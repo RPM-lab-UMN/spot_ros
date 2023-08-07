@@ -10,6 +10,14 @@ from interactive_marker_utils import (
     create_waypoint_marker
 )
 
+# Color values for markers
+SELECTED_R = 0.05
+SELECTED_G = 0.45
+SELECTED_B = 0.98
+UNSELECTED_R = 0.45
+UNSELECTED_G = 0.06
+UNSELECTED_B = 0.67
+
 def main():
     rospy.init_node("spot_graphnav_markers", anonymous=True)
     server = InteractiveMarkerServer("navigation_waypoints")
