@@ -224,7 +224,9 @@ namespace navi_panel
     void ControlPanel::waypointNav() {
         logStatus(QString::fromUtf8("Opening navigation modal..."));
 
-        // TODO open custom modal
+        // TODO disable button unless nav_markers is running
+
+        // TODO navigate to selected waypoint
 
         return;
     }
