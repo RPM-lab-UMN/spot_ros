@@ -51,8 +51,9 @@ def create_waypoint_marker(wp_id, reference_frame='odom', position=[1,1,1], orie
     marker.color.r = UNSELECTED_R
     marker.color.g = UNSELECTED_G
     marker.color.b = UNSELECTED_B
-    marker.scale.x = 0.5
-    marker.scale.y = 0.5
-    marker.scale.z = 1.0
+    marker.color.a = 1.0
+    marker.scale.x = 0.3
+    marker.scale.y = 0.3
+    marker.scale.z = 0.6
 
     return int_marker_msg
