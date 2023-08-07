@@ -29,6 +29,8 @@ def main():
     server.insert(marker1, lambda feedback: feedback)
     server.insert(marker2, lambda feedback: feedback)
 
+    # TODO add service for updating marker colors to reflect selection status
+
     rospy.spin()
 
 
