@@ -26,11 +26,12 @@ def main():
     marker1 = create_waypoint_marker("marker1")
     marker2 = create_waypoint_marker("marker2")
 
-    server.insert(marker1, lambda feedback: feedback)
-    server.insert(marker2, lambda feedback: feedback)
+    server.insert(marker2, lambda feedback: feedback, reference_frame="base_link", position=[1, 0, 0.3])
+    server.insert(marker1, lambda feedback: feedback, reference_frame="base_link", position=[-1, 0, 0.3])
 
     # TODO add service for updating marker colors to reflect selection status
 
+    server.applyChanges()
     rospy.spin()
 
 
