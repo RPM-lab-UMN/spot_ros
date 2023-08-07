@@ -18,15 +18,19 @@ UNSELECTED_R = 0.45
 UNSELECTED_G = 0.06
 UNSELECTED_B = 0.67
 
+
 def main():
     rospy.init_node("spot_graphnav_markers", anonymous=True)
     server = InteractiveMarkerServer("navigation_waypoints")
 
     marker1 = create_waypoint_marker("marker1")
+    marker2 = create_waypoint_marker("marker2")
 
     server.insert(marker1, lambda feedback: feedback)
+    server.insert(marker2, lambda feedback: feedback)
 
     rospy.spin()
+
 
 if __name__ == "__main__":
     main()
