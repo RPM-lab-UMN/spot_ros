@@ -7,6 +7,7 @@ from tf2_msgs.msg import TFMessage
 from sensor_msgs.msg import Image, CameraInfo
 from sensor_msgs.msg import JointState
 from geometry_msgs.msg import TwistWithCovarianceStamped, Twist, Pose, PoseStamped, Point
+from geometry_msgs.msg import Quaternion as QuatMessage
 from nav_msgs.msg import Odometry
 
 from sensor_msgs.msg import PointCloud2
@@ -37,6 +38,7 @@ from spot_msgs.msg import Feedback
 from spot_msgs.msg import MobilityParams, ObstacleParams, TerrainParams
 from spot_msgs.msg import NavigateToAction, NavigateToResult, NavigateToFeedback
 from spot_msgs.msg import TrajectoryAction, TrajectoryResult, TrajectoryFeedback
+from spot_msgs.msg import GraphEdge, GraphWaypoint
 from spot_msgs.srv import ListGraph, ListGraphResponse
 from spot_msgs.srv import SetLocomotion, SetLocomotionResponse
 from spot_msgs.srv import SetTerrainParams, SetTerrainParamsResponse
@@ -118,7 +120,6 @@ class SpotROS:
         self.callbacks["front_pointcloud"] = self.FrontPointcloudCB
         self.callbacks["rear_pointcloud"] = self.RearPointcloudCB
         self.callbacks["side_pointcloud"] = self.SidePointcloudCB
-        self.callbacks["graph_points"] = self.GraphPointsCB
 
 
     def RobotStateCB(self, results):
@@ -361,13 +362,27 @@ class SpotROS:
 
     def RearPointcloudCB(self, results):
         self._colored_points_pub_helper(0, 2, results, self.rear_points_pub)
-
-    def GraphPointsCB(self):
-        self.logger.info("Publishing graph nav points")
+    
+    def publish_graph_points(self):
         waypoints_and_edges = self.spot_wrapper.extract_waypoint_and_edge_points()
-        self.graph_waypoints_pub.publish(waypoints_and_edges[0])
-        self.graph_edges_pub.publish(waypoints_and_edges[1])
-        
+        waypoint_messages = {}
+        for id, pose in waypoints_and_edges[0].items():
+            waypoint_messages[id] = self.create_waypoint_message(id, pose)
+        for message in waypoint_messages.values():
+            self.graph_waypoints_pub.publish(message)
+        for edge in waypoints_and_edges[1]:
+            edge_msg = GraphEdge(waypoint_messages[edge[0]], waypoint_messages[edge[1]])
+            self.graph_edges_pub.publish(edge_msg)
+    
+    def create_waypoint_message(self, id, tform):
+        pose_msg = Pose()
+        pose_msg.position = Point(tform.position.x, tform.position.y, tform.position.y)
+        pose_msg.orientation = QuatMessage(tform.rotation.x, tform.rotation.y, tform.rotation.z, tform.rotation.w)
+        waypoint= GraphWaypoint()
+        waypoint.waypoint_id = id
+        waypoint.pose = pose_msg
+        return waypoint
+
 
     #######################################################################
     
@@ -1450,10 +1465,9 @@ class SpotROS:
         self.left_points_pub =          rospy.Publisher('colored_points/left',        **cpc_params) 
         self.right_points_pub =         rospy.Publisher('colored_points/right',       **cpc_params) 
         self.rear_points_pub =          rospy.Publisher('colored_points/rear',        **cpc_params)
-        graph_edges_params = {'data_class': Point, 'queue_size': 2}
-        self.graph_edges_pub =     rospy.Publisher('graph_edges',                   **graph_edges_params)
-        #TODO: change this to publish interactive markers
-        self.graph_waypoints_pub = rospy.Publisher('graph_waypoints',               **graph_edges_params)
+
+        self.graph_edges_pub =          rospy.Publisher('graph_edges',                   **{'data_class': GraphEdge, 'queue_size': 5})
+        self.graph_waypoints_pub =      rospy.Publisher('graph_waypoints',               **{'data_class': GraphWaypoint, 'queue_size': 5})
 
 
         # Images #
@@ -1730,10 +1744,12 @@ class SpotROS:
             self.publish_mobility_params, self.rates["mobility_params"]
         )
         rate_limited_motion_allowed = RateLimitedCall(self.publish_allow_motion, 10)
+        rate_limited_graph_points = RateLimitedCall(self.publish_graph_points, 0.5)
         rospy.loginfo("Driver started")
         while not rospy.is_shutdown():
             self.spot_wrapper.updateTasks()
             rate_limited_feedback()
             rate_limited_mobility_params()
             rate_limited_motion_allowed()
+            rate_limited_graph_points()
             rate.sleep()
