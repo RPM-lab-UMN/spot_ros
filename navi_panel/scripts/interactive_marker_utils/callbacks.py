@@ -1,5 +1,5 @@
 import rospy
-from state import StateManager
+# from state import StateManager
 
 
 class SetLocalizationCallback(object):

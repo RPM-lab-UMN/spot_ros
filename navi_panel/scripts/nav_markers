@@ -32,14 +32,15 @@ def main():
     # TODO subscribe to marker pose update topic
 
     # Add menu to markers
-    mh = MenuHandler()
 
     ##############################
     # Dummy markers
+    mh = MenuHandler()
     mh.insert("Set localization", callback=SetLocalizationCallback(marker1, manager))
     mh.insert("Navigate to", callback=NavigateCallback(manager))
     mh.apply(server, marker1.name)
 
+    mh = MenuHandler()
     mh.insert("Set localization", callback=SetLocalizationCallback(marker2, manager))
     mh.insert("Navigate to", callback=NavigateCallback(manager))
     mh.apply(server, marker2.name)

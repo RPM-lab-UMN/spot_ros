@@ -21,15 +21,15 @@ class StateManager(object):
         else:
             rospy.loginfo(f"Changing localization from {self._localization.name} to {int_marker.name}")
 
-            self._localization.marker.color.r = UNSELECTED_R
-            self._localization.marker.color.g = UNSELECTED_G
-            self._localization.marker.color.b = UNSELECTED_B
+            self._localization.controls[0].markers[0].color.r = UNSELECTED_R
+            self._localization.controls[0].markers[0].color.g = UNSELECTED_G
+            self._localization.controls[0].markers[0].color.b = UNSELECTED_B
 
         self._localization = int_marker
 
-        self._localization.marker.color.r = SELECTED_R
-        self._localization.marker.color.g = SELECTED_G
-        self._localization.marker.color.b = SELECTED_B
+        self._localization.controls[0].markers[0].color.r = SELECTED_R
+        self._localization.controls[0].markers[0].color.g = SELECTED_G
+        self._localization.controls[0].markers[0].color.b = SELECTED_B
 
         self._server.applyChanges()
 
