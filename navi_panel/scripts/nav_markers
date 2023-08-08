@@ -29,8 +29,6 @@ def main():
     server.insert(marker2, lambda feedback: feedback, reference_frame="base_link", position=[1, 0, 0.3])
     server.insert(marker1, lambda feedback: feedback, reference_frame="base_link", position=[-1, 0, 0.3])
 
-    # TODO add service for updating marker colors to reflect selection status
-
     server.applyChanges()
     rospy.spin()
 
