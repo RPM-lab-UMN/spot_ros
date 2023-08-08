@@ -8,7 +8,7 @@ import numpy as np
 import rospy
 
 from interactive_marker_utils import (
-    create_waypoint_marker
+    create_waypoint_marker,
     SetLocalizationCallback,
     NavigateCallback
 )
@@ -21,7 +21,7 @@ UNSELECTED_R = 0.45
 UNSELECTED_G = 0.06
 UNSELECTED_B = 0.67
 
-
+localization = None
 
 def main():
     rospy.init_node("spot_graphnav_markers", anonymous=True)
