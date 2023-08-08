@@ -12,6 +12,9 @@ import rospy
 UNSELECTED_R = 0.45
 UNSELECTED_G = 0.06
 UNSELECTED_B = 0.67
+SELECTED_R = 0.05
+SELECTED_G = 0.45
+SELECTED_B = 0.98
 
 
 def create_waypoint_marker(wp_id, reference_frame='odom', position=[1,1,1], orientation=[0,0,0,1]):
