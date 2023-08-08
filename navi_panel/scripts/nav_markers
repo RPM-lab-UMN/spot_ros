@@ -32,11 +32,13 @@ def main():
     # ##############################
 
     def _handle_message(msg):
+        rospy.loginfo("Received")
+
         wp_id = msg.waypoint_id
         pose = msg.pose
 
         # checks if marker with matching id exists
-        if server.get(wp_id, None) is True:
+        if server.get(wp_id) is True:
             # update existing marker position
             rospy.loginfo(f"Updating position of marker {wp_id}")
 
@@ -49,7 +51,7 @@ def main():
         else:
             # insert new marker
             rospy.loginfo(f"Creating new marker {wp_id}")
-            int_marker = create_waypoint_marker(wp_id, position=pose.position, orientation=pose.orientation)
+            int_marker = create_waypoint_marker(wp_id, pose)
             server.insert(int_marker, lambda feedback: feedback)
             mh = MenuHandler()
             mh.insert("Set as localization", callback=SetLocalizationCallback(int_marker, manager))
@@ -58,7 +60,7 @@ def main():
 
         server.applyChanges()
 
-    sub = rospy.subscriber("graph_waypoints", GraphWaypoint, _handle_message)
+    sub = rospy.Subscriber("spot/graph_waypoints", GraphWaypoint, _handle_message)
 
     # ##############################
     # # Dummy marker menus

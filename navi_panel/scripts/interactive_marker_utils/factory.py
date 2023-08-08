@@ -5,6 +5,7 @@
 
 from interactive_markers.interactive_marker_server import *
 from visualization_msgs.msg import *
+from geometry_msgs import *
 
 import math
 import rospy
@@ -17,7 +18,7 @@ SELECTED_G = 0.45
 SELECTED_B = 0.98
 
 
-def create_waypoint_marker(wp_id, reference_frame='odom', position=[1,1,1], orientation=[0,0,0,1]):
+def create_waypoint_marker(wp_id, pose, reference_frame='odom'):
     """
     Creates an interactive, clickable marker for use in Rviz for representing graph navigation
     waypoints for Hachi.
@@ -35,10 +36,7 @@ def create_waypoint_marker(wp_id, reference_frame='odom', position=[1,1,1], orie
 
     int_marker_msg = InteractiveMarker()
     int_marker_msg.header.frame_id = reference_frame
-    pos = int_marker_msg.pose.position
-    pos.x, pos.y, pos.z = tuple(position)
-    ori = int_marker_msg.pose.orientation
-    ori.x, ori.y, ori.z, ori.w = tuple(orientation)
+    int_marker_msg.pose = pose
     int_marker_msg.name = wp_id
     int_marker_msg.description = wp_id
 
