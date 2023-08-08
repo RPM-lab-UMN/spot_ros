@@ -1,22 +1,19 @@
 import rospy
-import state
+from state import StateManager
 
-glocalization = None
 
 class SetLocalizationCallback(object):
-    def __init__(self, marker):
-        self._marker = marker
+    def __init__(self, int_marker, manager):
+        self._marker = int_marker
+        self._manager = manager
 
     def __call__(self, feedback):
-        rospy.loginfo(f"Changing localization from {state.localization.name} to {self._marker.name}")
-        rospy.loginfo(f"global test: {glocalization.name}")
-        glocalization = self._marker
-        state.localization = self._marker
+        self._manager.update_localization(self._marker)
 
 
 class NavigateCallback(object):
-    def __init__(self):
-        pass
+    def __init__(self, manager):
+        self._manager = manager
 
     def __call__(self, feedback):
-        rospy.loginfo(f"{feedback.marker_name} : NavigateCallback")
+        rospy.loginfo(f"{feedback.marker_name} : NavigateCallback, localization={self._manager.get_localization()}")

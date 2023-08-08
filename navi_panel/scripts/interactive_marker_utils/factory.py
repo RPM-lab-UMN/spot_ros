@@ -39,7 +39,7 @@ def create_waypoint_marker(wp_id, reference_frame='odom', position=[1,1,1], orie
     pos.x, pos.y, pos.z = tuple(position)
     ori = int_marker_msg.pose.orientation
     ori.x, ori.y, ori.z, ori.w = tuple(orientation)
-    int_marker_msg.name = "marker:" + wp_id
+    int_marker_msg.name = wp_id
     int_marker_msg.description = wp_id
 
     marker_control = InteractiveMarkerControl()

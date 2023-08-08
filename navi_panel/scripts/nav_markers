@@ -10,28 +10,23 @@ import rospy
 from interactive_marker_utils import (
     create_waypoint_marker,
     SetLocalizationCallback,
-    NavigateCallback
+    NavigateCallback,
+    StateManager
 )
 
-# Color values for markers
-SELECTED_R = 0.05
-SELECTED_G = 0.45
-SELECTED_B = 0.98
-UNSELECTED_R = 0.45
-UNSELECTED_G = 0.06
-UNSELECTED_B = 0.67
 
 def main():
     rospy.init_node("spot_graphnav_markers", anonymous=True)
     server = InteractiveMarkerServer("navigation_waypoints")
+    manager = StateManager(server)
 
     ##############################
     # Dummy markers for testing
-    marker1 = create_waypoint_marker("marker1")
-    marker2 = create_waypoint_marker("marker2")
+    marker1 = create_waypoint_marker("marker1", reference_frame="base_link", position=[1, 0, 0.3])
+    marker2 = create_waypoint_marker("marker2", reference_frame="base_link", position=[-1, 0, 0.3])
 
-    server.insert(marker2, lambda feedback: feedback, reference_frame="base_link", position=[1, 0, 0.3])
-    server.insert(marker1, lambda feedback: feedback, reference_frame="base_link", position=[-1, 0, 0.3])
+    server.insert(marker2, lambda feedback: feedback)
+    server.insert(marker1, lambda feedback: feedback)
     ##############################
 
     # TODO subscribe to marker pose update topic
@@ -39,13 +34,15 @@ def main():
     # Add menu to markers
     mh = MenuHandler()
 
-    mh.insert("Set localization", callback=SetLocalizationCallback())
-    mh.insert("Navigate to", callback=NavigateCallback())
-
     ##############################
     # Dummy markers
-    mh.apply(server, "marker1")
-    mh.apply(server, "marker2")
+    mh.insert("Set localization", callback=SetLocalizationCallback(marker1, manager))
+    mh.insert("Navigate to", callback=NavigateCallback(manager))
+    mh.apply(server, marker1.name)
+
+    mh.insert("Set localization", callback=SetLocalizationCallback(marker2, manager))
+    mh.insert("Navigate to", callback=NavigateCallback(manager))
+    mh.apply(server, marker2.name)
     ##############################
 
     server.applyChanges()
