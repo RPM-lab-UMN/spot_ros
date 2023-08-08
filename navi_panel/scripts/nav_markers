@@ -3,6 +3,8 @@
 from interactive_markers.interactive_marker_server import *
 from interactive_markers.menu_handler import *
 from visualization_msgs.msg import *
+from geometry_msgs.msg import Pose
+from spot_msgs.msg import GraphWaypoint
 
 import numpy as np
 import rospy
@@ -20,31 +22,56 @@ def main():
     server = InteractiveMarkerServer("navigation_waypoints")
     manager = StateManager(server)
 
-    ##############################
-    # Dummy markers for testing
-    marker1 = create_waypoint_marker("marker1", reference_frame="base_link", position=[1, 0, 0.3])
-    marker2 = create_waypoint_marker("marker2", reference_frame="base_link", position=[-1, 0, 0.3])
+    # ##############################
+    # # Dummy markers for testing
+    # marker1 = create_waypoint_marker("marker1", reference_frame="base_link", position=[1, 0, 0.3])
+    # marker2 = create_waypoint_marker("marker2", reference_frame="base_link", position=[-1, 0, 0.3])
+    #
+    # server.insert(marker2, lambda feedback: feedback)
+    # server.insert(marker1, lambda feedback: feedback)
+    # ##############################
 
-    server.insert(marker2, lambda feedback: feedback)
-    server.insert(marker1, lambda feedback: feedback)
-    ##############################
+    def _handle_message(msg):
+        wp_id = msg.waypoint_id
+        pose = msg.pose
 
-    # TODO subscribe to marker pose update topic
+        # checks if marker with matching id exists
+        if server.get(wp_id, None) is True:
+            # update existing marker position
+            rospy.loginfo(f"Updating position of marker {wp_id}")
 
-    # Add menu to markers
+            if not server.setPose(wp_id, pose):
+                rospy.logerr(f"Failed to set pose for marker {wp_id}")
 
-    ##############################
-    # Dummy markers
-    mh = MenuHandler()
-    mh.insert("Set localization", callback=SetLocalizationCallback(marker1, manager))
-    mh.insert("Navigate to", callback=NavigateCallback(manager))
-    mh.apply(server, marker1.name)
+            else:
+                server.applyChanges()
 
-    mh = MenuHandler()
-    mh.insert("Set localization", callback=SetLocalizationCallback(marker2, manager))
-    mh.insert("Navigate to", callback=NavigateCallback(manager))
-    mh.apply(server, marker2.name)
-    ##############################
+        else:
+            # insert new marker
+            rospy.loginfo(f"Creating new marker {wp_id}")
+            int_marker = create_waypoint_marker(wp_id, position=pose.position, orientation=pose.orientation)
+            server.insert(int_marker, lambda feedback: feedback)
+            mh = MenuHandler()
+            mh.insert("Set as localization", callback=SetLocalizationCallback(int_marker, manager))
+            mh.insert("Navigate here", callback=NavigateCallback(manager))
+            mh.apply(server, wp_id)
+
+        server.applyChanges()
+
+    sub = rospy.subscriber("graph_waypoints", GraphWaypoint, _handle_message)
+
+    # ##############################
+    # # Dummy marker menus
+    # mh = MenuHandler()
+    # mh.insert("Set localization", callback=SetLocalizationCallback(marker1, manager))
+    # mh.insert("Navigate to", callback=NavigateCallback(manager))
+    # mh.apply(server, marker1.name)
+    #
+    # mh = MenuHandler()
+    # mh.insert("Set localization", callback=SetLocalizationCallback(marker2, manager))
+    # mh.insert("Navigate to", callback=NavigateCallback(manager))
+    # mh.apply(server, marker2.name)
+    # ##############################
 
     server.applyChanges()
     rospy.spin()
