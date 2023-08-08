@@ -42,12 +42,17 @@ namespace navi_panel
         getRecordingStatusService_ = nh_.serviceClient<spot_msgs::GraphRecording>("/spot/get_recording_status");
         downloadGraphService_ = nh_.serviceClient<spot_msgs::GraphRecording>("/spot/download_graph");
         uploadGraphService_ = nh_.serviceClient<spot_msgs::GraphRecording>("/spot/upload_graph");
+        listGraphService_ = nh_.serviceClient<spot_msgs::ListGraph>("/spot/list_graph");
+        clearGraphService_ = nh_.serviceClient<spot_msgs::GraphRecording>("/spot/clear_graph");
+
+        // setup ROS action client for navigation commands
+        
 
         // Get Qt Widget handles
         recordingToggleButton = this->findChild<QPushButton*>("recordingToggleButton");
-        waypointToggleButton = this->findChild<QPushButton*>("waypointToggleButton");
+        listGraphButton = this->findChild<QPushButton*>("listGraphButton");
         pointcloudToggleButton = this->findChild<QPushButton*>("pointcloudToggleButton");
-        waypointNavButton = this->findChild<QPushButton*>("waypointNavButton");
+        clearGraphButton = this->findChild<QPushButton*>("clearGraphButton");
         graphLoadButton = this->findChild<QPushButton*>("graphLoadButton");
         graphSaveButton = this->findChild<QPushButton*>("graphSaveButton");
 
@@ -61,17 +66,14 @@ namespace navi_panel
         setupModalButtons();
         setupStatusBox();
 
-        // Setup ROS topic subscribers now that everything is set up
-        // TODO: give these callback functions to subscribe to
-        // graphWaypointsSub_ = nh_.subscribe("/spot/graph_waypoints", 1, &ControlPanel::waypointToggle, this);
-        // graphEdgesSub_ = nh_.subscribe("/spot/graph_edges", 1, &ControlPanel::waypointToggle, this);
+
 
         // Connect Qt Signals and Slots
         connect(recordingToggleButton, SIGNAL(clicked()), this, SLOT(recordingToggle()));
         connect(recTimer, SIGNAL(timeout()), this, SLOT(tick()));
-        connect(waypointToggleButton, SIGNAL(clicked()), this, SLOT(waypointToggle()));
+        connect(listGraphButton, SIGNAL(clicked()), this, SLOT(listGraph()));
         connect(pointcloudToggleButton, SIGNAL(clicked()), this, SLOT(pointcloudToggle()));
-        connect(waypointNavButton, SIGNAL(clicked()), this, SLOT(waypointNav()));
+        connect(clearGraphButton, SIGNAL(clicked()), this, SLOT(clearGraph()));
         connect(graphLoadButton, SIGNAL(clicked()), this, SLOT(graphLoad()));
         connect(graphSaveButton, SIGNAL(clicked()), this, SLOT(graphSave()));
     }
@@ -93,11 +95,10 @@ namespace navi_panel
     }
 
     void ControlPanel::setupToggleButtons() {
-        waypointToggleButton = this->findChild<QPushButton*>("waypointToggleButton");
-        waypointToggleButton->setCheckable(true);
-        waypointToggleButton->setChecked(false);
-        waypointToggleButton->setText(QString::fromUtf8("Show Wapoints"));
-        waypointToggleButton->update();
+        listGraphButton = this->findChild<QPushButton*>("listGraphButton");
+
+        listGraphButton->setText(QString::fromUtf8("List Graph Waypoints"));
+        listGraphButton->update();
 
         pointcloudToggleButton = this->findChild<QPushButton*>("pointcloudToggleButton");
         pointcloudToggleButton->setCheckable(true);
@@ -115,12 +116,12 @@ namespace navi_panel
         graphSaveButton->setText(QString::fromUtf8("Save Graph..."));
         graphSaveButton->update();
 
-        waypointNavButton = this->findChild<QPushButton*>("waypointNavButton");
-        QPalette pal = waypointNavButton->palette();
+        clearGraphButton = this->findChild<QPushButton*>("clearGraphButton");
+        QPalette pal = clearGraphButton->palette();
         pal.setColor(QPalette::Button, QColor(85, 90, 255));
-        waypointNavButton->setAutoFillBackground(true);
-        waypointNavButton->setPalette(pal);
-        waypointNavButton->update();
+        clearGraphButton->setAutoFillBackground(true);
+        clearGraphButton->setPalette(pal);
+        clearGraphButton->update();
     }
 
     void ControlPanel::setupStatusBox() {
@@ -154,6 +155,11 @@ namespace navi_panel
             statusBox->setText(QString(labelText.c_str()));
             return false;
         }
+    }
+    bool ControlPanel::callListGraphService(spot_msgs::ListGraph serviceRequest) {
+        std::string labelText = "Calling list graph service";
+        statusBox->setText(QString(labelText.c_str()));
+        return listGraphService_.call(serviceRequest);
     }
 
     // Qt slot functions
@@ -205,10 +211,16 @@ namespace navi_panel
         recElapsedTime = newTime;
     }
 
-    void ControlPanel::waypointToggle() {
-        logStatus(QString::fromUtf8("Toggling waypoint visibility..."));
-
-        // TODO toggle waypoint display
+    void ControlPanel::listGraph() {
+        logStatus(QString::fromUtf8("listing graph ..."));
+        spot_msgs::ListGraph req;
+        callListGraphService(req);
+        std::vector<std::string> waypoints_list = req.response.waypoint_ids;
+        QString joined_waypoints = "";
+        for (int i = 0; i < waypoints_list.size(); i++) {
+            joined_waypoints += QString::fromUtf8((waypoints_list.at(i) + std::string("\n")).c_str());
+        }
+        statusBox->setText(joined_waypoints);
 
         return;
     }
@@ -221,10 +233,11 @@ namespace navi_panel
         return;
     }
 
-    void ControlPanel::waypointNav() {
-        logStatus(QString::fromUtf8("Opening navigation modal..."));
-
-        // TODO open custom modal
+    void ControlPanel::clearGraph() {
+        logStatus(QString::fromUtf8("clearing graph ..."));
+        spot_msgs::GraphRecording req;
+        req.request.path = std::string("");
+        callGraphRecordingServices(clearGraphService_, "clear graph", req);
 
         return;
     }

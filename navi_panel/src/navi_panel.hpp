@@ -29,6 +29,7 @@ class ControlPanel : public rviz::Panel
     virtual void save(rviz::Config config) const;
     virtual void load(const rviz::Config& config);
     bool callGraphRecordingServices(ros::ServiceClient service, std::string serviceName, spot_msgs::GraphRecording serviceRequest);
+    bool callListGraphService(spot_msgs::ListGraph serviceRequest);
 
     // Member variables
  private: 
@@ -40,9 +41,9 @@ class ControlPanel : public rviz::Panel
     private Q_SLOTS:
         void tick();
         void recordingToggle();
-        void waypointToggle();
+        void listGraph();
         void pointcloudToggle();
-        void waypointNav();
+        void clearGraph();
         void graphLoad();
         void graphSave();
 
@@ -64,16 +65,16 @@ class ControlPanel : public rviz::Panel
     ros::ServiceClient downloadGraphService_;
     ros::ServiceClient uploadGraphService_;
     ros::ServiceClient listGraphService_;
-
+    ros::ServiceClient clearGraphService_;
     // ROS topic subscribers
     ros::Subscriber graphWaypointsSub_;
     ros::Subscriber graphEdgesSub_;
 
     // QT UI Widgets
     QPushButton* recordingToggleButton;
-    QPushButton* waypointToggleButton;
+    QPushButton* listGraphButton;
     QPushButton* pointcloudToggleButton;
-    QPushButton* waypointNavButton;
+    QPushButton* clearGraphButton;
     QPushButton* graphLoadButton;
     QPushButton* graphSaveButton;
 
