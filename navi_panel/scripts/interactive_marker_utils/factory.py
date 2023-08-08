@@ -43,9 +43,9 @@ def create_waypoint_marker(wp_id, reference_frame='odom', position=[1,1,1], orie
     int_marker_msg.description = wp_id
 
     marker_control = InteractiveMarkerControl()
-    marker_control.interaction_mode = InteractiveMarkerControl.BUTTON
+    marker_control.interaction_mode = InteractiveMarkerControl.MENU
     marker_control.always_visible = True
-    marker_control.name = "waypoint-click-button"
+    marker_control.name = "waypoint-click-menu"
     marker_control.markers.append(marker)
     int_marker_msg.controls.append(marker_control)
 
