@@ -9,12 +9,12 @@ from visualization_msgs.msg import *
 import math
 import rospy
 
-# UNSELECTED_R = 0.45
-# UNSELECTED_G = 0.06
-# UNSELECTED_B = 0.67
-# SELECTED_R = 0.05
-# SELECTED_G = 0.45
-# SELECTED_B = 0.98
+UNSELECTED_R = 0.45
+UNSELECTED_G = 0.06
+UNSELECTED_B = 0.67
+SELECTED_R = 0.05
+SELECTED_G = 0.45
+SELECTED_B = 0.98
 
 
 def create_waypoint_marker(wp_id, reference_frame='odom', position=[1,1,1], orientation=[0,0,0,1]):
@@ -46,7 +46,6 @@ def create_waypoint_marker(wp_id, reference_frame='odom', position=[1,1,1], orie
     marker_control.interaction_mode = InteractiveMarkerControl.MENU
     marker_control.always_visible = True
     marker_control.name = "waypoint-click-menu"
-    marker_control.markers.append(marker)
     int_marker_msg.controls.append(marker_control)
 
     marker = Marker()
@@ -58,5 +57,6 @@ def create_waypoint_marker(wp_id, reference_frame='odom', position=[1,1,1], orie
     marker.scale.x = 0.3
     marker.scale.y = 0.3
     marker.scale.z = 0.6
+    marker_control.markers.append(marker)
 
     return int_marker_msg
