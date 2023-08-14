@@ -35,3 +35,6 @@ class StateManager(object):
 
     def get_localization(self):
         return self._localization
+
+    def clear_localization(self):
+        self._localization = None

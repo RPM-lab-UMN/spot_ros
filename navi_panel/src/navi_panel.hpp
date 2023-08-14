@@ -66,6 +66,7 @@ class ControlPanel : public rviz::Panel
     ros::ServiceClient uploadGraphService_;
     ros::ServiceClient listGraphService_;
     ros::ServiceClient clearGraphService_;
+    ros::ServiceClient clearWaypointService_;
     // ROS topic subscribers
     ros::Subscriber graphWaypointsSub_;
     ros::Subscriber graphEdgesSub_;

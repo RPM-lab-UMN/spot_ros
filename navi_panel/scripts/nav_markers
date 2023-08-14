@@ -5,6 +5,7 @@ from interactive_markers.menu_handler import *
 from visualization_msgs.msg import *
 from geometry_msgs.msg import Pose
 from spot_msgs.msg import GraphWaypoint
+from std_srvs.srv import Trigger, TriggerResponse
 
 import numpy as np
 import rospy
@@ -60,7 +61,19 @@ def main():
 
         server.applyChanges()
 
-    sub = rospy.Subscriber("spot/graph_waypoints", GraphWaypoint, _handle_message)
+    sub = rospy.Subscriber("spot/graph_waypoints/set", GraphWaypoint, _handle_message)
+
+    # Trigger service for clearing graph markers and localization setting
+    def _clear_markers(req):
+        manager.clear_localization()
+        server.clear()
+        server.applyChanges()
+        return TriggerResponse(
+            success=True,
+            message="Cleared markers and localization."
+        )
+
+    clear_service = rospy.Service("spot/graph_waypoints/clear", Trigger, _clear_markers)
 
     # ##############################
     # # Dummy marker menus

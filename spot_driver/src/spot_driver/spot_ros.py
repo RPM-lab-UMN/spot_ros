@@ -1467,7 +1467,7 @@ class SpotROS:
         self.rear_points_pub =          rospy.Publisher('colored_points/rear',        **cpc_params)
 
         self.graph_edges_pub =          rospy.Publisher('graph_edges',                   **{'data_class': GraphEdge, 'queue_size': 5})
-        self.graph_waypoints_pub =      rospy.Publisher('graph_waypoints',               **{'data_class': GraphWaypoint, 'queue_size': 5})
+        self.graph_waypoints_pub =      rospy.Publisher('graph_waypoints/set',               **{'data_class': GraphWaypoint, 'queue_size': 5})
 
 
         # Images #
