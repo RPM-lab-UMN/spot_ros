@@ -1629,7 +1629,7 @@ class SpotWrapper:
 
     def _clear_graph(self, *args):
         """Clear the state of the map on the robot, removing all waypoints and edges."""
-        return self._graph_nav_client.clear_graph(lease=self._lease.lease_proto)
+        return self._graph_nav_client.clear_graph()
 
     def toggle_power(self, should_power_on):
         """Power the robot on/off dependent on the current power state."""
