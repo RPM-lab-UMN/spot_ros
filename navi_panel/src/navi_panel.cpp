@@ -46,6 +46,7 @@ namespace navi_panel
         uploadGraphService_ = nh_.serviceClient<spot_msgs::GraphRecording>("/spot/upload_graph");
         listGraphService_ = nh_.serviceClient<spot_msgs::ListGraph>("/spot/list_graph");
         clearGraphService_ = nh_.serviceClient<spot_msgs::GraphRecording>("/spot/clear_graph");
+        clearWaypointService_ = nh_.serviceClient<std_srvs::Trigger>("/spot/graph_waypoints/clear");
 
         // setup ROS action client for navigation commands
         
@@ -152,26 +153,26 @@ namespace navi_panel
     // ROS message callbacks
     bool ControlPanel::callGraphRecordingServices(ros::ServiceClient service, std::string serviceName, spot_msgs::GraphRecording serviceRequest) {
         std::string labelText = "Calling " + serviceName + " service";
-        statusBox->setText(QString(labelText.c_str()));
+        statusBox->append(QString(labelText.c_str()));
         if (service.call(serviceRequest)) {
             if (serviceRequest.response.success) {
                 labelText = "Successfully called " + serviceName + " service";
-                statusBox->setText(QString(labelText.c_str()));
+                statusBox->append(QString(labelText.c_str()));
                 return true;
             } else {
                 labelText = serviceName + " service failed: " + serviceRequest.response.message;
-                statusBox->setText(QString(labelText.c_str()));
+                statusBox->append(QString(labelText.c_str()));
                 return false;
             }
         } else {
             labelText = "Failed to call " + serviceName + " service" + serviceRequest.response.message;
-            statusBox->setText(QString(labelText.c_str()));
+            statusBox->append(QString(labelText.c_str()));
             return false;
         }
     }
     bool ControlPanel::callListGraphService(spot_msgs::ListGraph serviceRequest) {
         std::string labelText = "Calling list graph service";
-        statusBox->setText(QString(labelText.c_str()));
+        statusBox->append(QString(labelText.c_str()));
         return listGraphService_.call(serviceRequest);
     }
 
@@ -232,8 +233,8 @@ namespace navi_panel
         QString joined_waypoints = "";
         for (int i = 0; i < waypoints_list.size(); i++) {
             joined_waypoints += QString::fromUtf8((waypoints_list.at(i) + std::string("\n")).c_str());
+            statusBox->append(QString::fromUtf8(waypoints_list.at(i).c_str()));
         }
-        statusBox->setText(joined_waypoints);
 
         return;
     }
@@ -251,7 +252,14 @@ namespace navi_panel
         spot_msgs::GraphRecording req;
         req.request.path = std::string("");
         callGraphRecordingServices(clearGraphService_, "clear graph", req);
-        
+        std_srvs::Trigger srv_call;
+        ros::service::waitForService("/spot/graph_waypoints/clear", ros::Duration(5));
+
+        if (clearWaypointService_.call(srv_call)) {
+            ROS_INFO("%d : %s", srv_call.response.success, srv_call.response.message.c_str());
+        } else {
+            ROS_ERROR("Failed to call 'graph_waypoints/clear' service. Is the graph still recording?");
+        }
 
         return;
     }
