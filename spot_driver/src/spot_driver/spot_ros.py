@@ -376,8 +376,8 @@ class SpotROS:
     
     def create_waypoint_message(self, id, tform):
         pose_msg = Pose()
-        pose_msg.position = Point(tform.position.x, tform.position.y, tform.position.z)
-        pose_msg.orientation = QuatMessage(tform.rotation.x, tform.rotation.y, tform.rotation.z, tform.rotation.w)
+        pose_msg.position = Point(tform.x, tform.y, tform.z)
+        pose_msg.orientation = QuatMessage(tform.rot.x, tform.rot.y, tform.rot.z, tform.rot.w)
         waypoint= GraphWaypoint()
         waypoint.waypoint_id = id
         waypoint.pose = pose_msg
