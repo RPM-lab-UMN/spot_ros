@@ -1363,7 +1363,7 @@ class SpotWrapper:
         """
         graph = self._graph_nav_client.download_graph()
         edges = graph.edges
-        ids_to_waypoint_poses = {wp.id: wp.waypoint_tform_ko for wp in graph.waypoints}
+        ids_to_waypoint_poses = {wp.id: bdSE3Pose.from_proto(wp.waypoint_tform_ko).inverse() for wp in graph.waypoints}
         publishable_edges = []
         for edge in edges:
             publishable_edges.append((edge.id.from_waypoint, edge.id.to_waypoint))
