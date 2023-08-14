@@ -1,3 +1,4 @@
 <launch>
   <node name="rviz" pkg="rviz" type="rviz" args="-d $(find spot_viz)/rviz/hachi.rviz" />
+  <node name="nav_markers" pkg="navi_panel" type="nav_markers" />
 </launch>
