@@ -10,6 +10,8 @@
 #include <string.h>
 #include <spot_msgs/ListGraph.h>
 #include <spot_msgs/GraphRecording.h>
+#include <std_msgs/Trigger.h>
+#include <std_msgs/TriggerResponse.h>
 #include "ros/ros.h"
 
 
@@ -44,6 +46,7 @@ namespace navi_panel
         uploadGraphService_ = nh_.serviceClient<spot_msgs::GraphRecording>("/spot/upload_graph");
         listGraphService_ = nh_.serviceClient<spot_msgs::ListGraph>("/spot/list_graph");
         clearGraphService_ = nh_.serviceClient<spot_msgs::GraphRecording>("/spot/clear_graph");
+        clearWaypointService_ = nh_.serviceClient<std_msgs::Trigger>("/spot/graph_waypoints/clear");
 
         // setup ROS action client for navigation commands
         
@@ -249,6 +252,7 @@ namespace navi_panel
         spot_msgs::GraphRecording req;
         req.request.path = std::string("");
         callGraphRecordingServices(clearGraphService_, "clear graph", req);
+        clearWaypointService_.call()
 
         return;
     }
