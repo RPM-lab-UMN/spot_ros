@@ -1744,7 +1744,7 @@ class SpotROS:
             self.publish_mobility_params, self.rates["mobility_params"]
         )
         rate_limited_motion_allowed = RateLimitedCall(self.publish_allow_motion, 10)
-        rate_limited_graph_points = RateLimitedCall(self.publish_graph_points, 0.5)
+        rate_limited_graph_points = RateLimitedCall(self.publish_graph_points, 0.2)
         rospy.loginfo("Driver started")
         while not rospy.is_shutdown():
             self.spot_wrapper.updateTasks()

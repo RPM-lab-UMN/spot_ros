@@ -83,7 +83,18 @@ namespace navi_panel
     // Setup functions
     void ControlPanel::setupRecordingPanel() {
         recordingToggleButton = this->findChild<QPushButton*>("recordingToggleButton");
-        recordingToggleButton->setText(QString::fromUtf8("Start Recording"));
+        spot_msgs::GraphRecording initalRecordingState;
+        initalRecordingState.request.path = std::string("");
+        // check whether robot is already recording
+        callGraphRecordingServices(getRecordingStatusService_, "get recording status", initalRecordingState);
+        if (initalRecordingState.response.success) {
+            isRecording = true;
+            recordingToggleButton->setText(QString::fromUtf8("Stop Recording"));
+        }
+        else {
+            isRecording = false;
+            recordingToggleButton->setText(QString::fromUtf8("Start Recording"));
+        }
         QPalette pal = recordingToggleButton->palette();
         pal.setColor(QPalette::Button, QColor(255, 85, 90));
         recordingToggleButton->setAutoFillBackground(true);
