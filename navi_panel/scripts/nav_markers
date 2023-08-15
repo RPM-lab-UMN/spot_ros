@@ -71,7 +71,6 @@ def main():
 
     eg_sub = rospy.Subscriber("spot/graph_edges", GraphEdge, _handle_eg_message)
 
-
     # Trigger service for clearing graph markers and localization setting
     def _clear_markers(req):
         manager.clear_localization()

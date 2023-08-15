@@ -81,8 +81,7 @@ def create_edge_marker(start, end, reference_frame="odom"):
 
     marker = Marker()
     marker.type = Marker.ARROW
-    marker.points[0] = start.pose.position
-    marker.points[1] = end.pose.position
+    marker.points = [start.pose.position, end.pose.position]
     marker.color.r = UNSELECTED_R
     marker.color.g = UNSELECTED_G
     marker.color.b = UNSELECTED_B
