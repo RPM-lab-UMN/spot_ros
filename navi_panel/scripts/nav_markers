@@ -4,7 +4,7 @@ from interactive_markers.interactive_marker_server import *
 from interactive_markers.menu_handler import *
 from visualization_msgs.msg import *
 from geometry_msgs.msg import Pose
-from spot_msgs.msg import GraphWaypoint
+from spot_msgs.msg import GraphWaypoint, GraphEdge
 from std_srvs.srv import Trigger, TriggerResponse
 
 import numpy as np
@@ -12,6 +12,7 @@ import rospy
 
 from interactive_marker_utils import (
     create_waypoint_marker,
+    create_edge_marker,
     SetLocalizationCallback,
     NavigateCallback,
     StateManager
@@ -23,17 +24,9 @@ def main():
     server = InteractiveMarkerServer("navigation_waypoints")
     manager = StateManager(server)
 
-    # ##############################
-    # # Dummy markers for testing
-    # marker1 = create_waypoint_marker("marker1", reference_frame="base_link", position=[1, 0, 0.3])
-    # marker2 = create_waypoint_marker("marker2", reference_frame="base_link", position=[-1, 0, 0.3])
-    #
-    # server.insert(marker2, lambda feedback: feedback)
-    # server.insert(marker1, lambda feedback: feedback)
-    # ##############################
-
-    def _handle_message(msg):
-        rospy.loginfo("Received")
+    # waypoint message handler
+    def _handle_wp_message(msg):
+        rospy.loginfo("Received waypoint message.")
 
         wp_id = msg.waypoint_id
         pose = msg.pose
@@ -61,7 +54,21 @@ def main():
 
         server.applyChanges()
 
-    sub = rospy.Subscriber("spot/graph_waypoints/set", GraphWaypoint, _handle_message)
+    sub = rospy.Subscriber("spot/graph_waypoints/set", GraphWaypoint, _handle_wp_message)
+
+    # edge message handler
+    def _handle_eg_message(msg):
+        rospy.loginfo("Received edge message.")
+
+        _from = msg.from_wp
+        _to = msg.to_wp
+
+        rospy.loginfo(f"Creating edge marker from {_from.waypoint_id} to {_to.waypoint_id}")
+        int_marker = create_edge_marker(_from, _to)
+
+        server.insert(int_marker, lambda feedback: feedback)
+        server.applyChanges()
+
 
     # Trigger service for clearing graph markers and localization setting
     def _clear_markers(req):
@@ -74,19 +81,6 @@ def main():
         )
 
     clear_service = rospy.Service("spot/graph_waypoints/clear", Trigger, _clear_markers)
-
-    # ##############################
-    # # Dummy marker menus
-    # mh = MenuHandler()
-    # mh.insert("Set localization", callback=SetLocalizationCallback(marker1, manager))
-    # mh.insert("Navigate to", callback=NavigateCallback(manager))
-    # mh.apply(server, marker1.name)
-    #
-    # mh = MenuHandler()
-    # mh.insert("Set localization", callback=SetLocalizationCallback(marker2, manager))
-    # mh.insert("Navigate to", callback=NavigateCallback(manager))
-    # mh.apply(server, marker2.name)
-    # ##############################
 
     server.applyChanges()
     rospy.spin()
