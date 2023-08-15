@@ -16,6 +16,9 @@ UNSELECTED_B = 0.67
 SELECTED_R = 0.05
 SELECTED_G = 0.45
 SELECTED_B = 0.98
+ARROW_R = 0.2
+ARROW_G = 0.8
+ARROW_B = 0.2
 
 
 def create_waypoint_marker(wp_id, pose, reference_frame='odom'):
@@ -82,13 +85,13 @@ def create_edge_marker(start, end, reference_frame="odom"):
     marker = Marker()
     marker.type = Marker.ARROW
     marker.points = [start.pose.position, end.pose.position]
-    marker.color.r = UNSELECTED_R
-    marker.color.g = UNSELECTED_G
-    marker.color.b = UNSELECTED_B
+    marker.color.r = ARROW_R
+    marker.color.g = ARROW_G
+    marker.color.b = ARROW_B
     marker.color.a = 1.0
-    marker.scale.x = 0.5
-    marker.scale.y = 0.5
-    marker.scale.z = 0.5
+    marker.scale.x = 0.1    # shaft diameter
+    marker.scale.y = 0.15    # head diameter
+    marker.scale.z = 0.0    # head length (when nonzero)
     marker_control.markers.append(marker)
 
     return int_marker_msg
