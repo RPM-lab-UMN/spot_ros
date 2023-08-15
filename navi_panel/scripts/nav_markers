@@ -54,7 +54,7 @@ def main():
 
         server.applyChanges()
 
-    sub = rospy.Subscriber("spot/graph_waypoints/set", GraphWaypoint, _handle_wp_message)
+    wp_sub = rospy.Subscriber("spot/graph_waypoints/set", GraphWaypoint, _handle_wp_message)
 
     # edge message handler
     def _handle_eg_message(msg):
@@ -68,6 +68,8 @@ def main():
 
         server.insert(int_marker, lambda feedback: feedback)
         server.applyChanges()
+
+    eg_sub = rospy.Subscriber("spot/graph_edges", GraphEdge, _handle_eg_message)
 
 
     # Trigger service for clearing graph markers and localization setting
