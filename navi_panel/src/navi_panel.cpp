@@ -185,7 +185,7 @@ namespace navi_panel
     // Qt slot functions
     void ControlPanel::recordingToggle() {
         QPalette pal = recordingToggleButton->palette();
-        clearGraphButton = this->findChild<QPushButton*>("clearGraphButton")
+        clearGraphButton = this->findChild<QPushButton*>("clearGraphButton");
 
         if (isRecording) {
             logStatus(QString::fromUtf8("Stopping recording..."));
