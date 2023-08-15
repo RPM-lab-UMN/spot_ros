@@ -7,7 +7,7 @@ Panels:
         - /Global Options1
         - /Status1
         - /TF1/Frames1
-        - /InteractiveMarkers2
+        - /Nav Markers1
       Splitter Ratio: 0.5
     Tree Height: 461
   - Class: rviz/Selection
@@ -402,7 +402,7 @@ Visualization Manager:
     - Class: rviz/InteractiveMarkers
       Enable Transparency: true
       Enabled: true
-      Name: InteractiveMarkers
+      Name: Chair Marker
       Show Axes: true
       Show Descriptions: true
       Show Visual Aids: false
@@ -583,7 +583,7 @@ Visualization Manager:
     - Class: rviz/InteractiveMarkers
       Enable Transparency: true
       Enabled: true
-      Name: InteractiveMarkers
+      Name: Nav Markers
       Show Axes: false
       Show Descriptions: true
       Show Visual Aids: false

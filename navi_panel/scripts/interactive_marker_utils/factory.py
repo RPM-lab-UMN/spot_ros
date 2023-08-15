@@ -91,7 +91,7 @@ def create_edge_marker(start, end, reference_frame="odom"):
     marker.color.a = 1.0
     marker.scale.x = 0.1    # shaft diameter
     marker.scale.y = 0.15    # head diameter
-    marker.scale.z = 0.0    # head length (when nonzero)
+    marker.scale.z = 0.3    # head length (when nonzero)
     marker_control.markers.append(marker)
 
     return int_marker_msg
