@@ -1491,17 +1491,19 @@ class SpotWrapper:
         # Navigate to the destination waypoint.
         is_finished = False
         nav_to_cmd_id = -1
-        obstacle_detected = self.detect_obstacles_near_spot()
+        obstacle_detected_response = self.detect_obstacles_near_spot()
         while not is_finished:
             # Issue the navigation command about twice a second such that it is easy to terminate the
             # navigation command (with estop or killing the program).
-            if obstacle_detected:
+            if obstacle_detected_response[0]:
                 self._logger.info("Obstacle detected, removing it from path")
                 grid = self.get_obstacle_distance_grid()
                 self.obstacle_protocol(grid)
+                # this will give the location of the obstacle
+                self._logger.info(str(obstacle_detected[1]))
                 break
             nav_to_cmd_id = self._graph_nav_client.navigate_to(
-                destination_waypoint, 1.0, leases=[sublease.lease_proto]
+                destination_waypoint, 0.5, leases=[sublease.lease_proto]
             )
             obstacle_detected = self.detect_obstacles_near_spot()
             time.sleep(0.05)  # Sleep 0.05 seconds to allow for command execution.
@@ -1840,7 +1842,8 @@ class SpotWrapper:
         """
         Purpose: detect whether points around spot are within a certain distance threshold of an obstacle
         Parameters: threshold, the maximum distance you want to allow spot to be from an obstacle.
-        Returns: Boolean, True if any points on spot's body are within the threshold distance of an obstacle, False otherwise
+        Returns: Tuple containing a Boolean, whether any points on spot's body are within the threshold distance of an obstacle,
+            and a SE3Pose estimating where the obstacle is, in spot's body frame
         """
         # get a list of points on the edges of spots body
         poses = []
@@ -1849,11 +1852,12 @@ class SpotWrapper:
         for x in range(-1, 2):
             for y in range(-1, 2):
                 poses.append(bdSE3Pose(x * length / 2 , y * width / 2, 0, bdQuat()))
-        distances = self.check_proximity_to_obstacles(poses)
-        for distance in distances:
-            if distance < threshold:
-                return True
-        return False
+        distances_list = self.check_proximity_to_obstacles(poses)
+        closest_pose = poses[distances_list.index(min(distances_list))]
+        if min(distances_list) < threshold:
+            # TODO: pad this with the distance to approximate the obstacle's location
+            return True, closest_pose
+        return False, None
         
     
         
