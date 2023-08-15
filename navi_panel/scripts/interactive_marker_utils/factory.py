@@ -58,3 +58,38 @@ def create_waypoint_marker(wp_id, pose, reference_frame='odom'):
     marker_control.markers.append(marker)
 
     return int_marker_msg
+
+
+def create_edge_marker(start, end, reference_frame="odom"):
+    """
+    Creates an arrow marker pointing from the marker at :start: to the marker at :end:
+
+    Args:
+        start: the interactive marker the arrow starts at
+        end: the interactive marker the arrow ends at
+    """
+
+    int_marker_msg = InteractiveMarker()
+    int_marker_msg.header.frame_id = reference_frame
+    int_marker_msg.name = "edge:" + start.waypoint_id + "->" + end.waypoint_id
+
+    marker_control = InteractiveMarkerControl()
+    marker_control.interaction_mode = InteractiveMarkerControl.NONE
+    marker_control.always_visible = True
+    marker_control.name = "edge-control"
+    int_marker_msg.controls.append(marker_control)
+
+    marker = Marker()
+    marker.type = Marker.ARROW
+    marker.points[0] = start.pose.position
+    marker.points[1] = end.pose.position
+    marker.color.r = UNSELECTED_R
+    marker.color.g = UNSELECTED_G
+    marker.color.b = UNSELECTED_B
+    marker.color.a = 1.0
+    marker.scale.x = 0.5
+    marker.scale.y = 0.5
+    marker.scale.z = 0.5
+    marker_control.markers.append(marker)
+
+    return int_marker_msg
