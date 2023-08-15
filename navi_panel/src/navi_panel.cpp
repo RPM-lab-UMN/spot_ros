@@ -84,18 +84,24 @@ namespace navi_panel
     // Setup functions
     void ControlPanel::setupRecordingPanel() {
         recordingToggleButton = this->findChild<QPushButton*>("recordingToggleButton");
+        clearGraphButton = this->findChild<QPushButton*>("clearGraphButton");
+
         spot_msgs::GraphRecording initalRecordingState;
         initalRecordingState.request.path = std::string("");
+
         // check whether robot is already recording
         callGraphRecordingServices(getRecordingStatusService_, "get recording status", initalRecordingState);
         if (initalRecordingState.response.success) {
             isRecording = true;
             recordingToggleButton->setText(QString::fromUtf8("Stop Recording"));
+            clearGraphButton->setDisabled(true);
         }
         else {
             isRecording = false;
             recordingToggleButton->setText(QString::fromUtf8("Start Recording"));
+            clearGraphButton->setDisabled(false);
         }
+
         QPalette pal = recordingToggleButton->palette();
         pal.setColor(QPalette::Button, QColor(255, 85, 90));
         recordingToggleButton->setAutoFillBackground(true);
@@ -179,6 +185,7 @@ namespace navi_panel
     // Qt slot functions
     void ControlPanel::recordingToggle() {
         QPalette pal = recordingToggleButton->palette();
+        clearGraphButton = this->findChild<QPushButton*>("clearGraphButton")
 
         if (isRecording) {
             logStatus(QString::fromUtf8("Stopping recording..."));
@@ -189,6 +196,9 @@ namespace navi_panel
             recTimer->stop();
             recElapsedTime.setHMS(0, 0, 0);
             recordingTime->display(recElapsedTime.toString("mm:ss"));
+
+            // Enable "clear graph" button
+            clearGraphButton->setDisabled(false);
 
             spot_msgs::GraphRecording req;
             req.request.path = std::string("");
@@ -202,6 +212,9 @@ namespace navi_panel
 
             // start recording timer
             recTimer->start(1000);
+
+            // Disable "clear graph" button
+            clearGraphButton->setDisabled(true);
 
 
             spot_msgs::GraphRecording req;
