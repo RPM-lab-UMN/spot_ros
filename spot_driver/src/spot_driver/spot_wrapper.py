@@ -341,6 +341,7 @@ class SpotWrapper:
 
             self._robot_id = None
             self._lease = None
+            self._nav_interruption_callbacks = []
             
     def _make_image_service(self, cb_name, data_requester):
         '''Helper function to create an AsyncImageService'''
@@ -1456,6 +1457,9 @@ class SpotWrapper:
                 "Upload complete! The robot is currently not localized to the map; please localize",
                 "the robot before attempting a navigation command.",
             )
+    def register_nav_interruption_callback(self, callback):
+        """register ros callbacks to execute when spot detects an obstacle during navigation"""
+        self._nav_interruption_callbacks.append(callback)
 
     def _navigate_to(self, *args):
         """Navigate to a specific waypoint."""
@@ -1476,12 +1480,12 @@ class SpotWrapper:
         )
         if not destination_waypoint:
             # Failed to find the appropriate unique waypoint id for the navigation command.
-            return
+            return False, "Destination waypoint not found"
         if not self.toggle_power(should_power_on=True):
             self._logger.info(
                 "Failed to power on the robot, and cannot complete navigate to request."
             )
-            return
+            return False, "Failed to power on the robot, and cannot complete navigate to request."
 
         # Stop the lease keepalive and create a new sublease for graph nav.
         self._lease = self._lease_wallet.advance()
@@ -1497,10 +1501,16 @@ class SpotWrapper:
             # navigation command (with estop or killing the program).
             if obstacle_detected_response[0]:
                 self._logger.info("Obstacle detected, removing it from path")
+                obstacle_feedback = {}
                 grid = self.get_obstacle_distance_grid()
-                self.obstacle_protocol(grid)
-                # this will give the location of the obstacle
+                # send the location of where to move the obstacle in spot's body frame
+                obstacle_feedback["obstacle_destination_body"] = self.obstacle_protocol(grid)
+                # send the rough location of the obstacle in spot's body frame
+                obstacle_feedback["obstacle_location_body"] = obstacle_detected[1]
                 self._logger.info(str(obstacle_detected[1]))
+                for callback in self._nav_interruption_callbacks:
+                    callback(obstacle_feedback)
+                    self._logger.info("Callback made to send obstacle movement command")
                 break
             nav_to_cmd_id = self._graph_nav_client.navigate_to(
                 destination_waypoint, 0.5, leases=[sublease.lease_proto]
@@ -1838,7 +1848,7 @@ class SpotWrapper:
             else:
                 distances.append(obstacle_distance_grid[grid_coordinates[0]][grid_coordinates[1]])
         return distances
-    def detect_obstacles_near_spot(self, threshold = 0.50):
+    def detect_obstacles_near_spot(self, threshold = 0.5):
         """
         Purpose: detect whether points around spot are within a certain distance threshold of an obstacle
         Parameters: threshold, the maximum distance you want to allow spot to be from an obstacle.
@@ -1855,7 +1865,14 @@ class SpotWrapper:
         distances_list = self.check_proximity_to_obstacles(poses)
         closest_pose = poses[distances_list.index(min(distances_list))]
         if min(distances_list) < threshold:
-            # TODO: pad this with the distance to approximate the obstacle's location
+            # add the distance detected by the obstacle grid to the closest pose
+            self._logger.info(str(closest_pose))
+            closest_pos_vec3 = math_helpers.Vec3.from_proto(closest_pose)
+            vector_offset = closest_pos_vec3 / closest_pos_vec3.length() * min(distances_list)
+            self._logger.info(min(distances_list))
+            self._logger.info(str(vector_offset))
+            closest_pose = bdSE3Pose(closest_pose.x + vector_offset.x, closest_pose.y + vector_offset.y, closest_pose.z + vector_offset.z, bdQuat())
+            self._logger.info(str(closest_pose))
             return True, closest_pose
         return False, None
         

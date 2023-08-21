@@ -37,6 +37,7 @@ from spot_msgs.msg import PoseBodyAction, PoseBodyGoal, PoseBodyResult
 from spot_msgs.msg import Feedback
 from spot_msgs.msg import MobilityParams, ObstacleParams, TerrainParams
 from spot_msgs.msg import NavigateToAction, NavigateToResult, NavigateToFeedback
+from spot_msgs.msg import ObstacleMoveAction, ObstacleMoveResult, ObstacleMoveFeedback
 from spot_msgs.msg import TrajectoryAction, TrajectoryResult, TrajectoryFeedback
 from spot_msgs.msg import GraphEdge, GraphWaypoint
 from spot_msgs.srv import ListGraph, ListGraphResponse
@@ -1193,6 +1194,26 @@ class SpotROS:
         else:
             self.navigate_as.set_aborted(NavigateToResult(resp[0], resp[1]))
 
+    def send_obstacle_removal_request(self, obstacle_info):
+        rospy.loginfo("Sending obstacle movement request")
+        location = Pose(obstacle_info["obstacle_location_body"].x,
+                               obstacle_info["obstacle_location_body"].y,
+                               obstacle_info["obstacle_location_body"].z,
+                               obstacle_info["obstacle_location_body"].rot.x,
+                               obstacle_info["obstacle_location_body"].rot.y,
+                               obstacle_info["obstacle_location_body"].rot.z,
+                               obstacle_info["obstacle_location_body"].rot.w)
+        destination = Pose(obstacle_info["obstacle_destination_body"].x,
+                               obstacle_info["obstacle_destination_body"].y,
+                               obstacle_info["obstacle_destination_body"].z,
+                               obstacle_info["obstacle_destination_body"].rot.x,
+                               obstacle_info["obstacle_destination_body"].rot.y,
+                               obstacle_info["obstacle_destination_body"].rot.z,
+                               obstacle_info["obstacle_destination_body"].rot.w)
+        request = ObstacleMoveAction(location, destination)
+        rospy.loginfo(str(request))
+        return request
+
     def populate_camera_static_transforms(self, image_data):
         """Check data received from one of the image tasks and use the transform snapshot to extract the camera frame
         transforms. This is the transforms from body->frontleft->frontleft_fisheye, for example. These transforms
@@ -1449,7 +1470,8 @@ class SpotROS:
             self.rates,
             self.callbacks,
         )
-
+        # register callback for moving obstacles
+        self.spot_wrapper.register_nav_interruption_callback(self.send_obstacle_removal_request)
         # add graph nav wrapper to the ros wrapper
         self.graph_nav_wrapper = GraphNav(self.spot_wrapper._robot, self.spot_wrapper._logger)
 
