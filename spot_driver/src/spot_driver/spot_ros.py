@@ -70,8 +70,9 @@ from spot_msgs.srv import HandPose, HandPoseResponse, HandPoseRequest
 from .ros_helpers import *
 from .spot_wrapper import SpotWrapper
 from .utils.spot_task_wrapper import SpotTaskWrapper
-from .utils.ros_wrappers.gripper_action import GraspActionServer, MoveActionServer
+from .utils.ros_wrappers.gripper_action import GraspActionServer, MoveActionServer, MultiGraspActionServer
 from .utils.ros_pointcloud import images_to_pointcloud2
+from .utils.task_state_publisher import TaskStatePublisher
 from .utils.graphNav_wrapper import GraphNav
 import actionlib
 import logging
@@ -363,7 +364,7 @@ class SpotROS:
 
     def RearPointcloudCB(self, results):
         self._colored_points_pub_helper(0, 2, results, self.rear_points_pub)
-    
+
     def publish_graph_points(self):
         waypoints_and_edges = self.spot_wrapper.extract_waypoint_and_edge_points()
         waypoint_messages = {}
@@ -374,7 +375,7 @@ class SpotROS:
         for edge in waypoints_and_edges[1]:
             edge_msg = GraphEdge(waypoint_messages[edge[0]], waypoint_messages[edge[1]])
             self.graph_edges_pub.publish(edge_msg)
-    
+
     def create_waypoint_message(self, id, tform):
         pose_msg = Pose()
         pose_msg.position = Point(tform.x, tform.y, tform.z)
@@ -857,6 +858,9 @@ class SpotROS:
                     TrajectoryResult(False, "Could not transform pose into body frame")
                 )
                 return
+
+        self.publish_task_state('goto', target_pose, 'running')
+
         if req.duration.data.to_sec() <= 0:
             self.trajectory_server.set_aborted(
                 TrajectoryResult(False, "duration must be larger than 0")
@@ -875,6 +879,8 @@ class SpotROS:
             trajectory_server.set_aborted(
                 TrajectoryResult(False, "Failed to reach goal, timed out")
             )
+            self.publish_task_state.terminal('goto', target_pose, 'failure')
+
 
         # Abort the actionserver if cmd_duration is exceeded - the driver stops but does not provide feedback to
         # indicate this so we monitor it ourselves
@@ -943,6 +949,8 @@ class SpotROS:
                     TrajectoryFeedback("Reached goal")
                 )
                 self.trajectory_server.set_succeeded(TrajectoryResult(resp[0], resp[1]))
+                self.publish_task_state.terminal('goto', target_pose, 'success')
+
             else:
                 self.trajectory_server.publish_feedback(
                     TrajectoryFeedback("Failed to reach goal")
@@ -950,6 +958,7 @@ class SpotROS:
                 self.trajectory_server.set_aborted(
                     TrajectoryResult(False, "Failed to reach goal")
                 )
+                self.publish_task_state.terminal('goto', target_pose, 'failure')
 
     def handle_roll_over_right(self, req):
         """Robot sit down and roll on to it its side for easier battery access"""
@@ -977,7 +986,7 @@ class SpotROS:
         """Get docking state of robot"""
         resp = self.spot_wrapper.get_docking_state()
         return GetDockStateResponse(GetDockStatesFromState(resp))
-    
+
     def handle_start_record(self, req):
         """Start recording a GraphNav map"""
         resp = self.graph_nav_wrapper.record()
@@ -1013,7 +1022,7 @@ class SpotROS:
         self.logger.info(self.spot_wrapper._clear_graph())
         return True, "Graph Cleared"
 
-    
+
 
     def _send_trajectory_command(self, pose, duration, precise=True):
         """
@@ -1734,8 +1743,18 @@ class SpotROS:
         self.task_wrapper = SpotTaskWrapper(self.spot_wrapper, self.logger)
         self._gripper_action_server = GraspActionServer(self, 'grasp')
         self._gripper_action_server = MoveActionServer(self, 'manipulate')
+        self._multigrasp_action_server = MultiGraspActionServer(self, 'multigrasp')
 
         #########################################################
+
+        # Task State Publisher
+        if rospy.has_param('~task_state_pub_topic'):
+            self.publish_task_state = TaskStatePublisher(
+                topic_name = rospy.get_param("~task_state_pub_topic", 'task_state'),
+                frequency= rospy.get_param("~task_state_pub_rate", 5),
+            )
+        else: self.publish_task_state = lambda *args, **kwargs: None
+
         # Stop service calls other services so initialise it after them to prevent crashes which can happen if
         # the service is immediately called
         rospy.Service("stop", Trigger, self.handle_stop)

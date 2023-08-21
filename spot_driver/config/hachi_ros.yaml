@@ -19,3 +19,6 @@ rates:
 auto_claim: False
 auto_power_on: False
 auto_stand: False
+
+task_state_pub_topic: '/spot/task_state'
+task_state_pub_rate: 10

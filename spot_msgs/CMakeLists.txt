@@ -38,6 +38,7 @@ add_message_files(
   ObstacleParams.msg
   TerrainParams.msg
   TerrainState.msg
+  TaskState.msg
 )
 
 add_service_files(
@@ -67,6 +68,7 @@ add_action_files(
   Trajectory.action
   Gripper.action
   ObstacleMove.action
+  MultiGrasp.action
 )
 
 generate_messages(

@@ -81,6 +81,26 @@ class AsyncImageService(AsyncPeriodicQuery):
             return callback_future
 
 
+class AsyncLocalGrid(AsyncPeriodicQuery):
+    """Class to get local grids at regular intervals. get_local_grids_async query sent to the robot at every tick.
+
+    Attributes:
+        client: The Client to a service on the robot
+        logger: Logger object
+        rate: Rate (Hz) to trigger the query
+    """
+
+    def __init__(self, client, logger, rate, local_grid_requests):
+        super(AsyncLocalGrid, self).__init__(
+            "robot_local_grid_service", client, logger, period_sec=1.0 / max(rate, 1.0)
+        )
+        self._local_grid_requests = local_grid_requests
+
+    def _start_query(self):
+        callback_future = self._client.get_local_grids_async(self._local_grid_requests)
+        return callback_future
+
+
 class AsyncIdle(AsyncPeriodicQuery):
     """Class to check if the robot is moving, and if not, command a stand with the set mobility parameters
 

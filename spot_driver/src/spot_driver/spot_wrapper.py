@@ -40,6 +40,7 @@ from bosdyn.api.graph_nav import graph_nav_pb2
 from bosdyn.api.graph_nav import map_pb2
 from bosdyn.api.graph_nav import nav_pb2
 from bosdyn.client.estop import EstopClient, EstopEndpoint, EstopKeepAlive
+from bosdyn.client.local_grid import LocalGridClient
 from bosdyn.client import power
 from bosdyn.client import frame_helpers
 from bosdyn.client import math_helpers
@@ -73,7 +74,7 @@ from bosdyn.util import seconds_to_duration
 from google.protobuf.duration_pb2 import Duration
 from google.protobuf.timestamp_pb2 import Timestamp
 
-from .utils.asynchronous_tasks import AsyncMetrics, AsyncLease, AsyncImageService, AsyncIdle, AsyncEStopMonitor
+from .utils.asynchronous_tasks import AsyncMetrics, AsyncLease, AsyncImageService, AsyncIdle, AsyncEStopMonitor, AsyncLocalGrid
 from bosdyn.client.robot_command import block_until_arm_arrives
 
 """List of image sources for front image periodic query"""
@@ -315,6 +316,13 @@ class SpotWrapper:
             self._estop_endpoint = self._estop_keepalive = None
             self._estop_monitor = AsyncEStopMonitor(self._estop_client, self._logger, 20.0, self)
 
+            self._local_grids_task = AsyncLocalGrid(
+                    self._local_grid_client,
+                    self._logger,
+                    10.0,
+                    ['terrain', 'terrain_valid', 'no_step', 'obstacle_distance', 'intensity']
+                )
+
             self._async_tasks = AsyncTasks([])
             def _add_task(task): 
                 if task: self._async_tasks.add_task(task)
@@ -328,6 +336,7 @@ class SpotWrapper:
                 self._rear_image_task,
                 self._idle_task,
                 self._estop_monitor,
+                self._local_grids_task,
             ]: _add_task(t)
            
             if self._robot.has_arm():
@@ -342,7 +351,7 @@ class SpotWrapper:
             self._robot_id = None
             self._lease = None
             self._nav_interruption_callbacks = []
-            
+
     def _make_image_service(self, cb_name, data_requester):
         '''Helper function to create an AsyncImageService'''
         rate = max(0.0, self._rates.get(cb_name, 0.0))
@@ -404,6 +413,11 @@ class SpotWrapper:
     def hand_images(self):
         """Return latest proto from the _hand_image_task"""
         return self._hand_image_task.proto
+
+    @property
+    def local_grids(self):
+        """Return latest proto from the _local_grids_task"""
+        return self._local_grids_task.proto
 
     @property
     def is_standing(self):
@@ -785,7 +799,6 @@ class SpotWrapper:
             RobotCommandBuilder.battery_change_pose_command(dir_hint)
         )
         return response[0], response[1]
-        
 
     def navigate_to(
         self,
@@ -1300,7 +1313,7 @@ class SpotWrapper:
             # If no waypoint id is given as input, then return without initializing.
             self._logger.error("No waypoint specified to initialize to.")
             return
-        # waypoint id can either be passed in as a single string or a list of waypoints, 
+        # waypoint id can either be passed in as a single string or a list of waypoints,
         # in which case the first will be used.
         if isinstance(args[0], list):
             waypoint_id = args[0][0]
@@ -1370,7 +1383,7 @@ class SpotWrapper:
             publishable_edges.append((edge.id.from_waypoint, edge.id.to_waypoint))
 
         return ids_to_waypoint_poses, publishable_edges
-    
+
     def extract_point_clouds_from_graph(self):
         """
         Extract point cloud data from the robot's active GraphNav map.
@@ -1380,7 +1393,7 @@ class SpotWrapper:
         waypoints = graph.waypoints
         waypoint_snapshots = {}
         for waypoint in waypoints:
-            if len(waypoint.snapshot_id) > 0:               
+            if len(waypoint.snapshot_id) > 0:
                 try:
                     waypoint_snapshots[waypoint.snapshot_id] = self._graph_nav_client.download_waypoint_snapshot(
                         waypoint.snapshot_id)
@@ -1388,7 +1401,7 @@ class SpotWrapper:
                     # Failure in downloading waypoint snapshot. Continue to next snapshot.
                     self._logger.error("Failed to download waypoint snapshot: " + waypoint.snapshot_id)
         data = None
-        for wp in waypoints:        
+        for wp in waypoints:
             snapshot = waypoint_snapshots[wp.snapshot_id]
             cloud = snapshot.point_cloud
             odom_tform_cloud = get_a_tform_b(cloud.source.transforms_snapshot, ODOM_FRAME_NAME,
@@ -1757,13 +1770,13 @@ class SpotWrapper:
         """Get docking state of robot."""
         state = self._docking_client.get_docking_state(**kwargs)
         return state
-   
+
     def get_obstacle_distance_grid(self):
         """
         Gives the obstacle distance grid of the robot, which represents how close points surrounding the robot are
         to obstacles.
-        
-        returns: a 2-dimensional numpy array, with each entry (x, y) having a value representing how far away it is from 
+
+        returns: a 2-dimensional numpy array, with each entry (x, y) having a value representing how far away it is from
         the nearest obstacle. Distances are measured in cells, which are roughly 0.03 meters"""
         # get local grid proto
         obstacle_distance_proto = self._local_grid_client.get_local_grids(["obstacle_distance"])[0]
@@ -1776,7 +1789,7 @@ class SpotWrapper:
                 cells_pz_full.append(cells_pz[i])
         # get dimensions of obstacle_distance_grid, usually 128x128
         x_dim = obstacle_distance_proto.local_grid.extent.num_cells_x
-        y_dim = obstacle_distance_proto.local_grid.extent.num_cells_y  
+        y_dim = obstacle_distance_proto.local_grid.extent.num_cells_y
         full_cells_array = np.array(cells_pz_full)
         # reshape the distances list to fit the dimensions of the grid
         value_scale = obstacle_distance_proto.local_grid.cell_value_scale
@@ -1790,9 +1803,9 @@ class SpotWrapper:
     def _get_transform_to_local_grid(self, frame = BODY_FRAME_NAME):
         """
         Transform an SE3 pose into the obstacle_distance frame
-        Snapshots must be taken from the local grid instead of the robot_state client, 
+        Snapshots must be taken from the local grid instead of the robot_state client,
         so _transform_bd_pose cannot be used
-        Parameters: 
+        Parameters:
             frame: the reference frame of the transformation
         Returns a_tform_b transformation from the provided frame to the local grid
         """
@@ -1805,13 +1818,13 @@ class SpotWrapper:
         grid_frame = obstacle_distance_grid_proto.local_grid.frame_name_local_grid_data
         # get a transformation from the provided frame into the local grid frame
         return  get_a_tform_b(grid_snapshot, grid_frame, frame)
-    
+
     def _get_obstacle_grid_coordinates(self, pose, transform, obstacle_distance_grid_proto = None):
         """
         Get the coordinates of a pose in spot's obstacle_distance_grid
-        Parameters: 
+        Parameters:
             pose, a bdSE3pose to get the coordinates of
-            transform: A transformation of the pose into the obstacle_distance grid's frame. 
+            transform: A transformation of the pose into the obstacle_distance grid's frame.
                 This can be obtained by calling _get_transform_to_local_grid
             obstacle_distance_grid_proto: proto for obstacle distance grid obtained from the client.
                 if None (default), will be extracted from the local grid client.
@@ -1826,11 +1839,11 @@ class SpotWrapper:
         return grid_coordinates
     def check_proximity_to_obstacles(self, poses, frame = BODY_FRAME_NAME):
         """
-        Get the distance from the nearest obstacle of a given list of poses, in a given frame, using the 
+        Get the distance from the nearest obstacle of a given list of poses, in a given frame, using the
         obstacle_distance grid
         Parameters: poses (pbSE3), a list of positions to check,
                     frame: the frame the pose is in
-        Returns: the distance of the location in the pose from the nearest obstacle, in 
+        Returns: the distance of the location in the pose from the nearest obstacle, in
         meters
         """
         obstacle_distance_grid_proto = self._local_grid_client.get_local_grids(["obstacle_distance"])[0]
@@ -1875,9 +1888,9 @@ class SpotWrapper:
             self._logger.info(str(closest_pose))
             return True, closest_pose
         return False, None
-        
-    
-        
+
+
+
     def obstacle_protocol(self, grid, *args):
         """
         Purpose: Determines an open space to move an obstacle once the obstacle has been detected near spot
@@ -1915,7 +1928,7 @@ class SpotWrapper:
         self._logger.info("Body Frame translation: ")
         print(best_obstacle_destination_body_coords)
         return best_obstacle_destination_body_coords
-    
+
     def _find_safe_place_for_obstacle(self, grid_array, *args):
         """
         Purpose: Helper function to determine all the safe spaces to relocate the object
@@ -1937,7 +1950,7 @@ class SpotWrapper:
         if(len(Safe_places) == 0):
             self._logger.error("There are no safe places that could be found within the obstacle grid")
         return Safe_places
-    
+
     def _ensure_neighbors(self, i, j, grid):
         """
         Purpose: Helper function Confirm the immediate surroundings of a candidate safe point are also safe.
@@ -1956,16 +1969,16 @@ class SpotWrapper:
         max_x = max(i+8,rows-1)
         min_y = min(0,j-8)
         max_y = max(j+8,columns-1)
-        
+
         # Next, extract the subgrid from the input grid for checking all the values
         microgrid = grid[min_x:max_x][min_y:max_y]
         # Loop over microgrid to check neighboring values
         for x in range(len(microgrid)):
-            for y in range(len(microgrid[x])): 
+            for y in range(len(microgrid[x])):
                 if(microgrid[x][y] < 0.07):
                     return False
         return True
-    
+
     def _weed_out_locations(self, candidates, spot_position):
         """
         Purpose: Helper function that prunes the list of candidate points to find the best one

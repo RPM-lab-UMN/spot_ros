@@ -2,4 +2,5 @@
   <node name="rviz" pkg="rviz" type="rviz" args="-d $(find spot_viz)/rviz/hachi.rviz" />
   <node name="nav_markers" pkg="navi_panel" type="nav_markers" />
   <node name="apriltag detector" pkg="simple_scripts" type="apriltag_detector.py" />
+  <node name="chair marker" pkg="spot_viz" type="chair_marker" />
 </launch>

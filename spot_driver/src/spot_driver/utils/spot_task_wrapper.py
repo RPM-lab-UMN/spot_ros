@@ -1,5 +1,9 @@
 # Spot wrapper
 from ..spot_wrapper import SpotWrapper
+from ..ros_helpers import (get_numpy_data_type,
+                           expand_data_by_rle_count,
+                           unpack_grid,
+                           local_grid_value)
 
 # Messages
 from bosdyn.api import (robot_command_pb2,
@@ -28,7 +32,7 @@ from bosdyn.client.frame_helpers import (BODY_FRAME_NAME,
                                          ODOM_FRAME_NAME, 
                                          VISION_FRAME_NAME,
                                          get_se2_a_tform_b,
-                                         )
+                                         get_a_tform_b)
 
 from bosdyn.client.robot_command import (block_until_arm_arrives, block_for_trajectory_cmd)
 
@@ -41,8 +45,6 @@ from bosdyn.util import seconds_to_duration
 import numpy as np
 import logging
 import time
-
-
 
 # Temp
 from bosdyn.client import math_helpers
@@ -157,6 +159,52 @@ class SpotTaskWrapper:
         self._log.info('Succeeded')
         return True
     
+    def multigrasp(self, poses, base_weights, reference_frame:str, **kwargs):
+        """Reads a list of poses and selects the safest one to grasp
+        Inputs:
+            poses: A list of poses to select from
+            base_weights: Weights to apply when selecting a pose
+            reference_frame: The frame the poses are relative to
+        Returns:
+            A 2-tuple with the result and selected pose
+        """
+        # Find needed local grids
+        local_grids = self.spot.local_grids
+        no_step, obstacle_distance = None, None
+        for response in local_grids:
+            if response.local_grid_type_name == 'no_step':
+                no_step = response.local_grid
+            elif response.local_grid_type_name == 'obstacle_distance':
+                obstacle_distance = response.local_grid
+
+        if no_step == None or obstacle_distance == None:
+            raise Exception('Could not read local grids.')
+
+        # Unpack local grid data
+        no_step_data = unpack_grid(no_step)
+        obstacle_distance_data = unpack_grid(obstacle_distance)
+
+        effective_weights = list(base_weights)
+        for idx,pose in enumerate(poses):
+            pose = self._to_bd_se3(pose, reference_frame)
+            pose = self._offset_pose(pose, 1.0, 'x')
+            no_step_val = local_grid_value(no_step, pose, self.default_ref_frame, no_step_data)
+            if (no_step_val) < 0:
+                effective_weights[idx] = 0
+            else:
+                obst_dist_val = local_grid_value(obstacle_distance, pose, self.default_ref_frame, obstacle_distance_data)
+                effective_weights[idx] *= obst_dist_val
+
+        best_idx = 0
+        for idx, weight in enumerate(effective_weights):
+            if weight > effective_weights[best_idx]:
+                best_idx = idx
+
+        if effective_weights[best_idx] > 0:
+            result = self.grasp(poses[best_idx], reference_frame, **kwargs)
+            return (result, best_idx)
+
+        raise Exception('No safe grasp pose found')
 
     def move_object(self, pose, reference_frame:str, **kwargs):
         '''Commands the robot to move an object to a desired pose.'''
