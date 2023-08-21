@@ -1,0 +1,199 @@
+#!/usr/bin/env python3
+
+from spot_msgs.msg import (ObstacleMoveAction, ObstacleMoveGoal, ObstacleMoveResult, ObstacleMoveFeedback,
+                           MultiGraspAction, MultiGraspGoal, MultiGraspResult, MultiGraspFeedback,
+                           GripperAction, GripperGoal, GripperResult, GripperFeedback)
+from geometry_msgs.msg import Pose, PoseStamped
+from std_msgs.msg import Header
+from bosdyn.client.math_helpers import SE3Pose as bdSE3Pose
+from bosdyn.client.math_helpers import Quat as bdQuat
+from scipy.spatial.trainsform import Rotation as R
+
+import numpy as np
+import rospy
+import actionlib
+
+
+# !!! This class is copied from spot_viz/scripts/interactive_marker_utils. There is a TODO comment
+# saying to move it to an external library. Once that is done replace this class definition with an import
+class SE3Pose(bdSE3Pose):
+    '''
+    This class is a wrapper around bosdyn.client.math_helpers.SE3Pose.
+    It adds functions that are useful for ROS.'''
+
+    def __init__(self, x=0, y=0, z=0, rot=bdQuat(1, 0, 0, 0),
+                 reference_frame=None):
+        super().__init__(x, y, z, rot)
+        self.ref = reference_frame
+
+    @staticmethod
+    def from_ros_pose(pose: Pose):
+        p = pose.position
+        q = pose.orientation
+        se3 = SE3Pose(x=p.x, y=p.y, z=p.z,
+                      rot=bdQuat(x=q.x, y=q.y, z=q.z, w=q.w))
+        return se3
+
+    def to_ros_pose(self):
+        pose = Pose()
+        p = pose.position
+        p.x, p.y, p.z = self.x, self.y, self.z
+        q = pose.orientation
+        q.x, q.y, q.z, q.w = self.rot.x, self.rot.y, self.rot.z, self.rot.w
+        return pose
+
+    @staticmethod
+    def from_matrix(m):
+        return SE3Pose._from_super(bdSE3Pose.from_matrix(m))
+
+    def __mul__(self, other):
+        return self._from_super(super().__mul__(other))
+
+    @staticmethod
+    def _from_super(s):
+        return SE3Pose(x=s.x, y=s.y, z=s.z, rot=s.rot)
+
+
+class ObstacleMoverServer:
+    _feedback = ObstacleMoveFeedback()
+    _result = ObstacleMoveResult()
+
+    def __init__(self):
+        self._server = actionlib.SimpleActionServer(
+            "move_obstacle",
+            ObstacleMoveAction,
+            execute_cb=self._handle_action,
+            auto_start=False,
+        )
+
+        self._tag_sub = rospy.Subscriber("/tcpu", PoseStamped, self._handle_tag_pose)
+
+        self._mg_client = actionlib.SimpleActionClient("spot/multigrasp", MultiGraspAction)
+        self._mg_client.wait_for_server()
+        rospy.loginfo(f"Connected to multigrasp server.")
+
+        self._dg_client = actionlib.SimpleActionClient("spot/manipulate", GripperAction)
+
+        # NOTE: two offsets are required to get from the tag pose to the grasp pose. One to transform the tag's pose
+        #       to the center of the chair, and one to transform the center of the chair to the grasp position. This
+        #       is to maintain compatibility with the grasp offsets used in chair_marker, which allows for offsets to
+        #       be tested with Rviz using the interactive marker, then simply copied into here for use in navigation.
+        self._tags = [
+            {
+                # Back-of-chair tag
+                "id": 5,
+                "pose": None,
+                "tag offset": np.array([[-1.0,  0.0, 0.0, 0.0],
+                                        [0.0,  0.0, -1.0, 0.4],
+                                        [0.0, -1.0, 0.0,  0.25]]),
+                "grasps": [
+                    {
+                        'name': 'backrest left side',
+                        'grasp_t': [0.2, 0.15, 0.6],
+                        'grasp_R': [0.0, 2.22144147, 2.22144147],
+                        'multigrasp_enabled': True,
+                        'weight': 2
+                    },
+                    {
+                        'name': 'backrest right side',
+                        'grasp_t': [-0.2, 0.15, 0.6],
+                        'grasp_R': [1.57079632679, 0.0, 0.0],
+                        'multigrasp_enabled': True,
+                        'weight': 1
+                    }
+                ]
+            }
+        ]
+
+        self._server.start()
+
+    def _handle_action(self, goal):
+        rospy.loginfo("Beginning obstacle-move action.")
+
+        # unpack goal variables
+        self._feedback.feedback = "Unpacking goal fields"
+        self._server.publish_feedback(self._feedback)
+
+        start = goal.obstacle_location
+        end = goal.obstacle_destination
+
+        # calculate closest tagged object to obstacle position
+        self._feedback.feedback = "Calculating closest tagged object to obstacle location estimate"
+        self._server.publish_feedback(self._feedback)
+
+        # TODO implement once multiple tag detection is added
+        closest_tag_object = self._tags[0]
+        if closest_tag_object["pose"] is None:
+            rospy.logerror("No pose for apriltag- is the detector running?")
+            self._result.success = False
+            self._result.message = "No poses read for apriltag"
+            self._server.set_aborted(self._result)
+
+        # send multigrasp request
+        # offset stored in the "tag offset" key of the dictionary must be applied before multigrasp request is sent.
+        self._feedback.feedback = "Building multigrasp request"
+        self._server.publish_feedback(self._feedback)
+
+        pose_transformed = SE3Pose.from_ros_pose(closest_tag_object["pose"]) * closest_tag_object["tag offset"]
+        obj_pose = pose_transformed.to_ros_pose()
+
+        poses = [_get_perpendicular_pose(obj_pose, rot_vec=grasp["grasp_R"], offset=grasp["grasp_t"])
+                 for grasp in closest_tag_object["grasps"]]
+        weights = [grasp["weight"] for grasp in closest_tag_object["grasps"]]
+
+        self._feedback.feedback = "Executing multigrasp"
+        self._server.publish_feedback(self._feedback)
+
+        mg_goal = MultiGraspGoal(poses=poses, weights=weights, header=Header(frame_id="odom"))
+
+        self._mg_client.send_goal(mg_goal, feedback_cb=rospy.loginfo)
+        self._mg_client.wait_for_result()
+        mg_result = self._mg_client.get_result()
+
+        rospy.loginfo(mg_result)
+
+        if mg_result.success is False:
+            rospy.logerror("Multigrasp failed")
+            self._result.success = False
+            self._result.message = "Failed multigrasp"
+            self._server.set_aborted(self._result)
+
+        # send request to drag to destination pose
+        # TODO
+
+        # stow arm(?)
+        # TODO
+
+        # send result
+        self._result.success = True
+        self._result.message = "Successfully moved obstacle"
+        self._server.set_succeeded(self._result)
+
+    def _handle_tag_pose(self, msg):
+        # PLACEHOLDER till apriltag detector is updated to publish disambiguated tag poses
+        # TODO implement once multiple tag detection is added
+        rospy.loginfo("updating tag pose")
+        self._tags[0]["pose"] = msg.pose
+
+
+def _get_perpendicular_pose(pose, rot_vec=[0, 0, np.pi / 2], offset=[0.0, 0.0, 0.0]):
+    rot = R.from_rotvec(rot_vec)
+    quat = pose.orientation
+    pose_rot = R.from_quat([quat.x, quat.y, quat.z, quat.w])
+    pose_quat = (pose_rot * rot).as_quat()
+    quat.x, quat.y, quat.z, quat.w = pose_quat
+
+    print(f'offset: {offset}')
+    offset = pose_rot.as_matrix() @ np.array(offset).T
+    print(f'pose_rot.as_matrix(): {pose_rot.as_matrix()}')
+    p = pose.position
+    p.x += offset[0];
+    p.y += offset[1];
+    p.z += offset[2]
+    pose.position = p
+    print(pose.position)
+    return pose
+
+
+def main():
+    rospy.init_node("spot_obstacle_mover", anonymous=True)
