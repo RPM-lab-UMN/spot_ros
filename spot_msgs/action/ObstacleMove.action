@@ -1,0 +1,8 @@
+# action for removing obstacles encountered in graph_nav
+geometry_msgs/Pose obstacle_location # estimated location of obstacle in spot's body frame
+geometry_msgs/Pose obstacle_destination # destination for where to drag obstacle
+---
+bool success
+string message
+---
+string feedback 

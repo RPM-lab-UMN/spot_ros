@@ -66,6 +66,7 @@ add_action_files(
   PoseBody.action
   Trajectory.action
   Gripper.action
+  ObstacleMove.action
 )
 
 generate_messages(
