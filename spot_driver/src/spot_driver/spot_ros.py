@@ -1205,20 +1205,24 @@ class SpotROS:
 
     def send_obstacle_removal_request(self, obstacle_info):
         rospy.loginfo("Sending obstacle movement request")
-        location = Pose(obstacle_info["obstacle_location_body"].x,
+        location = Pose(Point(obstacle_info["obstacle_location_body"].x,
                                obstacle_info["obstacle_location_body"].y,
-                               obstacle_info["obstacle_location_body"].z,
+                               obstacle_info["obstacle_location_body"].z),
+                            QuatMessage(
                                obstacle_info["obstacle_location_body"].rot.x,
                                obstacle_info["obstacle_location_body"].rot.y,
                                obstacle_info["obstacle_location_body"].rot.z,
                                obstacle_info["obstacle_location_body"].rot.w)
-        destination = Pose(obstacle_info["obstacle_destination_body"].x,
+                               )
+        destination = Pose(Point(obstacle_info["obstacle_destination_body"].x,
                                obstacle_info["obstacle_destination_body"].y,
-                               obstacle_info["obstacle_destination_body"].z,
+                               obstacle_info["obstacle_destination_body"].z),
+                            QuatMessage(
                                obstacle_info["obstacle_destination_body"].rot.x,
                                obstacle_info["obstacle_destination_body"].rot.y,
                                obstacle_info["obstacle_destination_body"].rot.z,
                                obstacle_info["obstacle_destination_body"].rot.w)
+                               )
         request = ObstacleMoveAction(location, destination)
         rospy.loginfo(str(request))
         return request
