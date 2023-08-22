@@ -1204,7 +1204,7 @@ class SpotROS:
             self.navigate_as.set_aborted(NavigateToResult(resp[0], resp[1]))
 
     def send_obstacle_removal_request(self, obstacle_info):
-        rospy.loginfo("Sending obstacle movement request")
+        rospy.loginfo("Building obstacle movement request")
         location = Pose(Point(obstacle_info["obstacle_location_body"].x,
                                obstacle_info["obstacle_location_body"].y,
                                obstacle_info["obstacle_location_body"].z),
@@ -1225,9 +1225,12 @@ class SpotROS:
                                )
         request = ObstacleMoveGoal(location, destination)
         rospy.loginfo(str(request))
+        rospy.loginfo("Waiting for obstacle_mover server...")
         self._obstacle_move_client.wait_for_server()
+        rospy.loginfo("Sending goal to obstacle movement action server")
         self._obstacle_move_client.send_goal(request)
         self._obstacle_move_client.wait_for_result()
+        return None
 
     def populate_camera_static_transforms(self, image_data):
         """Check data received from one of the image tasks and use the transform snapshot to extract the camera frame

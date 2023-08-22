@@ -1525,7 +1525,7 @@ class SpotWrapper:
                 for callback in self._nav_interruption_callbacks:
                     callback(obstacle_feedback)
                     self._logger.info("Callback made to send obstacle movement command")
-                time.sleep(5)
+                break
             nav_to_cmd_id = self._graph_nav_client.navigate_to(
                 destination_waypoint, 0.5, leases=[sublease.lease_proto]
             )

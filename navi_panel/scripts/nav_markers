@@ -20,6 +20,7 @@ from interactive_marker_utils import (
 
 
 def main():
+    rospy.loginfo("Initializing nav_markers node...")
     rospy.init_node("spot_graphnav_markers", anonymous=True)
     server = InteractiveMarkerServer("navigation_waypoints")
     manager = StateManager(server)
@@ -84,6 +85,9 @@ def main():
     clear_service = rospy.Service("spot/graph_waypoints/clear", Trigger, _clear_markers)
 
     server.applyChanges()
+
+    rospy.loginfo("nav_markers started successfully.")
+
     rospy.spin()
 
 

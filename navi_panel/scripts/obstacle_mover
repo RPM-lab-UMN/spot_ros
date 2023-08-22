@@ -17,40 +17,39 @@ import actionlib
 # !!! This class is copied from spot_viz/scripts/interactive_marker_utils. There is a TODO comment
 # saying to move it to an external library. Once that is done replace this class definition with an import
 class SE3Pose(bdSE3Pose):
-    '''
+    '''TODO: move this to a seperate library
     This class is a wrapper around bosdyn.client.math_helpers.SE3Pose.
     It adds functions that are useful for ROS.'''
-
-    def __init__(self, x=0, y=0, z=0, rot=bdQuat(1, 0, 0, 0),
+    def __init__(self, x=0, y=0, z=0, rot=bdQuat(1,0,0,0), 
                  reference_frame=None):
         super().__init__(x, y, z, rot)
-        self.ref = reference_frame
-
+        self.ref=reference_frame
+    
     @staticmethod
-    def from_ros_pose(pose: Pose):
+    def from_ros_pose(pose:Pose):
         p = pose.position
         q = pose.orientation
         se3 = SE3Pose(x=p.x, y=p.y, z=p.z,
-                      rot=bdQuat(x=q.x, y=q.y, z=q.z, w=q.w))
+                rot=bdQuat(x=q.x, y=q.y, z=q.z, w=q.w))
         return se3
-
+    
     def to_ros_pose(self):
         pose = Pose()
         p = pose.position
         p.x, p.y, p.z = self.x, self.y, self.z
         q = pose.orientation
-        q.x, q.y, q.z, q.w = self.rot.x, self.rot.y, self.rot.z, self.rot.w
+        q.x, q.y, q.z, q.w = self.rot.x, self.rot.y, self.rot.z, self.rot.w 
         return pose
-
+    
     @staticmethod
-    def from_matrix(m):
+    def from_matrix(m): 
         return SE3Pose._from_super(bdSE3Pose.from_matrix(m))
-
-    def __mul__(self, other):
+    
+    def __mul__(self, other): 
         return self._from_super(super().__mul__(other))
 
     @staticmethod
-    def _from_super(s):
+    def _from_super(s): 
         return SE3Pose(x=s.x, y=s.y, z=s.z, rot=s.rot)
 
 
@@ -81,56 +80,59 @@ def main():
     _result = ObstacleMoveResult()
 
     # helper functions
-    def _handle_action(self, goal):
+    def _handle_action(goal):
         rospy.loginfo("Beginning obstacle-move action.")
 
         # unpack goal variables
-        self._feedback.feedback = "Unpacking goal fields"
-        self._server.publish_feedback(self._feedback)
+        _feedback.feedback = "Unpacking goal fields"
+        _server.publish_feedback(_feedback)
 
         start = goal.obstacle_location
         end = goal.obstacle_destination
 
         # calculate closest tagged object to obstacle position
-        self._feedback.feedback = "Calculating closest tagged object to obstacle location estimate"
-        self._server.publish_feedback(self._feedback)
+        _feedback.feedback = "Calculating closest tagged object to obstacle location estimate"
+        _server.publish_feedback(_feedback)
 
         # TODO implement once multiple tag detection is added
-        closest_tag_object = self._tags[0]
+        closest_tag_object = _tags[0]
         if closest_tag_object["pose"] is None:
-            rospy.logerror("No pose for apriltag- is the detector running?")
-            self._result.success = False
-            self._result.message = "No poses read for apriltag"
-            self._server.set_aborted(self._result)
+            rospy.logerr("No pose for apriltag- is the detector running?")
+            _result.success = False
+            _result.message = "No poses read for apriltag"
+            _server.set_aborted(_result)
 
         # send multigrasp request
         # offset stored in the "tag offset" key of the dictionary must be applied before multigrasp request is sent.
-        self._feedback.feedback = "Building multigrasp request"
-        self._server.publish_feedback(self._feedback)
+        _feedback.feedback = "Building multigrasp request"
+        _server.publish_feedback(_feedback)
 
-        pose_transformed = SE3Pose.from_ros_pose(closest_tag_object["pose"]) * closest_tag_object["tag offset"]
+        transform = closest_tag_object["tag offset"]
+        if isinstance(transform, np.ndarray): converted_transform = SE3Pose.from_matrix(transform)
+        elif isinstance(transform, SE3Pose): converted_transform = transform
+        pose_transformed = SE3Pose.from_ros_pose(closest_tag_object["pose"]) * converted_transform
         obj_pose = pose_transformed.to_ros_pose()
 
         poses = [_get_perpendicular_pose(obj_pose, rot_vec=grasp["grasp_R"], offset=grasp["grasp_t"])
                  for grasp in closest_tag_object["grasps"]]
         weights = [grasp["weight"] for grasp in closest_tag_object["grasps"]]
 
-        self._feedback.feedback = "Executing multigrasp"
-        self._server.publish_feedback(self._feedback)
+        _feedback.feedback = "Executing multigrasp"
+        _server.publish_feedback(_feedback)
 
         mg_goal = MultiGraspGoal(poses=poses, weights=weights, header=Header(frame_id="odom"))
 
-        self._mg_client.send_goal(mg_goal, feedback_cb=rospy.loginfo)
-        self._mg_client.wait_for_result()
-        mg_result = self._mg_client.get_result()
+        _mg_client.send_goal(mg_goal, feedback_cb=rospy.loginfo)
+        _mg_client.wait_for_result()
+        mg_result = _mg_client.get_result()
 
         rospy.loginfo(mg_result)
 
         if mg_result.success is False:
-            rospy.logerror("Multigrasp failed")
-            self._result.success = False
-            self._result.message = "Failed multigrasp"
-            self._server.set_aborted(self._result)
+            rospy.logerr("Multigrasp failed")
+            _result.success = False
+            _result.message = "Failed multigrasp"
+            _server.set_aborted(_result)
 
         # send request to drag to destination pose
         # TODO
@@ -139,24 +141,31 @@ def main():
         # TODO
 
         # send result
-        self._result.success = True
-        self._result.message = "Successfully moved obstacle"
-        self._server.set_succeeded(self._result)
+        _result.success = True
+        _result.message = "Successfully moved obstacle"
+        _server.set_succeeded(_result)
 
-    def _handle_tag_pose(self, msg):
+    def _handle_tag_pose(msg):
         # PLACEHOLDER till apriltag detector is updated to publish disambiguated tag poses
         # TODO implement once multiple tag detection is added
         # rospy.loginfo("updating tag pose")
-        self._tags[0]["pose"] = msg.pose
+        if _tags[0]["pose"] is None:
+            rospy.loginfo("Tag pose acquired.")
+
+        _tags[0]["pose"] = msg.pose
 
     # subscribers & clients
     _tag_sub = rospy.Subscriber("/tcpu", PoseStamped, _handle_tag_pose)
+    rospy.loginfo("Successfully subscribed to tag pose topic")
 
+    rospy.loginfo("Waiting for multigrasp server...")
     _mg_client = actionlib.SimpleActionClient("spot/multigrasp", MultiGraspAction)
     _mg_client.wait_for_server()
     rospy.loginfo(f"Connected to multigrasp server.")
 
+    rospy.loginfo("Waiting for manipulate server...")
     _dg_client = actionlib.SimpleActionClient("spot/manipulate", GripperAction)
+    rospy.loginfo("Connected to maniuplate server.")
 
     # tag array
     # NOTE: two offsets are required to get from the tag pose to the grasp pose. One to transform the tag's pose
@@ -192,13 +201,17 @@ def main():
 
     # server initialization
     _server = actionlib.SimpleActionServer(
-        "move_obstacle",
+        "/spot/move_obstacle",
         ObstacleMoveAction,
         execute_cb=_handle_action,
         auto_start=False,
     )
 
     _server.start()
+
+    rospy.loginfo("Spinning obstacle_mover.")
+
+    rospy.spin()
 
 
 if __name__ == "__main__":
