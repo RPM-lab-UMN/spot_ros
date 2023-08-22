@@ -172,7 +172,7 @@ class ObstacleMoverServer:
     def _handle_tag_pose(self, msg):
         # PLACEHOLDER till apriltag detector is updated to publish disambiguated tag poses
         # TODO implement once multiple tag detection is added
-        rospy.loginfo("updating tag pose")
+        # rospy.loginfo("updating tag pose")
         self._tags[0]["pose"] = msg.pose
 
 
