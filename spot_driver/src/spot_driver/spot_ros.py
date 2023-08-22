@@ -1221,7 +1221,9 @@ class SpotROS:
                                obstacle_info["obstacle_destination_body"].rot.w)
         request = ObstacleMoveAction(location, destination)
         rospy.loginfo(str(request))
-        return request
+        self._obstacle_move_client.wait_for_server()
+        self._obstacle_move_client.send_goal(request)
+        self._obstacle_move_client.wait_for_result()
 
     def populate_camera_static_transforms(self, image_data):
         """Check data received from one of the image tasks and use the transform snapshot to extract the camera frame
@@ -1744,6 +1746,8 @@ class SpotROS:
         self._gripper_action_server = GraspActionServer(self, 'grasp')
         self._gripper_action_server = MoveActionServer(self, 'manipulate')
         self._multigrasp_action_server = MultiGraspActionServer(self, 'multigrasp')
+
+        self._obstacle_move_client = actionlib.SimpleActionClient("move_obstacle", ObstacleMoveAction)
 
         #########################################################
 
