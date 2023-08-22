@@ -54,59 +54,31 @@ class SE3Pose(bdSE3Pose):
         return SE3Pose(x=s.x, y=s.y, z=s.z, rot=s.rot)
 
 
-class ObstacleMoverServer:
+def _get_perpendicular_pose(pose, rot_vec=[0, 0, np.pi / 2], offset=[0.0, 0.0, 0.0]):
+    rot = R.from_rotvec(rot_vec)
+    quat = pose.orientation
+    pose_rot = R.from_quat([quat.x, quat.y, quat.z, quat.w])
+    pose_quat = (pose_rot * rot).as_quat()
+    quat.x, quat.y, quat.z, quat.w = pose_quat
+
+    print(f'offset: {offset}')
+    offset = pose_rot.as_matrix() @ np.array(offset).T
+    print(f'pose_rot.as_matrix(): {pose_rot.as_matrix()}')
+    p = pose.position
+    p.x += offset[0];
+    p.y += offset[1];
+    p.z += offset[2]
+    pose.position = p
+    print(pose.position)
+    return pose
+
+
+def main():
+    # state variables
     _feedback = ObstacleMoveFeedback()
     _result = ObstacleMoveResult()
 
-    def __init__(self):
-        self._server = actionlib.SimpleActionServer(
-            "move_obstacle",
-            ObstacleMoveAction,
-            execute_cb=self._handle_action,
-            auto_start=False,
-        )
-
-        self._tag_sub = rospy.Subscriber("/tcpu", PoseStamped, self._handle_tag_pose)
-
-        self._mg_client = actionlib.SimpleActionClient("spot/multigrasp", MultiGraspAction)
-        self._mg_client.wait_for_server()
-        rospy.loginfo(f"Connected to multigrasp server.")
-
-        self._dg_client = actionlib.SimpleActionClient("spot/manipulate", GripperAction)
-
-        # NOTE: two offsets are required to get from the tag pose to the grasp pose. One to transform the tag's pose
-        #       to the center of the chair, and one to transform the center of the chair to the grasp position. This
-        #       is to maintain compatibility with the grasp offsets used in chair_marker, which allows for offsets to
-        #       be tested with Rviz using the interactive marker, then simply copied into here for use in navigation.
-        self._tags = [
-            {
-                # Back-of-chair tag
-                "id": 5,
-                "pose": None,
-                "tag offset": np.array([[-1.0,  0.0, 0.0, 0.0],
-                                        [0.0,  0.0, -1.0, 0.4],
-                                        [0.0, -1.0, 0.0,  0.25]]),
-                "grasps": [
-                    {
-                        'name': 'backrest left side',
-                        'grasp_t': [0.2, 0.15, 0.6],
-                        'grasp_R': [0.0, 2.22144147, 2.22144147],
-                        'multigrasp_enabled': True,
-                        'weight': 2
-                    },
-                    {
-                        'name': 'backrest right side',
-                        'grasp_t': [-0.2, 0.15, 0.6],
-                        'grasp_R': [1.57079632679, 0.0, 0.0],
-                        'multigrasp_enabled': True,
-                        'weight': 1
-                    }
-                ]
-            }
-        ]
-
-        self._server.start()
-
+    # helper functions
     def _handle_action(self, goal):
         rospy.loginfo("Beginning obstacle-move action.")
 
@@ -175,25 +147,57 @@ class ObstacleMoverServer:
         # rospy.loginfo("updating tag pose")
         self._tags[0]["pose"] = msg.pose
 
+    # subscribers & clients
+    _tag_sub = rospy.Subscriber("/tcpu", PoseStamped, _handle_tag_pose)
 
-def _get_perpendicular_pose(pose, rot_vec=[0, 0, np.pi / 2], offset=[0.0, 0.0, 0.0]):
-    rot = R.from_rotvec(rot_vec)
-    quat = pose.orientation
-    pose_rot = R.from_quat([quat.x, quat.y, quat.z, quat.w])
-    pose_quat = (pose_rot * rot).as_quat()
-    quat.x, quat.y, quat.z, quat.w = pose_quat
+    _mg_client = actionlib.SimpleActionClient("spot/multigrasp", MultiGraspAction)
+    _mg_client.wait_for_server()
+    rospy.loginfo(f"Connected to multigrasp server.")
 
-    print(f'offset: {offset}')
-    offset = pose_rot.as_matrix() @ np.array(offset).T
-    print(f'pose_rot.as_matrix(): {pose_rot.as_matrix()}')
-    p = pose.position
-    p.x += offset[0];
-    p.y += offset[1];
-    p.z += offset[2]
-    pose.position = p
-    print(pose.position)
-    return pose
+    _dg_client = actionlib.SimpleActionClient("spot/manipulate", GripperAction)
+
+    # tag array
+    # NOTE: two offsets are required to get from the tag pose to the grasp pose. One to transform the tag's pose
+    #       to the center of the chair, and one to transform the center of the chair to the grasp position. This
+    #       is to maintain compatibility with the grasp offsets used in chair_marker, which allows for offsets to
+    #       be tested with Rviz using the interactive marker, then simply copied into here for use in navigation.
+    _tags = [
+        {
+            # Back-of-chair tag
+            "id": 5,
+            "pose": None,
+            "tag offset": np.array([[-1.0,  0.0, 0.0, 0.0],
+                                    [0.0,  0.0, -1.0, 0.4],
+                                    [0.0, -1.0, 0.0,  0.25]]),
+            "grasps": [
+                {
+                    'name': 'backrest left side',
+                    'grasp_t': [0.2, 0.15, 0.6],
+                    'grasp_R': [0.0, 2.22144147, 2.22144147],
+                    'multigrasp_enabled': True,
+                    'weight': 2
+                },
+                {
+                    'name': 'backrest right side',
+                    'grasp_t': [-0.2, 0.15, 0.6],
+                    'grasp_R': [1.57079632679, 0.0, 0.0],
+                    'multigrasp_enabled': True,
+                    'weight': 1
+                }
+            ]
+        }
+    ]
+
+    # server initialization
+    _server = actionlib.SimpleActionServer(
+        "move_obstacle",
+        ObstacleMoveAction,
+        execute_cb=_handle_action,
+        auto_start=False,
+    )
+
+    _server.start()
 
 
-def main():
-    rospy.init_node("spot_obstacle_mover", anonymous=True)
+if __name__ == "__main__":
+    main()
