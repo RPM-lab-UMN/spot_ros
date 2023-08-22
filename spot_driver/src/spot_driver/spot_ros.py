@@ -37,7 +37,7 @@ from spot_msgs.msg import PoseBodyAction, PoseBodyGoal, PoseBodyResult
 from spot_msgs.msg import Feedback
 from spot_msgs.msg import MobilityParams, ObstacleParams, TerrainParams
 from spot_msgs.msg import NavigateToAction, NavigateToResult, NavigateToFeedback
-from spot_msgs.msg import ObstacleMoveAction, ObstacleMoveResult, ObstacleMoveFeedback
+from spot_msgs.msg import ObstacleMoveAction, ObstacleMoveGoal, ObstacleMoveResult, ObstacleMoveFeedback
 from spot_msgs.msg import TrajectoryAction, TrajectoryResult, TrajectoryFeedback
 from spot_msgs.msg import GraphEdge, GraphWaypoint
 from spot_msgs.srv import ListGraph, ListGraphResponse
@@ -1223,7 +1223,7 @@ class SpotROS:
                                obstacle_info["obstacle_destination_body"].rot.z,
                                obstacle_info["obstacle_destination_body"].rot.w)
                                )
-        request = ObstacleMoveAction(location, destination)
+        request = ObstacleMoveGoal(location, destination)
         rospy.loginfo(str(request))
         self._obstacle_move_client.wait_for_server()
         self._obstacle_move_client.send_goal(request)

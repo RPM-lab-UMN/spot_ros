@@ -1934,7 +1934,7 @@ class SpotWrapper:
         Parameters: grid_array. nxn numpy array of integer values that detail how far each coordinate is away from the obstacle
         Returns: Safe_places. List of coordinates in obstacle_grid frame that are determined "safe" to relocate the object
         """
-        Safe_places = [] #Ideally, there will be many safe place to choose from
+        safe_places = [] #Ideally, there will be many safe place to choose from
         # We will want to store the list of candidates to relocated our chair to
         # Another function will prune the list for the best place
         # Loop through grid, searching candidate points
@@ -1945,10 +1945,10 @@ class SpotWrapper:
                 potential_point = grid_array[x][y]
                 if(potential_point >= 0.40): #Step 2: confirming the point, but also its neighbors
                     if(self._ensure_neighbors(x,y, grid_array)):
-                        Safe_places.append((x,y))
-        if(len(Safe_places) == 0):
+                        safe_places.append((x,y))
+        if(len(safe_places) == 0):
             self._logger.error("There are no safe places that could be found within the obstacle grid")
-        return Safe_places
+        return safe_places
 
     def _ensure_neighbors(self, i, j, grid):
         """
@@ -1994,7 +1994,7 @@ class SpotWrapper:
         obstacle_distance_grid_proto = self._local_grid_client.get_local_grids(["obstacle_distance"])[0] #Have to translate distance from real-life to cell-sizes
         cell_size = obstacle_distance_grid_proto.local_grid.extent.cell_size
         for candidate in candidates:
-            if(np.linalg.norm(candidate-spot_position) <= 1.7/cell_size and np.linalg.norm(candidate-spot_position) > 1/cell_size): # We want it reasonably out of the way
+            if(np.linalg.norm(candidate-spot_position) <= 2 /cell_size and np.linalg.norm(candidate-spot_position) > 1/cell_size): # We want it reasonably out of the way
                 new_candidates.append(candidate)
         if(len(new_candidates) == 0):
             self._logger.error("All locations are more than 1.7 meters away or less than half a meter away. This is extraneous in terms of relocation")
