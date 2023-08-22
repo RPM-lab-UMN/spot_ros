@@ -1511,24 +1511,25 @@ class SpotWrapper:
         obstacle_detected_response = self.detect_obstacles_near_spot()
         while not is_finished:
             # Issue the navigation command about twice a second such that it is easy to terminate the
-            # navigation command (with estop or killing the program).
-            if obstacle_detected_response[0]:
+            # navigation command (with estop or killing the program).\
+            self._logger.info(obstacle_detected_response)
+            if obstacle_detected_response[0] == True:
                 self._logger.info("Obstacle detected, removing it from path")
                 obstacle_feedback = {}
                 grid = self.get_obstacle_distance_grid()
                 # send the location of where to move the obstacle in spot's body frame
                 obstacle_feedback["obstacle_destination_body"] = self.obstacle_protocol(grid)
                 # send the rough location of the obstacle in spot's body frame
-                obstacle_feedback["obstacle_location_body"] = obstacle_detected[1]
-                self._logger.info(str(obstacle_detected[1]))
+                obstacle_feedback["obstacle_location_body"] = obstacle_detected_response[1]
+                self._logger.info(str(obstacle_detected_response[1]))
                 for callback in self._nav_interruption_callbacks:
                     callback(obstacle_feedback)
                     self._logger.info("Callback made to send obstacle movement command")
-                break
+                time.sleep(5)
             nav_to_cmd_id = self._graph_nav_client.navigate_to(
                 destination_waypoint, 0.5, leases=[sublease.lease_proto]
             )
-            obstacle_detected = self.detect_obstacles_near_spot()
+            obstacle_detected_response = self.detect_obstacles_near_spot()
             time.sleep(0.05)  # Sleep 0.05 seconds to allow for command execution.
             # Poll the robot for feedback to determine if the navigation command is complete. Then sit
             # the robot down once it is finished.
@@ -1924,9 +1925,7 @@ class SpotWrapper:
         obstacle_distance_grid_proto = self._local_grid_client.get_local_grids(["obstacle_distance"])[0]
         cell_size = obstacle_distance_grid_proto.local_grid.extent.cell_size
         best_obstacle_destination_body = tform_to_body_frame * bdSE3Pose(best_obstacle_destination[0]*cell_size, best_obstacle_destination[1]*cell_size, 0, bdQuat())
-        best_obstacle_destination_body_coords = [best_obstacle_destination_body.x, best_obstacle_destination_body.y]
-        self._logger.info("Body Frame translation: ")
-        print(best_obstacle_destination_body_coords)
+        best_obstacle_destination_body_coords = bdSE3Pose(best_obstacle_destination_body.x, best_obstacle_destination_body.y, 0, bdQuat())
         return best_obstacle_destination_body_coords
 
     def _find_safe_place_for_obstacle(self, grid_array, *args):
