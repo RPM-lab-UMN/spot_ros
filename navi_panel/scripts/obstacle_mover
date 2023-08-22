@@ -7,7 +7,7 @@ from geometry_msgs.msg import Pose, PoseStamped
 from std_msgs.msg import Header
 from bosdyn.client.math_helpers import SE3Pose as bdSE3Pose
 from bosdyn.client.math_helpers import Quat as bdQuat
-from scipy.spatial.trainsform import Rotation as R
+from scipy.spatial.transform import Rotation as R
 
 import numpy as np
 import rospy
@@ -74,6 +74,8 @@ def _get_perpendicular_pose(pose, rot_vec=[0, 0, np.pi / 2], offset=[0.0, 0.0, 0
 
 
 def main():
+    rospy.init_node("obstacle_mover", anonymous=True)
+
     # state variables
     _feedback = ObstacleMoveFeedback()
     _result = ObstacleMoveResult()
