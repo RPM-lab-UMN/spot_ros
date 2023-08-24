@@ -1509,11 +1509,14 @@ class SpotWrapper:
         is_finished = False
         nav_to_cmd_id = -1
         obstacle_detected_response = self.detect_obstacles_near_spot()
+        num_navigation_calls = 0
         while not is_finished:
+            num_navigation_calls += 1
             # Issue the navigation command about twice a second such that it is easy to terminate the
             # navigation command (with estop or killing the program).\
             self._logger.info(obstacle_detected_response)
             if obstacle_detected_response[0] == True:
+                time.sleep(5)
                 self._logger.info("Obstacle detected, removing it from path")
                 obstacle_feedback = {}
                 grid = self.get_obstacle_distance_grid()
@@ -1525,10 +1528,11 @@ class SpotWrapper:
                 for callback in self._nav_interruption_callbacks:
                     callback(obstacle_feedback)
                     self._logger.info("Callback made to send obstacle movement command")
-                break
+                
             nav_to_cmd_id = self._graph_nav_client.navigate_to(
                 destination_waypoint, 0.5, leases=[sublease.lease_proto]
             )
+            self._logger.info(str(num_navigation_calls) + " calls made to bosdyn navigate_to")
             obstacle_detected_response = self.detect_obstacles_near_spot()
             time.sleep(0.05)  # Sleep 0.05 seconds to allow for command execution.
             # Poll the robot for feedback to determine if the navigation command is complete. Then sit

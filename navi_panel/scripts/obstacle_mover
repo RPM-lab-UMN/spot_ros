@@ -153,6 +153,7 @@ def main():
             rospy.loginfo("Tag pose acquired.")
 
         _tags[0]["pose"] = msg.pose
+        rospy.loginfo(str(_tags[0]["pose"]))
 
     # subscribers & clients
     _tag_sub = rospy.Subscriber("/tcpu", PoseStamped, _handle_tag_pose)
