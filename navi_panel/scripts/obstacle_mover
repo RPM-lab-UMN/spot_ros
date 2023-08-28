@@ -10,6 +10,7 @@ from bosdyn.client.math_helpers import Quat as bdQuat
 from scipy.spatial.transform import Rotation as R
 
 import numpy as np
+from copy import deepcopy
 import rospy
 import actionlib
 
@@ -54,6 +55,7 @@ class SE3Pose(bdSE3Pose):
 
 
 def _get_perpendicular_pose(pose, rot_vec=[0, 0, np.pi / 2], offset=[0.0, 0.0, 0.0]):
+    pose = deepcopy(pose)
     rot = R.from_rotvec(rot_vec)
     quat = pose.orientation
     pose_rot = R.from_quat([quat.x, quat.y, quat.z, quat.w])
@@ -153,7 +155,7 @@ def main():
             rospy.loginfo("Tag pose acquired.")
 
         _tags[0]["pose"] = msg.pose
-        rospy.loginfo(str(_tags[0]["pose"]))
+        #rospy.loginfo(str(_tags[0]["pose"]))
 
     # subscribers & clients
     _tag_sub = rospy.Subscriber("/tcpu", PoseStamped, _handle_tag_pose)

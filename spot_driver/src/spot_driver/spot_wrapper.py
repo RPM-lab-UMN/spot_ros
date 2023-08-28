@@ -1526,6 +1526,7 @@ class SpotWrapper:
                 obstacle_feedback["obstacle_location_body"] = obstacle_detected_response[1]
                 self._logger.info(str(obstacle_detected_response[1]))
                 for callback in self._nav_interruption_callbacks:
+                    # make callbacks to remove obstacles
                     callback(obstacle_feedback)
                     self._logger.info("Callback made to send obstacle movement command")
                 
@@ -1534,7 +1535,7 @@ class SpotWrapper:
             )
             self._logger.info(str(num_navigation_calls) + " calls made to bosdyn navigate_to")
             obstacle_detected_response = self.detect_obstacles_near_spot()
-            time.sleep(0.05)  # Sleep 0.05 seconds to allow for command execution.
+            time.sleep(0.25)  # Sleep 0.25 seconds to allow for command execution.
             # Poll the robot for feedback to determine if the navigation command is complete. Then sit
             # the robot down once it is finished.
             is_finished = self._check_success(nav_to_cmd_id)
