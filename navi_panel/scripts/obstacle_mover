@@ -21,11 +21,11 @@ class SE3Pose(bdSE3Pose):
     '''TODO: move this to a seperate library
     This class is a wrapper around bosdyn.client.math_helpers.SE3Pose.
     It adds functions that are useful for ROS.'''
-    def __init__(self, x=0, y=0, z=0, rot=bdQuat(1,0,0,0), 
+    def __init__(self, x=0, y=0, z=0, rot=bdQuat(1,0,0,0),
                  reference_frame=None):
         super().__init__(x, y, z, rot)
         self.ref=reference_frame
-    
+
     @staticmethod
     def from_ros_pose(pose:Pose):
         p = pose.position
@@ -33,24 +33,24 @@ class SE3Pose(bdSE3Pose):
         se3 = SE3Pose(x=p.x, y=p.y, z=p.z,
                 rot=bdQuat(x=q.x, y=q.y, z=q.z, w=q.w))
         return se3
-    
+
     def to_ros_pose(self):
         pose = Pose()
         p = pose.position
         p.x, p.y, p.z = self.x, self.y, self.z
         q = pose.orientation
-        q.x, q.y, q.z, q.w = self.rot.x, self.rot.y, self.rot.z, self.rot.w 
+        q.x, q.y, q.z, q.w = self.rot.x, self.rot.y, self.rot.z, self.rot.w
         return pose
-    
+
     @staticmethod
-    def from_matrix(m): 
+    def from_matrix(m):
         return SE3Pose._from_super(bdSE3Pose.from_matrix(m))
-    
-    def __mul__(self, other): 
+
+    def __mul__(self, other):
         return self._from_super(super().__mul__(other))
 
     @staticmethod
-    def _from_super(s): 
+    def _from_super(s):
         return SE3Pose(x=s.x, y=s.y, z=s.z, rot=s.rot)
 
 
@@ -81,18 +81,23 @@ def main():
     _feedback = ObstacleMoveFeedback()
     _result = ObstacleMoveResult()
 
+    cur_grasp = {
+        't': None,
+        'R': None
+    }
+
     # helper functions
     def _handle_action(goal):
         rospy.loginfo("Beginning obstacle-move action.")
 
-        # unpack goal variables
+        # >> unpack goal variables
         _feedback.feedback = "Unpacking goal fields"
         _server.publish_feedback(_feedback)
 
         start = goal.obstacle_location
         end = goal.obstacle_destination
 
-        # calculate closest tagged object to obstacle position
+        # >> calculate closest tagged object to obstacle position
         _feedback.feedback = "Calculating closest tagged object to obstacle location estimate"
         _server.publish_feedback(_feedback)
 
@@ -104,7 +109,7 @@ def main():
             _result.message = "No poses read for apriltag"
             _server.set_aborted(_result)
 
-        # send multigrasp request
+        # >> send multigrasp request
         # offset stored in the "tag offset" key of the dictionary must be applied before multigrasp request is sent.
         _feedback.feedback = "Building multigrasp request"
         _server.publish_feedback(_feedback)
@@ -136,20 +141,24 @@ def main():
             _result.message = "Failed multigrasp"
             _server.set_aborted(_result)
 
-        # send request to drag to destination pose
+        # the grasp (t, R) that was ultimately chosen in the multigrasp command
+        selected_grasp = closest_tag_object["grasps"][mg_result.chosenIndex]
+        rospy.loginfo(selected_grasp)
+
+        # >> send request to drag to destination pose
         # TODO
 
-        # stow arm(?)
+        # >> stow arm(?)
         # TODO
 
-        # send result
+        # >> send result
         _result.success = True
         _result.message = "Successfully moved obstacle"
         _server.set_succeeded(_result)
 
     def _handle_tag_pose(msg):
         # PLACEHOLDER till apriltag detector is updated to publish disambiguated tag poses
-        # TODO implement once multiple tag detection is added
+        # TODO implement disambiguation once multiple tag detection is added
         # rospy.loginfo("updating tag pose")
         if _tags[0]["pose"] is None:
             rospy.loginfo("Tag pose acquired.")
