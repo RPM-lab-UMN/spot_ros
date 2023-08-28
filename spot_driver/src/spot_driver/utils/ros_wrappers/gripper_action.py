@@ -121,10 +121,11 @@ class MultiGraspActionServer(ActionServerBuilder):
 
         # Run action using task wrapper & report result
         try:
-            self.handler(goal)
+            res = self.handler(goal)
             self._server.set_succeeded(
                 MultiGraspResult(
                     success=True,
+                    chosenIndex=res[1],
                     message=self.task_wrapper.feedback
                 )
             )
