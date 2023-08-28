@@ -178,7 +178,7 @@ def main():
         _feedback.feedback = "Executing drag command"
         _server.publish_feedback(_feedback)
 
-        _dg_client.send_goal(goal, feedback_cb=rospy.logdebug)
+        _dg_client.send_goal(gg, feedback_cb=rospy.logdebug)
         _dg_client.wait_for_result()
         dg_result = _dg_client.get_result()
         rospy.loginfo(dg_result)
