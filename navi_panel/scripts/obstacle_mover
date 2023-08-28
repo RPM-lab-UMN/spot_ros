@@ -5,6 +5,7 @@ from spot_msgs.msg import (ObstacleMoveAction, ObstacleMoveGoal, ObstacleMoveRes
                            GripperAction, GripperGoal, GripperResult, GripperFeedback)
 from geometry_msgs.msg import Pose, PoseStamped
 from std_msgs.msg import Header
+from std_srvs.srv import Trigger, TriggerRequest
 from bosdyn.client.math_helpers import SE3Pose as bdSE3Pose
 from bosdyn.client.math_helpers import Quat as bdQuat
 from scipy.spatial.transform import Rotation as R
@@ -74,6 +75,16 @@ def _get_perpendicular_pose(pose, rot_vec=[0, 0, np.pi / 2], offset=[0.0, 0.0, 0
     return pose
 
 
+def _get_ros_stamped_pose(position, orientation):
+    stamped = PoseStamped()
+    stamped.header.stamp = rospy.Time.now()
+    o = stamped.pose.orientation
+    o.x, o.y, o.z, o.w = orientation.x, orientation.y, orientation.z, orientation.w
+    p = stamped.pose.position
+    p.x, p.y, p.z = position.x, position.y, position.z
+    return stamped
+
+
 def main():
     rospy.init_node("obstacle_mover", anonymous=True)
 
@@ -129,10 +140,9 @@ def main():
 
         mg_goal = MultiGraspGoal(poses=poses, weights=weights, header=Header(frame_id="odom"))
 
-        _mg_client.send_goal(mg_goal, feedback_cb=rospy.loginfo)
+        _mg_client.send_goal(mg_goal, feedback_cb=rospy.logdebug)
         _mg_client.wait_for_result()
         mg_result = _mg_client.get_result()
-
         rospy.loginfo(mg_result)
 
         if mg_result.success is False:
@@ -145,11 +155,44 @@ def main():
         selected_grasp = closest_tag_object["grasps"][mg_result.chosenIndex]
         rospy.loginfo(selected_grasp)
 
+        cur_grasp['t'] = selected_grasp["grasp_t"]
+        cur_grasp['R'] = selected_grasp["grasp_R"]
+
         # >> send request to drag to destination pose
-        # TODO
+        _feedback.feedback = "Building drag request"
+        _server.publish_feedback(_feedback)
+
+        if cur_grasp['t'] is None or cur_grasp['R'] is None:
+            rospy.logerr("cur_grasp field not set. Something prior went wrong and failed to terminate the action.")
+            _result.success = False
+            _result.message = "A required value for dragging the obstacle was missing."
+            _server.set_aborted(_result)
+
+        stamped_destination = _get_ros_stamped_pose(end.position, end.orientation)
+        stamped_destination.header.frame_id = "odom"
+        gg = GripperGoal(pose=stamped_destination.pose, header=stamped_destination.header)
+        gg.pose = _get_perpendicular_pose(gg.pose,
+                                          rot_vec=cur_grasp['t'],
+                                          offset=cur_grasp['R'])
+
+        _feedback.feedback = "Executing drag command"
+        _server.publish_feedback(_feedback)
+
+        _dg_client.send_goal(goal, feedback_cb=rospy.logdebug)
+        _dg_client.wait_for_result()
+        dg_result = _dg_client.get_result()
+        rospy.loginfo(dg_result)
 
         # >> stow arm(?)
-        # TODO
+        _feedback.feedback = "Stowing arm"
+        _server.publish_feedback(_feedback)
+
+        stow_result = _stow_proxy(TriggerRequest())
+        if stow_result.success is False:
+            rospy.logerr("Failed to stow arm. It is unsafe to continue.")
+            _result.success = False
+            _result.message = "Couldn't stow arm."
+            _server.set_aborted(_result)
 
         # >> send result
         _result.success = True
@@ -169,6 +212,11 @@ def main():
     # subscribers & clients
     _tag_sub = rospy.Subscriber("/tcpu", PoseStamped, _handle_tag_pose)
     rospy.loginfo("Successfully subscribed to tag pose topic")
+
+    rospy.loginfo("Waiting for stow arm service...")
+    _stow_proxy = rospy.ServiceProxy("spot/arm_stow", Trigger)
+    _stow_proxy.wait_for_service()
+    rospy.loginfo("Connected to stow arm service.")
 
     rospy.loginfo("Waiting for multigrasp server...")
     _mg_client = actionlib.SimpleActionClient("spot/multigrasp", MultiGraspAction)
