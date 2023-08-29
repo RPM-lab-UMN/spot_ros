@@ -1206,7 +1206,7 @@ class SpotROS:
     def send_obstacle_removal_request(self, obstacle_info):
         rospy.loginfo("Building obstacle movement request")
         spot_location = PoseStamped(
-                            Header(frame_id = "odom", time = rospy.Time.now()),
+                            Header(frame_id = "odom", stamp = rospy.Time.now()),
                             Pose(
                                 Point(obstacle_info["spot_location_odom"].x,
                                 obstacle_info["spot_location_odom"].y,
@@ -1245,7 +1245,7 @@ class SpotROS:
         self._obstacle_move_client.wait_for_result()
         # send robot back to the location it was when it 
         self._send_trajectory_command(
-                self._transform_pose_to_body_frame(spot_location), rospy.Duration(5)
+                self._transform_pose_to_body_frame(spot_location), rospy.Duration(5), False
             )
         return None
 
