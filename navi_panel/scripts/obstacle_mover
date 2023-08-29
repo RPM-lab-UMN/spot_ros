@@ -168,7 +168,7 @@ def main():
 
         mg_goal = MultiGraspGoal(poses=poses, weights=weights, header=Header(frame_id="odom"))
 
-        rospy.sleep(5)
+        rospy.sleep(2)
 
         _mg_client.send_goal(mg_goal, feedback_cb=rospy.logdebug)
         _mg_client.wait_for_result()
@@ -180,6 +180,8 @@ def main():
             _result.success = False
             _result.message = "Failed multigrasp"
             _server.set_aborted(_result)
+
+        _marker_pub.publish(Marker(action=Marker.DELETEALL))    # clear grasp pose markers
 
         # the grasp (t, R) that was ultimately chosen in the multigrasp command
         selected_grasp = closest_tag_object["grasps"][mg_result.chosenIndex]
