@@ -1533,11 +1533,11 @@ class SpotWrapper:
                     self._logger.info("Callback made to send obstacle movement command")
                 
             nav_to_cmd_id = self._graph_nav_client.navigate_to(
-                destination_waypoint, 1.0, leases=[sublease.lease_proto]
+                destination_waypoint, 0.5, leases=[sublease.lease_proto]
             )
             self._logger.info(str(num_navigation_calls) + " calls made to bosdyn navigate_to")
             obstacle_detected_response = self.detect_obstacles_near_spot()
-            time.sleep(0.5)  # Sleep 0.5 seconds to allow for command execution.
+            time.sleep(0.25)  # Sleep 0.5 seconds to allow for command execution.
             # Poll the robot for feedback to determine if the navigation command is complete. Then sit
             # the robot down once it is finished.
             is_finished = self._check_success(nav_to_cmd_id)
