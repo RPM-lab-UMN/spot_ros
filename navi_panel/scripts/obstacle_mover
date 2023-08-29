@@ -3,9 +3,9 @@
 from spot_msgs.msg import (ObstacleMoveAction, ObstacleMoveGoal, ObstacleMoveResult, ObstacleMoveFeedback,
                            MultiGraspAction, MultiGraspGoal, MultiGraspResult, MultiGraspFeedback,
                            GripperAction, GripperGoal, GripperResult, GripperFeedback)
-from geometry_msgs.msg import Pose, PoseStamped
+from geometry_msgs.msg import Pose, PoseStamped, Vector3
 from visualization_msgs.msg import Marker
-from std_msgs.msg import Header
+from std_msgs.msg import Header, ColorRGBA
 from std_srvs.srv import Trigger, TriggerRequest
 from bosdyn.client.math_helpers import SE3Pose as bdSE3Pose
 from bosdyn.client.math_helpers import Quat as bdQuat
@@ -100,7 +100,90 @@ def main():
 
     # helper functions
     def _handle_action(goal):
-        rospy.loginfo("Beginning obstacle-move action.")
+        # Send markers for initial robot position, obstacle pose estimate, and obstacle destination
+        m = Marker(
+            header=Header(
+                frame_id="odom",
+                stamp=rospy.Time.now()
+            ),
+
+            ns="navi_breadcrumbs",
+            id=0,
+
+            type=Marker.CYLINDER,
+            pose=goal.spot_location.pose,
+            action=Marker.ADD,
+
+            color=ColorRGBA(
+                r=1.0,
+                g=0.7,
+                b=0.2,
+                a=1.0
+            ),
+
+            scale=Vector3(
+                x=0.2,
+                y=0.2,
+                z=0.8
+            )
+        )
+        _marker_pub.publish(m)
+
+        m = Marker(
+            header=Header(
+                frame_id="odom",
+                stamp=rospy.Time.now()
+            ),
+
+            ns="navi_breadcrumbs",
+            id=1,
+
+            type=Marker.CYLINDER,
+            pose=goal.obstacle_location.pose,
+            action=Marker.ADD,
+
+            color=ColorRGBA(
+                r=0.0,
+                g=0.7,
+                b=1.0,
+                a=1.0
+            ),
+
+            scale=Vector3(
+                x=1.0,
+                y=1.0,
+                z=0.1
+            )
+        )
+        _marker_pub.publish(m)
+
+        m = Marker(
+            header=Header(
+                frame_id="odom",
+                stamp=rospy.Time.now()
+            ),
+
+            ns="navi_breadcrumbs",
+            id=2,
+
+            type=Marker.CYLINDER,
+            pose=goal.obstacle_destination.pose,
+            action=Marker.ADD,
+
+            color=ColorRGBA(
+                r=0.0,
+                g=0.8,
+                b=0.2,
+                a=1.0
+            ),
+
+            scale=Vector3(
+                x=1.0,
+                y=1.0,
+                z=0.1
+            )
+        )
+        _marker_pub.publish(m)
 
         # >> unpack goal variables
         _feedback.feedback = "Unpacking goal fields"
@@ -108,6 +191,8 @@ def main():
 
         start = goal.obstacle_location
         end = goal.obstacle_destination
+
+        rospy.loginfo("Beginning obstacle-move action.")
 
         # >> calculate closest tagged object to obstacle position
         _feedback.feedback = "Calculating closest tagged object to obstacle location estimate"
@@ -181,8 +266,6 @@ def main():
             _result.message = "Failed multigrasp"
             _server.set_aborted(_result)
 
-        _marker_pub.publish(Marker(action=Marker.DELETEALL))    # clear grasp pose markers
-
         # the grasp (t, R) that was ultimately chosen in the multigrasp command
         selected_grasp = closest_tag_object["grasps"][mg_result.chosenIndex]
         rospy.loginfo(selected_grasp)
@@ -225,6 +308,9 @@ def main():
             _result.success = False
             _result.message = "Couldn't stow arm."
             _server.set_aborted(_result)
+
+        # >> clear markers
+        _marker_pub.publish(Marker(action=Marker.DELETEALL))
 
         # >> send result
         _result.success = True
