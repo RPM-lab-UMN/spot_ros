@@ -188,11 +188,19 @@ class SpotTaskWrapper:
         for idx,pose in enumerate(poses):
             pose = self._to_bd_se3(pose, reference_frame)
             pose = self._offset_pose(pose, 1.0, 'x')
-            no_step_val = local_grid_value(no_step, pose, self.default_ref_frame, no_step_data)
+            try:
+                no_step_val = local_grid_value(no_step, pose, self.default_ref_frame, no_step_data)
+            except IndexError:
+                raise Exception("Local Grid OOB error")
+
             if (no_step_val) < 0:
                 effective_weights[idx] = 0
             else:
-                obst_dist_val = local_grid_value(obstacle_distance, pose, self.default_ref_frame, obstacle_distance_data)
+                try:
+                    obst_dist_val = local_grid_value(obstacle_distance, pose, self.default_ref_frame, obstacle_distance_data)
+                except IndexError:
+                    raise Exception("Local Grid OOB error")
+
                 effective_weights[idx] *= obst_dist_val
 
         best_idx = 0
