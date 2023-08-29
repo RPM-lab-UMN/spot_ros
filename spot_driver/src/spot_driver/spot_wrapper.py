@@ -815,8 +815,8 @@ class SpotWrapper:
         """
 
         # FIX ME somehow,,,, if the robot is stand, need to sit the robot before starting garph nav
-        if self.is_standing and not self.is_moving:
-            self.sit()
+        # if self.is_standing and not self.is_moving:
+            # self.sit()
 
         assert not self._robot.is_estopped(), "Robot is estopped. cannot complete navigation"
         assert self.check_is_powered_on(), "Robot not powered on, cannot complete navigation"
@@ -1516,10 +1516,12 @@ class SpotWrapper:
             # navigation command (with estop or killing the program).\
             self._logger.info(obstacle_detected_response)
             if obstacle_detected_response[0] == True:
-                time.sleep(5)
+                time.sleep(2)
                 self._logger.info("Obstacle detected, removing it from path")
                 obstacle_feedback = {}
                 grid = self.get_obstacle_distance_grid()
+                # get spot's current location to return to after dragging the chair
+                obstacle_feedback["spot_location_odom"] = self._transform_bd_pose(bdSE3Pose(0, 0, 0, bdQuat()), BODY_FRAME_NAME, ODOM_FRAME_NAME)
                 # send the location of where to move the obstacle in spot's body frame
                 obstacle_feedback["obstacle_destination_body"] = self.obstacle_protocol(grid)
                 # send the rough location of the obstacle in spot's body frame
@@ -1531,11 +1533,11 @@ class SpotWrapper:
                     self._logger.info("Callback made to send obstacle movement command")
                 
             nav_to_cmd_id = self._graph_nav_client.navigate_to(
-                destination_waypoint, 0.5, leases=[sublease.lease_proto]
+                destination_waypoint, 1.0, leases=[sublease.lease_proto]
             )
             self._logger.info(str(num_navigation_calls) + " calls made to bosdyn navigate_to")
             obstacle_detected_response = self.detect_obstacles_near_spot()
-            time.sleep(0.25)  # Sleep 0.25 seconds to allow for command execution.
+            time.sleep(0.5)  # Sleep 0.5 seconds to allow for command execution.
             # Poll the robot for feedback to determine if the navigation command is complete. Then sit
             # the robot down once it is finished.
             is_finished = self._check_success(nav_to_cmd_id)

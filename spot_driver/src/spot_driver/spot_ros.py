@@ -2,7 +2,7 @@ import rospy
 import math
 import time
 from std_srvs.srv import Trigger, TriggerResponse, SetBool, SetBoolResponse
-from std_msgs.msg import Bool
+from std_msgs.msg import Bool, Header
 from tf2_msgs.msg import TFMessage
 from sensor_msgs.msg import Image, CameraInfo
 from sensor_msgs.msg import JointState
@@ -1205,7 +1205,20 @@ class SpotROS:
 
     def send_obstacle_removal_request(self, obstacle_info):
         rospy.loginfo("Building obstacle movement request")
-        location = Pose(Point(obstacle_info["obstacle_location_body"].x,
+        spot_location = PoseStamped(
+                            Header(frame_id = "odom", time = rospy.Time.now()),
+                            Pose(
+                                Point(obstacle_info["spot_location_odom"].x,
+                                obstacle_info["spot_location_odom"].y,
+                                obstacle_info["spot_location_odom"].z),
+                                QuatMessage(
+                                obstacle_info["spot_location_odom"].rot.x,
+                                obstacle_info["spot_location_odom"].rot.y,
+                                obstacle_info["spot_location_odom"].rot.z,
+                                obstacle_info["spot_location_odom"].rot.w)
+                                )
+                            )
+        obstacle_location = Pose(Point(obstacle_info["obstacle_location_body"].x,
                                obstacle_info["obstacle_location_body"].y,
                                obstacle_info["obstacle_location_body"].z),
                             QuatMessage(
@@ -1223,13 +1236,17 @@ class SpotROS:
                                obstacle_info["obstacle_destination_body"].rot.z,
                                obstacle_info["obstacle_destination_body"].rot.w)
                                )
-        request = ObstacleMoveGoal(location, destination)
+        request = ObstacleMoveGoal(obstacle_location, destination)
         rospy.loginfo(str(request))
         rospy.loginfo("Waiting for obstacle_mover server...")
         self._obstacle_move_client.wait_for_server()
         rospy.loginfo("Sending goal to obstacle movement action server")
         self._obstacle_move_client.send_goal(request)
         self._obstacle_move_client.wait_for_result()
+        # send robot back to the location it was when it 
+        self._send_trajectory_command(
+                self._transform_pose_to_body_frame(spot_location), rospy.Duration(5)
+            )
         return None
 
     def populate_camera_static_transforms(self, image_data):
