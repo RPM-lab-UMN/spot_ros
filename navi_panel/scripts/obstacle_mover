@@ -4,6 +4,7 @@ from spot_msgs.msg import (ObstacleMoveAction, ObstacleMoveGoal, ObstacleMoveRes
                            MultiGraspAction, MultiGraspGoal, MultiGraspResult, MultiGraspFeedback,
                            GripperAction, GripperGoal, GripperResult, GripperFeedback)
 from geometry_msgs.msg import Pose, PoseStamped
+from visualization_msgs.msg import Marker
 from std_msgs.msg import Header
 from std_srvs.srv import Trigger, TriggerRequest
 from bosdyn.client.math_helpers import SE3Pose as bdSE3Pose
@@ -135,10 +136,39 @@ def main():
                  for grasp in closest_tag_object["grasps"]]
         weights = [grasp["weight"] for grasp in closest_tag_object["grasps"]]
 
+        # Send markers to Rviz to visualize grasp poses for debugging
+        for p in enumerate(poses):
+            m = Marker()
+
+            m.header.frame_id = "odom"
+            m.header.stamp = rospy.Time.now()
+
+            m.ns = "navi_grasp_markers"
+            m.id = p[0]
+
+            m.type = Marker.SPHERE
+            m.pose = p[1]
+            m.action = Marker.ADD
+
+            m.scale.x = 0.1
+            m.scale.y = 0.1
+            m.scale.z = 0.1
+
+            m.color.r = 1.0
+            m.color.g = 0.0
+            m.color.b = 0.0
+            m.color.a = 1.0
+
+            _marker_pub.publish(m)
+
+        rospy.loginfo("Calculated poses for obstacle.")
+
         _feedback.feedback = "Executing multigrasp"
         _server.publish_feedback(_feedback)
 
         mg_goal = MultiGraspGoal(poses=poses, weights=weights, header=Header(frame_id="odom"))
+
+        rospy.sleep(5)
 
         _mg_client.send_goal(mg_goal, feedback_cb=rospy.logdebug)
         _mg_client.wait_for_result()
@@ -210,8 +240,11 @@ def main():
         #rospy.loginfo(str(_tags[0]["pose"]))
 
     # subscribers & clients
+    _marker_pub = rospy.Publisher("grasp_markers", Marker, queue_size=10)
+    rospy.loginfo("Created marker publisher.")
+
     _tag_sub = rospy.Subscriber("/tcpu", PoseStamped, _handle_tag_pose)
-    rospy.loginfo("Successfully subscribed to tag pose topic")
+    rospy.loginfo("Successfully subscribed to tag pose topic.")
 
     rospy.loginfo("Waiting for stow arm service...")
     _stow_proxy = rospy.ServiceProxy("spot/arm_stow", Trigger)
