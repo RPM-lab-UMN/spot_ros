@@ -1236,7 +1236,7 @@ class SpotROS:
                                obstacle_info["obstacle_destination_body"].rot.z,
                                obstacle_info["obstacle_destination_body"].rot.w)
                                )
-        request = ObstacleMoveGoal(obstacle_location, destination)
+        request = ObstacleMoveGoal(spot_location, obstacle_location, destination)
         rospy.loginfo(str(request))
         rospy.loginfo("Waiting for obstacle_mover server...")
         self._obstacle_move_client.wait_for_server()
@@ -1247,6 +1247,7 @@ class SpotROS:
         self._send_trajectory_command(
                 self._transform_pose_to_body_frame(spot_location), rospy.Duration(5), False
             )
+        rospy.loginfo("Moved back to original location")
         return None
 
     def populate_camera_static_transforms(self, image_data):
