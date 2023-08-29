@@ -1206,7 +1206,7 @@ class SpotROS:
     def send_obstacle_removal_request(self, obstacle_info):
         rospy.loginfo("Building obstacle movement request")
         spot_location = PoseStamped(
-                            Header(frame_id = "odom", time = rospy.Time.now()),
+                            Header(frame_id = "odom", stamp = rospy.Time.now()),
                             Pose(
                                 Point(obstacle_info["spot_location_odom"].x,
                                 obstacle_info["spot_location_odom"].y,
