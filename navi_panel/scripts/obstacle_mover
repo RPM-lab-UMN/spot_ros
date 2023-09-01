@@ -131,7 +131,7 @@ def main():
 
         m = Marker(
             header=Header(
-                frame_id="odom",
+                frame_id="body",
                 stamp=rospy.Time.now()
             ),
 
@@ -139,7 +139,7 @@ def main():
             id=1,
 
             type=Marker.CYLINDER,
-            pose=goal.obstacle_location.pose,
+            pose=goal.obstacle_location,
             action=Marker.ADD,
 
             color=ColorRGBA(
@@ -167,7 +167,7 @@ def main():
             id=2,
 
             type=Marker.CYLINDER,
-            pose=goal.obstacle_destination.pose,
+            pose=goal.obstacle_destination,
             action=Marker.ADD,
 
             color=ColorRGBA(
@@ -286,9 +286,10 @@ def main():
         stamped_destination = _get_ros_stamped_pose(end.position, end.orientation)
         stamped_destination.header.frame_id = "odom"
         gg = GripperGoal(pose=stamped_destination.pose, header=stamped_destination.header)
-        gg.pose = _get_perpendicular_pose(gg.pose,
-                                          rot_vec=cur_grasp['t'],
-                                          offset=cur_grasp['R'])
+        # gg.pose = _get_perpendicular_pose(gg.pose,
+        #                                  rot_vec=cur_grasp['t'],
+        #                                  offset=cur_grasp['R'])
+        rospy.loginfo("gripper goal: " + str(gg))
 
         _feedback.feedback = "Executing drag command"
         _server.publish_feedback(_feedback)

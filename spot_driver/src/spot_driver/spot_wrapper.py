@@ -1508,7 +1508,7 @@ class SpotWrapper:
         # Navigate to the destination waypoint.
         is_finished = False
         nav_to_cmd_id = -1
-        obstacle_detected_response = self.detect_obstacles_near_spot()
+        obstacle_detected_response = self.detect_obstacles_near_spot(0.25)
         num_navigation_calls = 0
         while not is_finished:
             num_navigation_calls += 1
@@ -1523,7 +1523,9 @@ class SpotWrapper:
                 # get spot's current location to return to after dragging the chair
                 obstacle_feedback["spot_location_odom"] = self._transform_bd_pose(bdSE3Pose(0, 0, 0, bdQuat()), BODY_FRAME_NAME, ODOM_FRAME_NAME)
                 # send the location of where to move the obstacle in spot's body frame
-                obstacle_feedback["obstacle_destination_body"] = self.obstacle_protocol(grid)
+                # use obstacle_protocol feedback once it is improved
+                # obstacle_feedback["obstacle_destination_body"] = self.obstacle_protocol(grid)
+                obstacle_feedback["obstacle_destination_odom"] = self._transform_bd_pose(bdSE3Pose(0, 0.5, 0, bdQuat()), BODY_FRAME_NAME, ODOM_FRAME_NAME)
                 # send the rough location of the obstacle in spot's body frame
                 obstacle_feedback["obstacle_location_body"] = obstacle_detected_response[1]
                 self._logger.info(str(obstacle_detected_response[1]))
@@ -1533,11 +1535,11 @@ class SpotWrapper:
                     self._logger.info("Callback made to send obstacle movement command")
                 
             nav_to_cmd_id = self._graph_nav_client.navigate_to(
-                destination_waypoint, 0.5, leases=[sublease.lease_proto]
+                destination_waypoint, 1.0, leases=[sublease.lease_proto]
             )
             self._logger.info(str(num_navigation_calls) + " calls made to bosdyn navigate_to")
-            obstacle_detected_response = self.detect_obstacles_near_spot()
-            time.sleep(0.25)  # Sleep 0.5 seconds to allow for command execution.
+            obstacle_detected_response = self.detect_obstacles_near_spot(0.25)
+            time.sleep(0.5)  # Sleep 0.5 seconds to allow for command execution.
             # Poll the robot for feedback to determine if the navigation command is complete. Then sit
             # the robot down once it is finished.
             is_finished = self._check_success(nav_to_cmd_id)
@@ -1933,7 +1935,8 @@ class SpotWrapper:
         cell_size = obstacle_distance_grid_proto.local_grid.extent.cell_size
         best_obstacle_destination_body = tform_to_body_frame * bdSE3Pose(best_obstacle_destination[0]*cell_size, best_obstacle_destination[1]*cell_size, 0, bdQuat())
         best_obstacle_destination_body_coords = bdSE3Pose(best_obstacle_destination_body.x, best_obstacle_destination_body.y, 0, bdQuat())
-        return best_obstacle_destination_body_coords
+        best_obstacle_destination_odom = self._transform_bd_pose(best_obstacle_destination_body_coords, BODY_FRAME_NAME, ODOM_FRAME_NAME)
+        return best_obstacle_destination_odom
 
     def _find_safe_place_for_obstacle(self, grid_array, *args):
         """

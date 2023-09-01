@@ -1029,7 +1029,7 @@ class SpotROS:
         Send a trajectory command to the robot
 
         Args:
-            pose: Pose the robot should go to. Must be in the body frame
+            pose: PoseStamped the robot should go to. Must be in the body frame
             duration: After this duration, the command will time out and the robot will stop
             precise: If true, the robot will position itself precisely at the target pose, otherwise it will end up
                      near (within ~0.5m, rotation optional) the requested location
@@ -1227,15 +1227,16 @@ class SpotROS:
                                obstacle_info["obstacle_location_body"].rot.z,
                                obstacle_info["obstacle_location_body"].rot.w)
                                )
-        destination = Pose(Point(obstacle_info["obstacle_destination_body"].x,
-                               obstacle_info["obstacle_destination_body"].y,
-                               obstacle_info["obstacle_destination_body"].z),
+        destination = Pose(Point(obstacle_info["obstacle_destination_odom"].x,
+                               obstacle_info["obstacle_destination_odom"].y,
+                               obstacle_info["obstacle_destination_odom"].z),
                             QuatMessage(
-                               obstacle_info["obstacle_destination_body"].rot.x,
-                               obstacle_info["obstacle_destination_body"].rot.y,
-                               obstacle_info["obstacle_destination_body"].rot.z,
-                               obstacle_info["obstacle_destination_body"].rot.w)
+                               obstacle_info["obstacle_destination_odom"].rot.x,
+                               obstacle_info["obstacle_destination_odom"].rot.y,
+                               obstacle_info["obstacle_destination_odom"].rot.z,
+                               obstacle_info["obstacle_destination_odom"].rot.w)
                                )
+        rospy.loginfo("obstacle destination: " + str(destination))
         request = ObstacleMoveGoal(spot_location, obstacle_location, destination)
         rospy.loginfo(str(request))
         rospy.loginfo("Waiting for obstacle_mover server...")
@@ -1243,7 +1244,27 @@ class SpotROS:
         rospy.loginfo("Sending goal to obstacle movement action server")
         self._obstacle_move_client.send_goal(request)
         self._obstacle_move_client.wait_for_result()
-        # send robot back to the location it was when it 
+        # send robot back to the location it was when it detected the obstacle
+        # first move spot perpendicular to where the obstacle is now to prevent collisions
+        detected_obstacle = self.spot_wrapper.detect_obstacles_near_spot()
+        if detected_obstacle[0]:
+            rospy.loginfo("Moving away from obstacle")
+            target_se3_pose = detected_obstacle[1].inverse()
+            target_pose_stamped = PoseStamped(
+                            Header(frame_id = "body", stamp = rospy.Time.now()),
+                            Pose(
+                                Point(target_se3_pose.x,
+                                target_se3_pose.y,
+                                target_se3_pose.z),
+                                QuatMessage(
+                                target_se3_pose.rot.x,
+                                target_se3_pose.rot.y,
+                                target_se3_pose.rot.z,
+                                target_se3_pose.rot.w)
+                                )
+                            )
+            self._send_trajectory_command(target_pose_stamped, rospy.Duration(5))
+        rospy.sleep(2)
         self._send_trajectory_command(
                 self._transform_pose_to_body_frame(spot_location), rospy.Duration(5), False
             )
