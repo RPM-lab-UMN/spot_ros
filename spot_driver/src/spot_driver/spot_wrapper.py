@@ -1534,13 +1534,18 @@ class SpotWrapper:
                     # make callbacks to remove obstacles
                     callback(obstacle_feedback)
                     self._logger.info("Callback made to send obstacle movement command")
-                
+            # commands are issued to last for 1 second, and issued on a loop to regularly check for
+            # obstacles detected
             nav_to_cmd_id = self._graph_nav_client.navigate_to(
                 destination_waypoint, 1.0, leases=[sublease.lease_proto]
             )
             self._logger.info(str(num_navigation_calls) + " calls made to bosdyn navigate_to")
+            # TODO: Move this onto a separate thread and check it more frequently
+            # adjust the distance threshold for detecting obstacles here.
             obstacle_detected_response = self.detect_obstacles_near_spot(0.25)
-            time.sleep(0.5)  # Sleep 0.5 seconds to allow for command execution.
+            # Sleep 0.5 seconds to allow for command execution.
+            # adjust this time if needed to check for obstacles more/less frequently
+            time.sleep(0.5) 
             # Poll the robot for feedback to determine if the navigation command is complete. Then sit
             # the robot down once it is finished.
             is_finished = self._check_success(nav_to_cmd_id)
