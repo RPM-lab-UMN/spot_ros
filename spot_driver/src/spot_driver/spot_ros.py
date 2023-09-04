@@ -366,6 +366,13 @@ class SpotROS:
         self._colored_points_pub_helper(0, 2, results, self.rear_points_pub)
 
     def publish_graph_points(self):
+        """
+        Publish GraphWaypoint and GraphEdge data from spot's graph nav feature.
+        GraphWaypoints contain a waypoint id and a Pose. They are published to the topic
+        spot/graph_waypoints/set
+        GraphEdges contain two GraphWaypoints that are connected by an edge in the graph, and are 
+        published to spot/graph_edges
+        """
         waypoints_and_edges = self.spot_wrapper.extract_waypoint_and_edge_points()
         waypoint_messages = {}
         for id, pose in waypoints_and_edges[0].items():
@@ -377,6 +384,9 @@ class SpotROS:
             self.graph_edges_pub.publish(edge_msg)
 
     def create_waypoint_message(self, id, tform):
+        """
+        Helper to create ROS messages from waypoint data.
+        """
         pose_msg = Pose()
         pose_msg.position = Point(tform.x, tform.y, tform.z)
         pose_msg.orientation = QuatMessage(tform.rot.x, tform.rot.y, tform.rot.z, tform.rot.w)
@@ -1204,6 +1214,15 @@ class SpotROS:
             self.navigate_as.set_aborted(NavigateToResult(resp[0], resp[1]))
 
     def send_obstacle_removal_request(self, obstacle_info):
+        """
+        Sends ROS goal to grab and drag the chair.
+        This goal is handled in navi_panel/scripts/obstacle_mover
+        After the request is executed, this function moves spot back to its
+        previous location.
+        Parameters: obstacle_info, a dictionary of bdSE3poses containing spot's location,
+            the obstacle's (approximate) location, and the destination of where to drag the obstacle.
+            This information gets sent from spot_wrapper.py in the function _navigate_to().
+        """
         rospy.loginfo("Building obstacle movement request")
         spot_location = PoseStamped(
                             Header(frame_id = "odom", stamp = rospy.Time.now()),
@@ -1245,7 +1264,7 @@ class SpotROS:
         self._obstacle_move_client.send_goal(request)
         self._obstacle_move_client.wait_for_result()
         # send robot back to the location it was when it detected the obstacle
-        # first move spot perpendicular to where the obstacle is now to prevent collisions
+        # first move spot away from where the obstacle is now to prevent collisions
         detected_obstacle = self.spot_wrapper.detect_obstacles_near_spot()
         if detected_obstacle[0]:
             rospy.loginfo("Moving away from obstacle")
