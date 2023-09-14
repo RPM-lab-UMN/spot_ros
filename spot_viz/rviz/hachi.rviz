@@ -589,6 +589,14 @@ Visualization Manager:
       Show Visual Aids: false
       Update Topic: /navigation_waypoints/update
       Value: true
+    - Class: rviz/Marker
+      Enabled: true
+      Marker Topic: /grasp_markers
+      Name: Marker
+      Namespaces:
+        {}
+      Queue Size: 100
+      Value: true
   Enabled: true
   Global Options:
     Background Color: 55; 55; 55
@@ -633,9 +641,9 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.47479671239852905
+      Pitch: 0.37479668855667114
       Target Frame: <Fixed Frame>
-      Yaw: 4.636348247528076
+      Yaw: 1.168173909187317
     Saved: ~
 Window Geometry:
   Displays:

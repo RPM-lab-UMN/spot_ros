@@ -2,7 +2,7 @@ import rospy
 import math
 import time
 from std_srvs.srv import Trigger, TriggerResponse, SetBool, SetBoolResponse
-from std_msgs.msg import Bool
+from std_msgs.msg import Bool, Header
 from tf2_msgs.msg import TFMessage
 from sensor_msgs.msg import Image, CameraInfo
 from sensor_msgs.msg import JointState
@@ -366,6 +366,13 @@ class SpotROS:
         self._colored_points_pub_helper(0, 2, results, self.rear_points_pub)
 
     def publish_graph_points(self):
+        """
+        Publish GraphWaypoint and GraphEdge data from spot's graph nav feature.
+        GraphWaypoints contain a waypoint id and a Pose. They are published to the topic
+        spot/graph_waypoints/set
+        GraphEdges contain two GraphWaypoints that are connected by an edge in the graph, and are 
+        published to spot/graph_edges
+        """
         waypoints_and_edges = self.spot_wrapper.extract_waypoint_and_edge_points()
         waypoint_messages = {}
         for id, pose in waypoints_and_edges[0].items():
@@ -377,6 +384,9 @@ class SpotROS:
             self.graph_edges_pub.publish(edge_msg)
 
     def create_waypoint_message(self, id, tform):
+        """
+        Helper to create ROS messages from waypoint data.
+        """
         pose_msg = Pose()
         pose_msg.position = Point(tform.x, tform.y, tform.z)
         pose_msg.orientation = QuatMessage(tform.rot.x, tform.rot.y, tform.rot.z, tform.rot.w)
@@ -1029,7 +1039,7 @@ class SpotROS:
         Send a trajectory command to the robot
 
         Args:
-            pose: Pose the robot should go to. Must be in the body frame
+            pose: PoseStamped the robot should go to. Must be in the body frame
             duration: After this duration, the command will time out and the robot will stop
             precise: If true, the robot will position itself precisely at the target pose, otherwise it will end up
                      near (within ~0.5m, rotation optional) the requested location
@@ -1204,8 +1214,30 @@ class SpotROS:
             self.navigate_as.set_aborted(NavigateToResult(resp[0], resp[1]))
 
     def send_obstacle_removal_request(self, obstacle_info):
+        """
+        Sends ROS goal to grab and drag the chair.
+        This goal is handled in navi_panel/scripts/obstacle_mover
+        After the request is executed, this function moves spot back to its
+        previous location.
+        Parameters: obstacle_info, a dictionary of bdSE3poses containing spot's location,
+            the obstacle's (approximate) location, and the destination of where to drag the obstacle.
+            This information gets sent from spot_wrapper.py in the function _navigate_to().
+        """
         rospy.loginfo("Building obstacle movement request")
-        location = Pose(Point(obstacle_info["obstacle_location_body"].x,
+        spot_location = PoseStamped(
+                            Header(frame_id = "odom", stamp = rospy.Time.now()),
+                            Pose(
+                                Point(obstacle_info["spot_location_odom"].x,
+                                obstacle_info["spot_location_odom"].y,
+                                obstacle_info["spot_location_odom"].z),
+                                QuatMessage(
+                                obstacle_info["spot_location_odom"].rot.x,
+                                obstacle_info["spot_location_odom"].rot.y,
+                                obstacle_info["spot_location_odom"].rot.z,
+                                obstacle_info["spot_location_odom"].rot.w)
+                                )
+                            )
+        obstacle_location = Pose(Point(obstacle_info["obstacle_location_body"].x,
                                obstacle_info["obstacle_location_body"].y,
                                obstacle_info["obstacle_location_body"].z),
                             QuatMessage(
@@ -1214,22 +1246,48 @@ class SpotROS:
                                obstacle_info["obstacle_location_body"].rot.z,
                                obstacle_info["obstacle_location_body"].rot.w)
                                )
-        destination = Pose(Point(obstacle_info["obstacle_destination_body"].x,
-                               obstacle_info["obstacle_destination_body"].y,
-                               obstacle_info["obstacle_destination_body"].z),
+        destination = Pose(Point(obstacle_info["obstacle_destination_odom"].x,
+                               obstacle_info["obstacle_destination_odom"].y,
+                               obstacle_info["obstacle_destination_odom"].z),
                             QuatMessage(
-                               obstacle_info["obstacle_destination_body"].rot.x,
-                               obstacle_info["obstacle_destination_body"].rot.y,
-                               obstacle_info["obstacle_destination_body"].rot.z,
-                               obstacle_info["obstacle_destination_body"].rot.w)
+                               obstacle_info["obstacle_destination_odom"].rot.x,
+                               obstacle_info["obstacle_destination_odom"].rot.y,
+                               obstacle_info["obstacle_destination_odom"].rot.z,
+                               obstacle_info["obstacle_destination_odom"].rot.w)
                                )
-        request = ObstacleMoveGoal(location, destination)
+        rospy.loginfo("obstacle destination: " + str(destination))
+        request = ObstacleMoveGoal(spot_location, obstacle_location, destination)
         rospy.loginfo(str(request))
         rospy.loginfo("Waiting for obstacle_mover server...")
         self._obstacle_move_client.wait_for_server()
         rospy.loginfo("Sending goal to obstacle movement action server")
         self._obstacle_move_client.send_goal(request)
         self._obstacle_move_client.wait_for_result()
+        # send robot back to the location it was when it detected the obstacle
+        # first move spot away from where the obstacle is now to prevent collisions
+        detected_obstacle = self.spot_wrapper.detect_obstacles_near_spot()
+        if detected_obstacle[0]:
+            rospy.loginfo("Moving away from obstacle")
+            target_se3_pose = detected_obstacle[1].inverse()
+            target_pose_stamped = PoseStamped(
+                            Header(frame_id = "body", stamp = rospy.Time.now()),
+                            Pose(
+                                Point(target_se3_pose.x,
+                                target_se3_pose.y,
+                                target_se3_pose.z),
+                                QuatMessage(
+                                target_se3_pose.rot.x,
+                                target_se3_pose.rot.y,
+                                target_se3_pose.rot.z,
+                                target_se3_pose.rot.w)
+                                )
+                            )
+            self._send_trajectory_command(target_pose_stamped, rospy.Duration(5))
+        rospy.sleep(2)
+        self._send_trajectory_command(
+                self._transform_pose_to_body_frame(spot_location), rospy.Duration(5), False
+            )
+        rospy.loginfo("Moved back to original location")
         return None
 
     def populate_camera_static_transforms(self, image_data):

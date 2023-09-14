@@ -781,11 +781,10 @@ class SpotWrapper:
 
     def list_graph(self):
         """List waypoint ids of garph_nav
-        Args:
-          upload_path : Path to the root directory of the map.
+        Returns: List of waypoint ids from the graph. These Ids are also printed by the logger
         """
         ids, eds = self._list_graph_waypoint_and_edge_ids()
-        # skip waypoint_ for v2.2.1, skip waypiont for < v2.2
+        # skip waypoint_ for v2.2.1, skip waypoint for < v2.2
         return [
             v
             for k, v in sorted(
@@ -809,14 +808,11 @@ class SpotWrapper:
         """navigate with graph nav.
 
         Args:
-           navigate_to : Waypont id string for where to goal
+           navigate_to : Waypont id string for which waypoint to navigate to
            initial_localization_fiducial : Tells the initializer whether to use fiducials
-           initial_localization_waypoint : Waypoint id string of current robot position (optional)
+           initial_localization_waypoint : Waypoint id string of current robot position (not needed if using fiducials)
         """
 
-        # FIX ME somehow,,,, if the robot is stand, need to sit the robot before starting garph nav
-        if self.is_standing and not self.is_moving:
-            self.sit()
 
         assert not self._robot.is_estopped(), "Robot is estopped. cannot complete navigation"
         assert self.check_is_powered_on(), "Robot not powered on, cannot complete navigation"
@@ -1475,7 +1471,12 @@ class SpotWrapper:
         self._nav_interruption_callbacks.append(callback)
 
     def _navigate_to(self, *args):
-        """Navigate to a specific waypoint."""
+        """Navigate to a specific waypoint. Uses bosdyn client's navigate_to function, while periodically
+        detecting obstacles near spot. If an obstacle is detected, the functions in the nav_interrupt_callbacks
+        list are called.
+        Parameters: *args, waypoint id for where to navigate to, or list of waypoints, the first of which will be used as 
+        the destination.
+        """
         # Take the first argument as the destination waypoint.
         if len(args) < 1:
             # If no waypoint id is given as input, then return without requesting navigation.
@@ -1508,7 +1509,7 @@ class SpotWrapper:
         # Navigate to the destination waypoint.
         is_finished = False
         nav_to_cmd_id = -1
-        obstacle_detected_response = self.detect_obstacles_near_spot()
+        obstacle_detected_response = self.detect_obstacles_near_spot(0.25)
         num_navigation_calls = 0
         while not is_finished:
             num_navigation_calls += 1
@@ -1516,12 +1517,16 @@ class SpotWrapper:
             # navigation command (with estop or killing the program).\
             self._logger.info(obstacle_detected_response)
             if obstacle_detected_response[0] == True:
-                time.sleep(5)
+                time.sleep(2)
                 self._logger.info("Obstacle detected, removing it from path")
                 obstacle_feedback = {}
                 grid = self.get_obstacle_distance_grid()
+                # get spot's current location to return to after dragging the chair
+                obstacle_feedback["spot_location_odom"] = self._transform_bd_pose(bdSE3Pose(0, 0, 0, bdQuat()), BODY_FRAME_NAME, ODOM_FRAME_NAME)
                 # send the location of where to move the obstacle in spot's body frame
-                obstacle_feedback["obstacle_destination_body"] = self.obstacle_protocol(grid)
+                # use obstacle_protocol feedback once it is improved
+                # obstacle_feedback["obstacle_destination_body"] = self.obstacle_protocol(grid)
+                obstacle_feedback["obstacle_destination_odom"] = self._transform_bd_pose(bdSE3Pose(0, 0.5, 0, bdQuat()), BODY_FRAME_NAME, ODOM_FRAME_NAME)
                 # send the rough location of the obstacle in spot's body frame
                 obstacle_feedback["obstacle_location_body"] = obstacle_detected_response[1]
                 self._logger.info(str(obstacle_detected_response[1]))
@@ -1529,13 +1534,18 @@ class SpotWrapper:
                     # make callbacks to remove obstacles
                     callback(obstacle_feedback)
                     self._logger.info("Callback made to send obstacle movement command")
-                
+            # commands are issued to last for 1 second, and issued on a loop to regularly check for
+            # obstacles detected
             nav_to_cmd_id = self._graph_nav_client.navigate_to(
-                destination_waypoint, 0.5, leases=[sublease.lease_proto]
+                destination_waypoint, 1.0, leases=[sublease.lease_proto]
             )
             self._logger.info(str(num_navigation_calls) + " calls made to bosdyn navigate_to")
-            obstacle_detected_response = self.detect_obstacles_near_spot()
-            time.sleep(0.25)  # Sleep 0.25 seconds to allow for command execution.
+            # TODO: Move this onto a separate thread and check it more frequently
+            # adjust the distance threshold for detecting obstacles here.
+            obstacle_detected_response = self.detect_obstacles_near_spot(0.25)
+            # Sleep 0.5 seconds to allow for command execution.
+            # adjust this time if needed to check for obstacles more/less frequently
+            time.sleep(0.5) 
             # Poll the robot for feedback to determine if the navigation command is complete. Then sit
             # the robot down once it is finished.
             is_finished = self._check_success(nav_to_cmd_id)
@@ -1869,7 +1879,7 @@ class SpotWrapper:
         return distances
     def detect_obstacles_near_spot(self, threshold = 0.5):
         """
-        Purpose: detect whether points around spot are within a certain distance threshold of an obstacle
+        Purpose: detect whether points on spot's body are within a certain distance threshold of an obstacle
         Parameters: threshold, the maximum distance you want to allow spot to be from an obstacle.
         Returns: Tuple containing a Boolean, whether any points on spot's body are within the threshold distance of an obstacle,
             and a SE3Pose estimating where the obstacle is, in spot's body frame
@@ -1878,6 +1888,7 @@ class SpotWrapper:
         poses = []
         width = 0.5
         length = 1.1
+        # get poses that are on the edges and corners of spot's body
         for x in range(-1, 2):
             for y in range(-1, 2):
                 poses.append(bdSE3Pose(x * length / 2 , y * width / 2, 0, bdQuat()))
@@ -1897,12 +1908,12 @@ class SpotWrapper:
 
 
 
-    def obstacle_protocol(self, grid, *args):
+    def obstacle_protocol(self, grid):
         """
         Purpose: Determines an open space to move an obstacle once the obstacle has been detected near spot
         Parameters:
             grid(nxn array): the local grid snapshot that returned the issue
-        Returns: a coordinate point in the body frame that is safe to relocate the object
+        Returns: a bdSE3Pose in the body frame that is safe to relocate the object
         """
         #Ensure a Stop of all movement to avoid collision
         self.stop()
@@ -1931,7 +1942,8 @@ class SpotWrapper:
         cell_size = obstacle_distance_grid_proto.local_grid.extent.cell_size
         best_obstacle_destination_body = tform_to_body_frame * bdSE3Pose(best_obstacle_destination[0]*cell_size, best_obstacle_destination[1]*cell_size, 0, bdQuat())
         best_obstacle_destination_body_coords = bdSE3Pose(best_obstacle_destination_body.x, best_obstacle_destination_body.y, 0, bdQuat())
-        return best_obstacle_destination_body_coords
+        best_obstacle_destination_odom = self._transform_bd_pose(best_obstacle_destination_body_coords, BODY_FRAME_NAME, ODOM_FRAME_NAME)
+        return best_obstacle_destination_odom
 
     def _find_safe_place_for_obstacle(self, grid_array, *args):
         """
@@ -1985,7 +1997,8 @@ class SpotWrapper:
 
     def _weed_out_locations(self, candidates, spot_position):
         """
-        Purpose: Helper function that prunes the list of candidate points to find the best one
+        Purpose: Helper function that prunes the list of candidate points to find the best one. The chosen
+        location will be between 1 m and 2 m from spot, but these margins can be changed
         Parameters:
             candidates: list of points that have been verified with their immediate surroundings
             Spot_position: location of spot on the obstacle grid
@@ -1999,10 +2012,11 @@ class SpotWrapper:
         obstacle_distance_grid_proto = self._local_grid_client.get_local_grids(["obstacle_distance"])[0] #Have to translate distance from real-life to cell-sizes
         cell_size = obstacle_distance_grid_proto.local_grid.extent.cell_size
         for candidate in candidates:
+            # Edit the distance margins in this line
             if(np.linalg.norm(candidate-spot_position) <= 2 /cell_size and np.linalg.norm(candidate-spot_position) > 1/cell_size): # We want it reasonably out of the way
                 new_candidates.append(candidate)
         if(len(new_candidates) == 0):
-            self._logger.error("All locations are more than 1.7 meters away or less than half a meter away. This is extraneous in terms of relocation")
+            self._logger.error("All locations are more than 2 meters away or less than half a meter away. This is extraneous in terms of relocation")
             return None
         best_location = new_candidates[0] #Default return value
         best_location = np.array(best_location) #convert to linalg array
