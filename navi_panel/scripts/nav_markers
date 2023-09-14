@@ -10,7 +10,7 @@ from std_srvs.srv import Trigger, TriggerResponse
 import numpy as np
 import rospy
 
-from interactive_marker_utils import (
+from navi_marker_utils import (
     create_waypoint_marker,
     create_edge_marker,
     SetLocalizationCallback,
