@@ -13,8 +13,6 @@ from interactive_marker_utils import (GoToMarkerCallback,
                                     create_interactive_marker,
                                     MarkerPoseSubscriber,
                                     TriggerCallback,
-                                    MultiGraspToggleCallback,
-                                    MultiGraspActionCallback,
                                       TrackingToggleCallback)
 
 def main():
@@ -144,22 +142,6 @@ def main():
                                                         t=grasp['grasp_t'],
                                                         R=grasp['grasp_R']))
 
-    multigrasp_toggles = menu_handler.insert('multigrasp points')
-    for grasp in grasps:
-        grasp_toggle = menu_handler.insert(grasp['name'], multigrasp_toggles,
-                                           callback=MultiGraspToggleCallback(
-                                               menu_handler=menu_handler,
-                                               marker_server=server,
-                                               grasp=grasp
-                                           ))
-        menu_handler.setCheckState(grasp_toggle, MenuHandler.CHECKED)
-
-    menu_handler.insert('execute multigrasp',
-                        callback=MultiGraspActionCallback(
-                            server_name='spot/multigrasp',
-                            grasp_pos=cur_grasp,
-                            grasp_points=grasps
-                        ))
 
     drag_button = menu_handler.insert("drag to",
                                       callback=DragToMarkerCallback(server_name='spot/manipulate',

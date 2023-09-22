@@ -1,8 +1,12 @@
 cmake_minimum_required(VERSION 2.8.3)
+if (POLICY CMP0048)
+  cmake_policy(SET CMP0048 NEW)
+endif (POLICY CMP0048)
+
 project(spot_viz)
 
-find_package(catkin REQUIRED COMPONENTS rviz spot_msgs)
 
+find_package(catkin REQUIRED COMPONENTS rviz spot_msgs)
 catkin_package()
 
 catkin_python_setup()

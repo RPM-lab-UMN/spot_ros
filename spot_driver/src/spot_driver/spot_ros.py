@@ -70,8 +70,9 @@ from spot_msgs.srv import HandPose, HandPoseResponse, HandPoseRequest
 from .ros_helpers import *
 from .spot_wrapper import SpotWrapper
 from .utils.spot_task_wrapper import SpotTaskWrapper
-from .utils.ros_wrappers.gripper_action import GraspActionServer, MoveActionServer, MultiGraspActionServer
-from .utils.ros_pointcloud import images_to_pointcloud2
+from .utils.ros_wrappers.gripper_action import GraspActionServer, MoveActionServer
+from .utils.ros_wrappers.object_move_action import ObstacleMoveActionServer
+from .utils.ros_pointcloud import images_to_pointcloud2, create_waypoint_pointcloud_message
 from .utils.task_state_publisher import TaskStatePublisher
 from .utils.graphNav_wrapper import GraphNav
 import actionlib
@@ -365,23 +366,6 @@ class SpotROS:
     def RearPointcloudCB(self, results):
         self._colored_points_pub_helper(0, 2, results, self.rear_points_pub)
 
-    def publish_graph_points(self):
-        """
-        Publish GraphWaypoint and GraphEdge data from spot's graph nav feature.
-        GraphWaypoints contain a waypoint id and a Pose. They are published to the topic
-        spot/graph_waypoints/set
-        GraphEdges contain two GraphWaypoints that are connected by an edge in the graph, and are 
-        published to spot/graph_edges
-        """
-        waypoints_and_edges = self.spot_wrapper.extract_waypoint_and_edge_points()
-        waypoint_messages = {}
-        for id, pose in waypoints_and_edges[0].items():
-            waypoint_messages[id] = self.create_waypoint_message(id, pose)
-        for message in waypoint_messages.values():
-            self.graph_waypoints_pub.publish(message)
-        for edge in waypoints_and_edges[1]:
-            edge_msg = GraphEdge(waypoint_messages[edge[0]], waypoint_messages[edge[1]])
-            self.graph_edges_pub.publish(edge_msg)
 
     def create_waypoint_message(self, id, tform):
         """
@@ -394,6 +378,35 @@ class SpotROS:
         waypoint.waypoint_id = id
         waypoint.pose = pose_msg
         return waypoint
+    
+
+    def publish_graph_points(self):
+        """
+        Publish GraphWaypoint and GraphEdge data from spot's graph nav feature.
+        GraphWaypoints contain a waypoint id and a Pose. They are published to the topic
+        spot/graph_waypoints/set
+        GraphEdges contain two GraphWaypoints that are connected by an edge in the graph, and are 
+        published to spot/graph_edges
+
+        Add a function to publish pointclouds associated with each waypoint
+        """
+        waypoints_and_edges = self.graph_nav_wrapper.extract_waypoint_and_edge_points()
+        waypoint_messages = {}
+        for id, pose in waypoints_and_edges[0].items():
+            waypoint_messages[id] = self.create_waypoint_message(id, pose)
+        for message in waypoint_messages.values():
+            self.graph_waypoints_pub.publish(message)
+        for edge in waypoints_and_edges[1]:
+            edge_msg = GraphEdge(waypoint_messages[edge[0]], waypoint_messages[edge[1]])
+            self.graph_edges_pub.publish(edge_msg)
+
+        waypoints_point_cloud = self.graph_nav_wrapper.extract_point_clouds_from_graph()
+        if type(waypoints_point_cloud) == type(None):
+            return
+        else:
+            waypoints_point_cloud_msg = create_waypoint_pointcloud_message(waypoints_point_cloud)
+            self.graph_points_pub.publish(waypoints_point_cloud_msg)
+    
 
 
     #######################################################################
@@ -997,41 +1010,7 @@ class SpotROS:
         resp = self.spot_wrapper.get_docking_state()
         return GetDockStateResponse(GetDockStatesFromState(resp))
 
-    def handle_start_record(self, req):
-        """Start recording a GraphNav map"""
-        resp = self.graph_nav_wrapper.record()
-        return GraphRecordingResponse(resp[0], resp[1])
-
-    def handle_stop_record(self, req):
-        """Stop recording a GraphNav map"""
-        resp = self.graph_nav_wrapper.stop_recording()
-        return GraphRecordingResponse(resp[0], resp[1])
-    def handle_get_recording_status(self, req):
-        resp = self.graph_nav_wrapper.get_recording_status()
-        return GraphRecordingResponse(resp[0], resp[1])
-
-    def handle_download_recording(self, req):
-        """Download a recorded GraphNav map"""
-        # if a nonempty path string is passed in, it will be used as the download path for the GraphNav map
-        # otherwise, current working directory will be used.
-        if req.path == "":
-            resp = self.graph_nav_wrapper.download_recording()
-        else:
-            resp = self.graph_nav_wrapper.download_recording(req.path)
-        return GraphRecordingResponse(resp[0], resp[1])
-
-    def handle_upload_graph_and_snapshots(self, req):
-        """Upload a downloaded GraphNav map to spot"""
-        try:
-            self.spot_wrapper._upload_graph_and_snapshots(req.path)
-            return True, "Succesfully uploaded graph"
-        except:
-            self.logger.info("Must pass a valid path to a downloaded graph, and have lease claim for robot.")
-            return False, "Error uploading graph"
-    def handle_clear_graph(self, req):
-        self.logger.info(self.spot_wrapper._clear_graph())
-        return True, "Graph Cleared"
-
+    
 
 
     def _send_trajectory_command(self, pose, duration, precise=True):
@@ -1166,16 +1145,54 @@ class SpotROS:
         mobility_params.body_control.CopyFrom(body_control)
         self.spot_wrapper.set_mobility_params(mobility_params)
 
+
+
+
+    def handle_start_record(self, req):
+        """Start recording a GraphNav map"""
+        resp = self.graph_nav_wrapper.record()
+        return GraphRecordingResponse(resp[0], resp[1])
+
+    def handle_stop_record(self, req):
+        """Stop recording a GraphNav map"""
+        resp = self.graph_nav_wrapper.stop_recording()
+        return GraphRecordingResponse(resp[0], resp[1])
+    def handle_get_recording_status(self, req):
+        resp = self.graph_nav_wrapper.get_recording_status()
+        return GraphRecordingResponse(resp[0], resp[1])
+
+    def handle_download_recording(self, req):
+        """Download a recorded GraphNav map"""
+        # if a nonempty path string is passed in, it will be used as the download path for the GraphNav map
+        # otherwise, current working directory will be used.
+        if req.path == "":
+            resp = self.graph_nav_wrapper.download_recording()
+        else:
+            resp = self.graph_nav_wrapper.download_recording(req.path)
+        return GraphRecordingResponse(resp[0], resp[1])
+
+    def handle_upload_graph_and_snapshots(self, req):
+        """Upload a downloaded GraphNav map to spot"""
+        try:
+            self.graph_nav_wrapper._upload_graph_and_snapshots(req.path)
+            return True, "Succesfully uploaded graph"
+        except:
+            self.logger.info("Must pass a valid path to a downloaded graph, and have lease claim for robot.")
+            return False, "Error uploading graph"
+    def handle_clear_graph(self, req):
+        self.logger.info(self.graph_nav_wrapper._clear_graph())
+        return True, "Graph Cleared"
+
     def handle_list_graph(self, req):
         """ROS service handler for listing graph_nav waypoint_ids"""
-        resp = self.spot_wrapper.list_graph()
+        resp = self.graph_nav_wrapper.list_graph()
         return ListGraphResponse(resp)
 
     def handle_navigate_to_feedback(self):
         """Thread function to send navigate_to feedback"""
         while not rospy.is_shutdown() and self.run_navigate_to:
             localization_state = (
-                self.spot_wrapper._graph_nav_client.get_localization_state()
+                self.graph_nav_wrapper._graph_nav_client.get_localization_state()
             )
             if localization_state.localization.waypoint_id:
                 self.navigate_as.publish_feedback(
@@ -1193,19 +1210,19 @@ class SpotROS:
             return
 
         # create thread to periodically publish feedback
-        feedback_thraed = threading.Thread(
+        feedback_thread = threading.Thread(
             target=self.handle_navigate_to_feedback, args=()
         )
         self.run_navigate_to = True
-        feedback_thraed.start()
+        feedback_thread.start()
         # run navigate_to
-        resp = self.spot_wrapper.navigate_to(
-            navigate_to=msg.navigate_to,
+        resp = self.graph_nav_wrapper.navigate_to(
+            navigate_to_target=msg.navigate_to,
             initial_localization_fiducial=msg.initial_localization_fiducial,
             initial_localization_waypoint=msg.initial_localization_waypoint,
         )
         self.run_navigate_to = False
-        feedback_thraed.join()
+        feedback_thread.join()
 
         # check status
         if resp[0]:
@@ -1216,13 +1233,11 @@ class SpotROS:
     def send_obstacle_removal_request(self, obstacle_info):
         """
         Sends ROS goal to grab and drag the chair.
-        This goal is handled in navi_panel/scripts/obstacle_mover
-        After the request is executed, this function moves spot back to its
-        previous location.
+        
         Parameters: obstacle_info, a dictionary of bdSE3poses containing spot's location,
             the obstacle's (approximate) location, and the destination of where to drag the obstacle.
             This information gets sent from spot_wrapper.py in the function _navigate_to().
-        """
+        """ 
         rospy.loginfo("Building obstacle movement request")
         spot_location = PoseStamped(
                             Header(frame_id = "odom", stamp = rospy.Time.now()),
@@ -1237,7 +1252,10 @@ class SpotROS:
                                 obstacle_info["spot_location_odom"].rot.w)
                                 )
                             )
-        obstacle_location = Pose(Point(obstacle_info["obstacle_location_body"].x,
+        obstacle_location = PoseStamped(
+                            Header(frame_id = "body", stamp = rospy.Time.now()),
+                            Pose(
+                                Point(obstacle_info["obstacle_location_body"].x,
                                obstacle_info["obstacle_location_body"].y,
                                obstacle_info["obstacle_location_body"].z),
                             QuatMessage(
@@ -1246,7 +1264,11 @@ class SpotROS:
                                obstacle_info["obstacle_location_body"].rot.z,
                                obstacle_info["obstacle_location_body"].rot.w)
                                )
-        destination = Pose(Point(obstacle_info["obstacle_destination_odom"].x,
+                            )
+        destination = PoseStamped(
+                            Header(frame_id = "odom", stamp = rospy.Time.now()),
+                            Pose(
+                                Point(obstacle_info["obstacle_destination_odom"].x,
                                obstacle_info["obstacle_destination_odom"].y,
                                obstacle_info["obstacle_destination_odom"].z),
                             QuatMessage(
@@ -1255,40 +1277,21 @@ class SpotROS:
                                obstacle_info["obstacle_destination_odom"].rot.z,
                                obstacle_info["obstacle_destination_odom"].rot.w)
                                )
+                            )
         rospy.loginfo("obstacle destination: " + str(destination))
         request = ObstacleMoveGoal(spot_location, obstacle_location, destination)
-        rospy.loginfo(str(request))
+        rospy.loginfo("Sending the visualization information")
+        self._obstacle_move_viz_client.wait_for_server()
+        self._obstacle_move_viz_client.send_goal(request)
+        self._obstacle_move_viz_client.wait_for_result()
+
         rospy.loginfo("Waiting for obstacle_mover server...")
-        self._obstacle_move_client.wait_for_server()
-        rospy.loginfo("Sending goal to obstacle movement action server")
-        self._obstacle_move_client.send_goal(request)
-        self._obstacle_move_client.wait_for_result()
-        # send robot back to the location it was when it detected the obstacle
-        # first move spot away from where the obstacle is now to prevent collisions
-        detected_obstacle = self.spot_wrapper.detect_obstacles_near_spot()
-        if detected_obstacle[0]:
-            rospy.loginfo("Moving away from obstacle")
-            target_se3_pose = detected_obstacle[1].inverse()
-            target_pose_stamped = PoseStamped(
-                            Header(frame_id = "body", stamp = rospy.Time.now()),
-                            Pose(
-                                Point(target_se3_pose.x,
-                                target_se3_pose.y,
-                                target_se3_pose.z),
-                                QuatMessage(
-                                target_se3_pose.rot.x,
-                                target_se3_pose.rot.y,
-                                target_se3_pose.rot.z,
-                                target_se3_pose.rot.w)
-                                )
-                            )
-            self._send_trajectory_command(target_pose_stamped, rospy.Duration(5))
-        rospy.sleep(2)
-        self._send_trajectory_command(
-                self._transform_pose_to_body_frame(spot_location), rospy.Duration(5), False
-            )
-        rospy.loginfo("Moved back to original location")
-        return None
+        obstacle_mover_client = actionlib.SimpleActionClient("move_obstacle", ObstacleMoveAction)
+        obstacle_mover_client.wait_for_server()
+        obstacle_mover_client.send_goal(request)
+        obstacle_mover_client.wait_for_result()
+        rospy.loginfo("Obstalce Removed! Continue...")
+        
 
     def populate_camera_static_transforms(self, image_data):
         """Check data received from one of the image tasks and use the transform snapshot to extract the camera frame
@@ -1546,11 +1549,15 @@ class SpotROS:
             self.rates,
             self.callbacks,
         )
+        
+        # add graph nav wrapper
+        self.task_wrapper = SpotTaskWrapper(self.spot_wrapper, self.logger)
+        self.graph_nav_wrapper = GraphNav(self.spot_wrapper._robot, 
+                                          self.spot_wrapper._logger, 
+                                          self.spot_wrapper,
+                                          self.task_wrapper)
         # register callback for moving obstacles
-        self.spot_wrapper.register_nav_interruption_callback(self.send_obstacle_removal_request)
-        # add graph nav wrapper to the ros wrapper
-        self.graph_nav_wrapper = GraphNav(self.spot_wrapper._robot, self.spot_wrapper._logger)
-
+        self.graph_nav_wrapper.register_nav_interruption_callback(self.send_obstacle_removal_request)
         if not self.spot_wrapper.is_valid:
             return
 
@@ -1564,6 +1571,7 @@ class SpotROS:
         self.right_points_pub =         rospy.Publisher('colored_points/right',       **cpc_params) 
         self.rear_points_pub =          rospy.Publisher('colored_points/rear',        **cpc_params)
 
+        self.graph_points_pub =         rospy.Publisher('graph_point_clouds',       **cpc_params)
         self.graph_edges_pub =          rospy.Publisher('graph_edges',                   **{'data_class': GraphEdge, 'queue_size': 5})
         self.graph_waypoints_pub =      rospy.Publisher('graph_waypoints/set',               **{'data_class': GraphWaypoint, 'queue_size': 5})
 
@@ -1807,12 +1815,11 @@ class SpotROS:
 
         ########################################################
         # High level actions # 
-        self.task_wrapper = SpotTaskWrapper(self.spot_wrapper, self.logger)
-        self._gripper_action_server = GraspActionServer(self, 'grasp')
-        self._gripper_action_server = MoveActionServer(self, 'manipulate')
-        self._multigrasp_action_server = MultiGraspActionServer(self, 'multigrasp')
+        self._grasp_action_server = GraspActionServer(self, 'grasp')
+        self._move_action_server = MoveActionServer(self, 'manipulate')
+        self._obstacle_move_server = ObstacleMoveActionServer(self, 'move_obstacle')
 
-        self._obstacle_move_client = actionlib.SimpleActionClient("move_obstacle", ObstacleMoveAction)
+        self._obstacle_move_viz_client = actionlib.SimpleActionClient("move_obstacle_viz", ObstacleMoveAction)
 
         #########################################################
 

@@ -1,3 +1,26 @@
+#################################################################################
+# Date: 09/15/2023
+# Author of this Header: Xun Tu
+#
+# Recommendations on writing programs in this file:
+# 
+# This is the wrapper file to for general-purpose long, complicated tasks for SPOT.
+# Typically, a lot of extra logic other than sending requests and reading 
+# responses is required. Ideally, you would like to figure out the complex
+# parts in this file, and call the functions in spot_wrapper or set up clients
+# directly to do the final direct communications with the robot. 
+# 
+# should NOT call ROS servers deployed on SPOT
+
+# Example: if you want to move the robot to a place after you study
+# the point cloud, it would be a good choice to define the labor-intensive parts, 
+# such as processing the point cloud data into readable formats, filter out the outliers, or
+# figuring out the mathematical steps to find the target place, within this file
+
+# Note: for the more complicated or more specific tasks, such as use services
+# provided by graphNav to do navigation, you could also create individual files
+###############################################################################
+
 # Spot wrapper
 from ..spot_wrapper import SpotWrapper
 from ..ros_helpers import (get_numpy_data_type,
@@ -8,8 +31,10 @@ from ..ros_helpers import (get_numpy_data_type,
 # Messages
 from bosdyn.api import (robot_command_pb2,
                         geometry_pb2,
+                        image_pb2,
                         mobility_command_pb2, 
                         basic_command_pb2,
+                        manipulation_api_pb2,
                         arm_command_pb2)
 from bosdyn.api.spot.robot_command_pb2 import (BodyControlParams, 
                                                MobilityParams)
@@ -30,12 +55,14 @@ from bosdyn.client.manipulation_api_client import ManipulationApiClient
 
 from bosdyn.client.frame_helpers import (BODY_FRAME_NAME, 
                                          ODOM_FRAME_NAME, 
+                                         HAND_FRAME_NAME,
                                          VISION_FRAME_NAME,
                                          get_se2_a_tform_b,
                                          get_a_tform_b)
 
 from bosdyn.client.robot_command import (block_until_arm_arrives, block_for_trajectory_cmd)
-
+from bosdyn.client.image import ImageClient
+from bosdyn.client.robot_state import RobotStateClient
 
 from bosdyn.client.robot_command import RobotCommandBuilder as CmdBuilder
 
@@ -45,9 +72,29 @@ from bosdyn.util import seconds_to_duration
 import numpy as np
 import logging
 import time
+import cv2
 
 # Temp
 from bosdyn.client import math_helpers
+
+g_image_click = None
+g_image_display = None
+def cv_mouse_callback(event, x, y, flags, param):
+    global g_image_click, g_image_display
+    clone = g_image_display.copy()
+    if event == cv2.EVENT_LBUTTONUP:
+        g_image_click = (x, y)
+    else:
+        # Draw some lines on the image.
+        #print('mouse', x, y)
+        color = (30, 30, 30)
+        thickness = 2
+        image_title = 'Click to grasp'
+        height = clone.shape[0]
+        width = clone.shape[1]
+        cv2.line(clone, (0, y), (width, y), color, thickness)
+        cv2.line(clone, (x, 0), (x, height), color, thickness)
+        cv2.imshow(image_title, clone)
 
 class SpotTaskWrapper:
 
@@ -75,7 +122,12 @@ class SpotTaskWrapper:
     @property
     def feedback(self): return self._string_feedback
 
+
+    '''
+    Helper functions
+    '''
     def _pose_np_to_bd(self, pose:np.array, se3=False):
+        '''Change input np array into bd pose'''
         if pose.shape == (3,3):
             pose = bdSE2Pose.from_matrix(pose)
             if se3: pose = pose.get_closest_se3_transform()
@@ -84,18 +136,46 @@ class SpotTaskWrapper:
         return pose    
      
     def _pose_bd_to_vectors(self, pose:bdSE3Pose):
+        '''Change into bd pose into vectors (pos, rot)'''
         pos = [pose.position.x, pose.position.y, pose.position.z]
         rot = [pose.rotation.w, pose.rotation.x, pose.rotation.y, pose.rotation.z]
         return pos, rot
 
     def _offset_pose(self, pose:bdSE3Pose, distance, axis):
+        '''Calculate the offset along the direction defined by axis'''
         all_axis = {'x':0, 'y':1, 'z':2}
         dir = np.eye(3)[all_axis[axis]] 
         offset = np.eye(4)
         offset[0:3, 3] = -dir * distance
         offset = bdSE3Pose.from_matrix(offset)
         return pose * offset
+    
+    def _to_bd_se3(self, pose, ref, se3=True):
+        '''Changes input pose into a bd se3 pose.'''
+        if isinstance(pose, np.ndarray):
+            pose = self._pose_np_to_bd(pose, se3=se3)
+        pose = self.spot._transform_bd_pose(pose, ref, self.default_ref_frame)
+        return pose
+    def _ros_pose_to_bd_se3(self, pose):
+        '''Changes input ros pose to bdSE3 pose'''
+        identity = np.eye(4)
+        identity[0, 3] = pose.position.x
+        identity[1, 3] = pose.position.y
+        identity[2, 3] = pose.position.z
+        bd = bdSE3Pose.from_matrix(identity)
 
+        bd.rotation.x = pose.orientation.x
+        bd.rotation.y = pose.orientation.y
+        bd.rotation.z = pose.orientation.z
+        bd.rotation.w = pose.orientation.w
+
+        return bd
+    def _get_gripper_initial_pose(self, y_offset, frame_name = "odom"):
+        return self.spot._transform_bd_pose(bdSE3Pose(0, y_offset, 0, bdQuat()), HAND_FRAME_NAME, frame_name)
+        
+    '''
+    Move the robot to a a desired pose
+    '''
     def go_to(self, pose, relative_frame:str, 
               distance:float=0.0, dir_axis:str='x', 
               up_axis:str='z', blocking=True):
@@ -109,7 +189,8 @@ class SpotTaskWrapper:
              else rot.to_pitch() if up_axis == 'y'\
              else rot.to_yaw()        
     
-        # TODO: handle this response
+        # TODO: handle this response (ask Bahaa)
+        # Notice that we only consider the (x,y) coordinates for the body of the robot
         self.spot.trajectory_cmd(
             goal_x=pos.x, goal_y=pos.y, 
             goal_heading=heading,
@@ -118,28 +199,36 @@ class SpotTaskWrapper:
             blocking=blocking,
         )
 
+    '''
+    Release the grasp and stow the arm
+    '''
     def _end_grasp(self):
         self.spot.arm_stow()
         self.spot.gripper_close()
 
-    def _to_bd_se3(self, pose, ref, se3=True):
-        '''Changes input pose into a bd se3 pose.'''
-        if isinstance(pose, np.ndarray):
-            pose = self._pose_np_to_bd(pose, se3=se3)
-        pose = self.spot._transform_bd_pose(pose, ref, self.default_ref_frame)
-        return pose
-
+    '''
+    Grasp the object defined by "pose", the target pose of the gripper
+    '''
     def grasp(self, pose, reference_frame:str, **kwargs):
         if not self.spot.arm_stow()[0]:
             raise Exception('Failed to stow arm.')
 
+        # The target pose is the gripper pose
         self._log.debug(f'Grasping pose {pose} in frame {reference_frame}')
         pose = self._to_bd_se3(pose, reference_frame)
         
+        # Command the robot to go to a place close to the gripper pose
         self._log.info('Approaching desired robot pose.')
         self.go_to(pose, self.default_ref_frame, distance=1.0, **kwargs)
 
+
         def _to(p, d):
+            '''
+            Build up the formal command sent to 
+            the robot to do the grasping
+            p: target pose
+            d: duration
+            '''
             pos, rot = self._pose_bd_to_vectors(p)
             status, msg = self.spot.hand_pose(pos, rot, 
                                 reference_frame=self.default_ref_frame, 
@@ -148,10 +237,13 @@ class SpotTaskWrapper:
             if status is False: 
                 self._end_grasp()
                 raise(Exception('Failed...'))
-
+            
+        # Move the gripper to the pre-grasp pose
         pre_grasp = self._offset_pose(pose, 0.25, 'x')
         self._log.info(f'Approaching Pre-grasp...')
         _to(pre_grasp, 1.5)
+
+        # Do the final grasp
         self._log.info('Approaching object...')
         self.spot.gripper_open()
         _to(pose, 1.0)
@@ -159,67 +251,19 @@ class SpotTaskWrapper:
         self._log.info('Succeeded')
         return True
     
-    def multigrasp(self, poses, base_weights, reference_frame:str, **kwargs):
-        """Reads a list of poses and selects the safest one to grasp
-        Inputs:
-            poses: A list of poses to select from
-            base_weights: Weights to apply when selecting a pose
-            reference_frame: The frame the poses are relative to
-        Returns:
-            A 2-tuple with the result and selected pose
-        """
-        # Find needed local grids
-        local_grids = self.spot.local_grids
-        no_step, obstacle_distance = None, None
-        for response in local_grids:
-            if response.local_grid_type_name == 'no_step':
-                no_step = response.local_grid
-            elif response.local_grid_type_name == 'obstacle_distance':
-                obstacle_distance = response.local_grid
-
-        if no_step == None or obstacle_distance == None:
-            raise Exception('Could not read local grids.')
-
-        # Unpack local grid data
-        no_step_data = unpack_grid(no_step)
-        obstacle_distance_data = unpack_grid(obstacle_distance)
-
-        effective_weights = list(base_weights)
-        for idx,pose in enumerate(poses):
-            pose = self._to_bd_se3(pose, reference_frame)
-            pose = self._offset_pose(pose, 1.0, 'x')
-            try:
-                no_step_val = local_grid_value(no_step, pose, self.default_ref_frame, no_step_data)
-            except IndexError:
-                raise Exception("Local Grid OOB error")
-
-            if (no_step_val) < 0:
-                effective_weights[idx] = 0
-            else:
-                try:
-                    obst_dist_val = local_grid_value(obstacle_distance, pose, self.default_ref_frame, obstacle_distance_data)
-                except IndexError:
-                    raise Exception("Local Grid OOB error")
-
-                effective_weights[idx] *= obst_dist_val
-
-        best_idx = 0
-        for idx, weight in enumerate(effective_weights):
-            if weight > effective_weights[best_idx]:
-                best_idx = idx
-
-        if effective_weights[best_idx] > 0:
-            result = self.grasp(poses[best_idx], reference_frame, **kwargs)
-            return (result, best_idx)
-
-        raise Exception('No safe grasp pose found')
-
+    '''
+    Move the object to the target pose
+    '''
     def move_object(self, pose, reference_frame:str, **kwargs):
         '''Commands the robot to move an object to a desired pose.'''
         self._log.debug(f'Moving object to pose {pose} in frame {reference_frame}')
         return self._move_heavy_object(pose, reference_frame)
 
+    '''
+    Move the arm to the target pose in the reference frame
+    '''
     def _follow_arm_to(self, pose, reference_frame):
+
         pose = self._to_bd_se3(pose, reference_frame)
 
         # Create the arm & body command.
@@ -241,6 +285,161 @@ class SpotTaskWrapper:
         self._log.info('Succeeded')
         return True
     
+
+    '''
+    Command the robot to go along a trajectory in reference frame
+    '''
+    def _go_along_trajectory(self, pose, duration_sec = 15.0, reference_frame = "odom"):
+        """
+        Send a trajectory command to the robot
+
+        Args:
+            pose: PoseStamped the robot should go to. Must be in the body frame
+            duration: After this duration, the command will time out and the robot will stop
+
+        Returns: (bool, str) tuple indicating whether the command was successfully sent, and a message
+
+        """
+        pose = pose.get_closest_se2_transform()
+        self._log.info("Building trajectory Command")
+        succeeded, _, id = self.spot.trajectory_cmd(
+            goal_x=pose.x, goal_y=pose.y,
+            goal_heading=pose.angle,
+            cmd_duration=duration_sec, 
+            reference_frame=reference_frame,
+            blocking=False
+        )
+        self._log.info("Going along the trajectory...")
+        if succeeded:
+            block_for_trajectory_cmd(self.spot._robot_command_client,
+                                     cmd_id=id, 
+                                     feedback_interval_secs=0.5, 
+                                     timeout_sec=duration_sec,
+                                     logger=self._log)
+        else: 
+            self._log.info('Failed to send trajectory command.')
+            return False
+        return True
+
+
+    '''
+    Order the robot to take an image and grasp one point on the image
+    '''
+    def _get_pick_vec(self, image):
+        # Clarify the image data type
+        if image.shot.image.pixel_format == image_pb2.Image.PIXEL_FORMAT_DEPTH_U16:
+            dtype = np.uint16
+        else:
+            dtype = np.uint8
+        img = np.fromstring(image.shot.image.data, dtype=dtype)
+
+        # Convert the image into standard raw typeS
+        if image.shot.image.format == image_pb2.Image.FORMAT_RAW:
+            img = img.reshape(image.shot.image.rows, image.shot.image.cols)
+        else:
+            img = cv2.imdecode(img, -1)
+
+        # Show the image to the user and wait for them to click on a pixel
+        image_title = 'Click to grasp'
+        cv2.namedWindow(image_title)
+        cv2.setMouseCallback(image_title, cv_mouse_callback)
+
+        global g_image_click, g_image_display
+        g_image_display = img
+        cv2.imshow(image_title, g_image_display)
+        while g_image_click is None:
+            key = cv2.waitKey(1) & 0xFF
+            if key == ord('q') or key == ord('Q'):
+                # Quit
+                return None
+
+        pick_vec = geometry_pb2.Vec2(x=g_image_click[0], y=g_image_click[1])
+        return pick_vec
+    
+    def take_image_grasp(self):
+        
+        
+        # Set up the necessary clients
+        robot = self._robot
+
+        assert robot.has_arm(), "Robot requires an arm to run this example."
+
+        # TODO: Command the robot to stand up at first if it is not standing
+
+        # Or you could grab it from spot_wrapper
+        image_client = self.spot._image_client
+
+        manipulation_api_client = robot.ensure_client(ManipulationApiClient.default_service_name)
+
+
+        # TODO: acquire from all the image sources, and choose the best one
+        image_sources = [
+                            "frontleft_fisheye_image",
+                            "frontright_fisheye_image",
+                            "right_fisheye_image",
+                            "left_fisheye_image",
+                            "back_fisheye_image"
+                        ]
+
+
+        pick_vec = None
+        for image_source in image_sources:
+            # Take a picture with a camera
+            self._log.info('Getting an image from: ' + image_source)
+            image_responses = image_client.get_image_from_sources([image_source])
+
+            if len(image_responses) != 1:
+                self._log.info('Got invalid number of images: ' + str(len(image_responses)))
+                self._log.info(image_responses)
+                assert False
+
+            image = image_responses[0]
+            pick_vec = self._get_pick_vec(image) #Use the use defined grasp position
+            if pick_vec != None:
+                break
+        
+
+        # Build the proto
+        grasp = manipulation_api_pb2.PickObjectInImage(
+            pixel_xy=pick_vec, transforms_snapshot_for_camera=image.shot.transforms_snapshot,
+            frame_name_image_sensor=image.shot.frame_name_image_sensor,
+            camera_model=image.source.pinhole)
+
+        # Ask the robot to pick up the object
+        grasp_request = manipulation_api_pb2.ManipulationApiRequest(pick_object_in_image=grasp)
+
+        # Send the request
+        cmd_response = manipulation_api_client.manipulation_api_command(
+            manipulation_api_request=grasp_request)
+
+        # Get feedback from the robot
+        while True:
+            feedback_request = manipulation_api_pb2.ManipulationApiFeedbackRequest(
+                manipulation_cmd_id=cmd_response.manipulation_cmd_id)
+
+            # Send the request
+            response = manipulation_api_client.manipulation_api_feedback_command(
+                manipulation_api_feedback_request=feedback_request)
+
+            self._log.info('Current state: '+ manipulation_api_pb2.ManipulationFeedbackState.Name(response.current_state))
+
+
+            if response.current_state == manipulation_api_pb2.MANIP_STATE_GRASP_SUCCEEDED or response.current_state == manipulation_api_pb2.MANIP_STATE_GRASP_FAILED:
+                break
+
+            time.sleep(0.25)
+
+        
+        self._log.info('Finished grasp.')
+        cv2.destroyAllWindows()
+        global g_image_display, g_image_click
+        g_image_click = None
+        g_image_display = None
+
+    '''
+    Move the robot to the desired pose, while gripper attached to the object
+    No force within the arm joints
+    '''
     def _drag_arm_to(self, pose:bdSE3Pose, reference_frame, duration_sec=15.0):
         '''Commands the robot to position the robot at the commanded
         pose while leaving the arm commpliant thus allowing it to drag
@@ -379,7 +578,7 @@ class SpotTaskWrapper:
                                         self.default_ref_frame, 
                                         BODY_FRAME_NAME)
         body_dist = np.linalg.norm([in_body.x, in_body.y, in_body.z])
-        if body_dist > 0.2:
+        if body_dist > 0.5:
             self._log.info(f'Object is too far away. Dragging it closer.')
 
             # Define where the object should stand to position the object.
@@ -388,6 +587,11 @@ class SpotTaskWrapper:
             stance = pose * bdSE3Pose(x=t[0], y=t[1], z=t[2], rot=R)
             self._drag_arm_to(stance, self.default_ref_frame,
                               duration_sec=30.0)
+        self._log.info("Dragging the object to desired pose with impedance cmd")
         # Move arm to adjust pose. 
         self._arm_impedance_cmd(pose, self.default_ref_frame,
                                 duration_sec=15.0)
+
+
+
+    

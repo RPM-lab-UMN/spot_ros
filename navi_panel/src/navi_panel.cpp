@@ -13,7 +13,7 @@
 #include <std_srvs/Trigger.h>
 #include <std_srvs/TriggerResponse.h>
 #include "ros/ros.h"
-
+#include <string.h>
 
 namespace navi_panel
 
@@ -113,7 +113,6 @@ namespace navi_panel
         recordingTime->display(QString::fromUtf8("00:00"));
         recordingTime->update();
     }
-
     void ControlPanel::setupToggleButtons() {
         listGraphButton = this->findChild<QPushButton*>("listGraphButton");
 
@@ -125,6 +124,8 @@ namespace navi_panel
         pointcloudToggleButton->setChecked(false);
         pointcloudToggleButton->setText(QString::fromUtf8("Show Point Cloud"));
         pointcloudToggleButton->update();
+
+        this->isPointCloudShowing = false;
     }
 
     void ControlPanel::setupModalButtons() {
@@ -254,9 +255,11 @@ namespace navi_panel
 
     void ControlPanel::pointcloudToggle() {
         logStatus(QString::fromUtf8("Toggling pointcloud visibility..."));
-
+        this -> isPointCloudShowing = !(this -> isPointCloudShowing);
         // TODO toggle pointcloud display
-
+        logStatus(QString::fromUtf8("Point cloud visibility: "));
+        std::string s = this -> isPointCloudShowing ? "True!" : "False!";
+        logStatus(QString::fromUtf8(s.c_str()));
         return;
     }
 

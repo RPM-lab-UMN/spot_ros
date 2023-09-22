@@ -34,6 +34,7 @@ class ControlPanel : public rviz::Panel
     // Member variables
  private: 
     bool isRecording;
+    bool isPointCloudShowing;
     QTimer* recTimer;
     QTime recElapsedTime;
 
@@ -71,6 +72,7 @@ class ControlPanel : public rviz::Panel
     // ROS topic subscribers
     ros::Subscriber graphWaypointsSub_;
     ros::Subscriber graphEdgesSub_;
+    ros::Subscriber graphPointCloudSub_;
 
     // QT UI Widgets
     QPushButton* recordingToggleButton;
