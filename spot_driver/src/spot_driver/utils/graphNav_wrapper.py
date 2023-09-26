@@ -548,8 +548,9 @@ class GraphNav(object):
                 obstacle_feedback["spot_location_odom"] = self._spot_wrapper._transform_bd_pose(bdSE3Pose(0, 0, 0, bdQuat()), BODY_FRAME_NAME, ODOM_FRAME_NAME)
                 # send the location of where to move the obstacle in spot's body frame
                 # use obstacle_protocol feedback once it is improved
+                # TODO: validate obstacle_protocol and find an appropriate place to put the obstacle
                 # obstacle_feedback["obstacle_destination_body"] = self.obstacle_protocol(grid)
-                obstacle_feedback["obstacle_destination_odom"] = self._spot_wrapper._transform_bd_pose(bdSE3Pose(0, 0, 0, bdQuat()), HAND_FRAME_NAME, ODOM_FRAME_NAME)
+                obstacle_feedback["obstacle_destination_odom"] = self._spot_wrapper._transform_bd_pose(bdSE3Pose(0, -1.5, 0, bdQuat()), BODY_FRAME_NAME, ODOM_FRAME_NAME)
                 # send the rough location of the obstacle in spot's body frame
                 obstacle_feedback["obstacle_location_body"] = obstacle_detected_response[1]
                 #self._logger.info(str(obstacle_detected_response[1]))

@@ -480,7 +480,62 @@ class SpotTaskWrapper:
             self._log.error('Failed to send trajectory command.')
             return False
         return True
-    
+    '''
+    Move the obstacle to the pose, defined for the robot;
+    In the process the arm should not change
+    '''
+    def _drag_arm_to_joints_unchanged(self, pose:bdSE3Pose, reference_frame, duration_sec=15.0):
+        self._log.info(f'Building Command to make the robot arm stay in its orientation')
+        
+        '''
+        Part I: Read the current arm states, and build up the command
+        '''
+        joint_states = self.spot._robot_state_client.get_robot_state().joint_states
+        sh0 = joint_states[-9].position.value
+        sh1 = joint_states[-9].position.value
+        el0 = joint_states[-9].position.value
+        el1 = joint_states[-9].position.value
+        wr0 = joint_states[-9].position.value
+        wr1 = joint_states[-9].position.value
+
+        traj_point = CmdBuilder.create_arm_joint_trajectory_point(
+            sh0, sh1, el0, el1, wr0, wr1)
+        arm_joint_traj = arm_command_pb2.ArmJointTrajectory(points=[traj_point])
+
+        # Make a Robot arm Command based on the arm joint trajectory
+        joint_move_command = arm_command_pb2.ArmJointMoveCommand.Request(trajectory=arm_joint_traj)
+        arm_command = arm_command_pb2.ArmCommand.Request(arm_joint_move_command=joint_move_command)
+        sync_arm = SynchronizedCommand.Request(arm_command=arm_command)
+        arm_sync_robot_cmd = robot_command_pb2.RobotCommand(synchronized_command=sync_arm)
+        arm_command = CmdBuilder.build_synchro_command(arm_sync_robot_cmd)
+
+        # Set the claw to apply force        
+        gripper_arm_cmd = CmdBuilder.claw_gripper_close_command(arm_command) 
+
+
+        '''
+        Part II: send the trajectory command based on the arm&gripper command
+        '''
+        pose = pose.get_closest_se2_transform()
+        self._log.info(f'Sending Robot Command.')
+        succeeded, _, id = self.spot.trajectory_cmd(
+            goal_x=pose.x, goal_y=pose.y,
+            goal_heading=pose.angle,
+            cmd_duration=duration_sec, 
+            reference_frame=reference_frame,
+            blocking=False,
+            build_on_command=gripper_arm_cmd
+        )
+        if succeeded:
+            block_for_trajectory_cmd(self.spot._robot_command_client,
+                                     cmd_id=id, 
+                                     feedback_interval_secs=0.5, 
+                                     timeout_sec=duration_sec,
+                                     logger=self._log)
+        else: 
+            self._log.error('Failed to send trajectory command.')
+            return False
+        return True
     def _get_body_assist_stance_command(self, build_on_command=None):
         '''A assistive stance is used when manipulating heavy
         objects or interacting with the environment. 
