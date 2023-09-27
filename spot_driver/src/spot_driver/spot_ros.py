@@ -338,7 +338,7 @@ class SpotROS:
             self.populate_camera_static_transforms(data[1])
             self.populate_camera_static_transforms(data[2])
             self.populate_camera_static_transforms(data[3])
-    
+
     ################## Colored Pointcloud Callbacks ##################
     def _colored_points_pub_helper(self, rgb_idx, d_idx, results, pub):
         try:
@@ -1268,17 +1268,17 @@ class SpotROS:
         destination = PoseStamped(
                             Header(frame_id = "odom", stamp = rospy.Time.now()),
                             Pose(
-                                Point(obstacle_info["obstacle_destination_odom"].x,
-                               obstacle_info["obstacle_destination_odom"].y,
-                               obstacle_info["obstacle_destination_odom"].z),
+                                Point(obstacle_info["spot_destination_odom"].x,
+                               obstacle_info["spot_destination_odom"].y,
+                               obstacle_info["spot_destination_odom"].z),
                             QuatMessage(
-                               obstacle_info["obstacle_destination_odom"].rot.x,
-                               obstacle_info["obstacle_destination_odom"].rot.y,
-                               obstacle_info["obstacle_destination_odom"].rot.z,
-                               obstacle_info["obstacle_destination_odom"].rot.w)
+                               obstacle_info["spot_destination_odom"].rot.x,
+                               obstacle_info["spot_destination_odom"].rot.y,
+                               obstacle_info["spot_destination_odom"].rot.z,
+                               obstacle_info["spot_destination_odom"].rot.w)
                                )
                             )
-        rospy.loginfo("obstacle destination: " + str(destination))
+        rospy.loginfo("Spot destination to remove the obstacle: " + str(destination))
         request = ObstacleMoveGoal(spot_location, obstacle_location, destination)
         rospy.loginfo("Sending the visualization information")
         self._obstacle_move_viz_client.wait_for_server()
@@ -1290,6 +1290,7 @@ class SpotROS:
         obstacle_mover_client.wait_for_server()
         obstacle_mover_client.send_goal(request)
         obstacle_mover_client.wait_for_result()
+        rospy.loginfo(obstacle_mover_client.get_result())
         rospy.loginfo("Obstalce Removed! Continue...")
         
 
@@ -1861,7 +1862,7 @@ class SpotROS:
             self.publish_mobility_params, self.rates["mobility_params"]
         )
         rate_limited_motion_allowed = RateLimitedCall(self.publish_allow_motion, 10)
-        rate_limited_graph_points = RateLimitedCall(self.publish_graph_points, 0.2)
+        rate_limited_graph_points = RateLimitedCall(self.publish_graph_points, 0.5)
         rospy.loginfo("Driver started")
         while not rospy.is_shutdown():
             self.spot_wrapper.updateTasks()

@@ -97,7 +97,7 @@ def main():
             id=2,
 
             type=Marker.CYLINDER,
-            pose=goal.obstacle_destination.pose,
+            pose=goal.spot_destination.pose,
             action=Marker.ADD,
 
             color=ColorRGBA(

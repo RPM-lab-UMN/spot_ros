@@ -549,15 +549,17 @@ class GraphNav(object):
                 # send the location of where to move the obstacle in spot's body frame
                 # use obstacle_protocol feedback once it is improved
                 # TODO: validate obstacle_protocol and find an appropriate place to put the obstacle
-                # obstacle_feedback["obstacle_destination_body"] = self.obstacle_protocol(grid)
-                obstacle_feedback["obstacle_destination_odom"] = self._spot_wrapper._transform_bd_pose(bdSE3Pose(0, -1.5, 0, bdQuat()), BODY_FRAME_NAME, ODOM_FRAME_NAME)
+                # obstacle_feedback["spot_destination_odom"] = self.obstacle_protocol(grid)
+                obstacle_feedback["spot_destination_odom"] = self._spot_wrapper._transform_bd_pose(bdSE3Pose(0, -1.2, 0, bdQuat()), BODY_FRAME_NAME, ODOM_FRAME_NAME)
                 # send the rough location of the obstacle in spot's body frame
                 obstacle_feedback["obstacle_location_body"] = obstacle_detected_response[1]
                 #self._logger.info(str(obstacle_detected_response[1]))
                 self._nav_interruption_callback(obstacle_feedback)
+                
                 self._logger.info("Callback made to send obstacle movement command")
             # commands are issued to last for 1 second, and issued on a loop to regularly check for
             # obstacles detected
+            time.sleep(4)
             nav_to_cmd_id = self._graph_nav_client.navigate_to(
                 destination_waypoint, 1.0, leases=[sublease.lease_proto]
             )
