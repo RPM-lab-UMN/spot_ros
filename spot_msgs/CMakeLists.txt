@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.0.2)
+cmake_minimum_required(VERSION 3.5.2)
 project(spot_msgs)
 
 find_package(catkin REQUIRED COMPONENTS
@@ -69,6 +69,7 @@ add_action_files(
   Gripper.action
   ObstacleMove.action
   MultiGrasp.action
+  FindGraspPoint.action
 )
 
 generate_messages(
@@ -76,6 +77,7 @@ generate_messages(
   std_msgs
   geometry_msgs
   actionlib_msgs
+  sensor_msgs
 )
 
 catkin_package(

@@ -442,6 +442,11 @@ class SpotTaskWrapper:
             # Tell the robot to just squeeze on the ground at the given point.
             constraint = grasp.grasp_params.allowable_orientation.add()
             constraint.squeeze_grasp.SetInParent()
+    
+    
+    '''
+    Take an image and try to grasp something based on the image
+    '''
     def take_image_grasp(self):
         
         
@@ -523,6 +528,103 @@ class SpotTaskWrapper:
         global g_image_display, g_image_click
         g_image_click = None
         g_image_display = None
+        return True
+    
+    '''
+    The following functions are just the split of take_image_grasp
+    '''
+    def take_image_for_grasp(self):
+        image_client = self.spot._image_client
+        image_source = "hand_color_image"
+        # Take a picture with a camera
+        self._log.info('Getting an image from: ' + image_source)
+        image_responses = image_client.get_image_from_sources([image_source])
+
+        if len(image_responses) != 1:
+            self._log.info('Got invalid number of images: ' + str(len(image_responses)))
+            self._log.info(image_responses)
+            assert False
+
+        image = image_responses[0]
+        return image
+    '''
+    Convert the image into cv2 format
+    '''
+    def _convert_to_cv2(self, image):
+        # Clarify the image data type
+        if image.shot.image.pixel_format == image_pb2.Image.PIXEL_FORMAT_DEPTH_U16:
+            dtype = np.uint16
+        else:
+            dtype = np.uint8
+        img = np.fromstring(image.shot.image.data, dtype=dtype)
+
+        # Convert the image into standard raw typeS
+        if image.shot.image.format == image_pb2.Image.FORMAT_RAW:
+            img = img.reshape(image.shot.image.rows, image.shot.image.cols)
+        else:
+            img = cv2.imdecode(img, -1)
+
+        return img
+    '''
+    Assume we already have the selected point, try to grasp the point
+    '''
+    def take_pick_grasp(self, pick_x, pick_y, image):
+        
+        
+        # Set up the necessary clients
+        robot = self._robot
+
+        assert robot.has_arm(), "Robot requires an arm to run this example."
+
+
+        manipulation_api_client = robot.ensure_client(ManipulationApiClient.default_service_name)
+
+
+        pick_vec = geometry_pb2.Vec2(x=pick_x, y=pick_y)
+       
+        
+        # Build the proto
+        grasp = manipulation_api_pb2.PickObjectInImage(
+            pixel_xy=pick_vec, transforms_snapshot_for_camera=image.shot.transforms_snapshot,
+            frame_name_image_sensor=image.shot.frame_name_image_sensor,
+            camera_model=image.source.pinhole)
+        
+
+        grasp_config = "horizontal"
+        # Optionally add a grasp constraint.  This lets you tell the robot you only want top-down grasps or side-on grasps.
+        self.add_grasp_constraint(grasp_config, grasp, self.spot._robot_state_client)
+        # Ask the robot to pick up the object
+        grasp_request = manipulation_api_pb2.ManipulationApiRequest(pick_object_in_image=grasp)
+
+        # Send the request
+        cmd_response = manipulation_api_client.manipulation_api_command(
+            manipulation_api_request=grasp_request)
+
+        # Get feedback from the robot
+        attempts_count = 0
+        while True:
+            feedback_request = manipulation_api_pb2.ManipulationApiFeedbackRequest(
+                manipulation_cmd_id=cmd_response.manipulation_cmd_id)
+
+            # Send the request
+            response = manipulation_api_client.manipulation_api_feedback_command(
+                manipulation_api_feedback_request=feedback_request)
+
+            self._log.info('Current state: '+ manipulation_api_pb2.ManipulationFeedbackState.Name(response.current_state))
+
+
+            if response.current_state == manipulation_api_pb2.MANIP_STATE_GRASP_SUCCEEDED or response.current_state == manipulation_api_pb2.MANIP_STATE_GRASP_FAILED:
+                break
+            
+            if(attempts_count >= 40):
+                self._log.info("Awful! Too many grasp attempts!!")
+                return False
+            
+            attempts_count = attempts_count + 1
+            time.sleep(0.25)
+
+        
+        self._log.info('Finished grasp.')
         return True
 
     '''
@@ -641,9 +743,9 @@ class SpotTaskWrapper:
         # NOTE: Max stiffness: [500, 500, 500, 60, 60, 60]
         #      Max damping: [2.5, 2.5, 2.5, 1.0, 1.0, 1.0]
         impedance_cmd.diagonal_stiffness_matrix.CopyFrom(
-            geometry_pb2.Vector(values=[300, 300, 300, 40, 40, 40]))
+            geometry_pb2.Vector(values=[500, 500, 500, 60, 60, 60]))
         impedance_cmd.diagonal_damping_matrix.CopyFrom(
-            geometry_pb2.Vector(values=[1.0, 1.0, 1.0, 0.25, 0.25, 0.25]))
+            geometry_pb2.Vector(values=[2.0, 2.0, 2.0, 0.55, 0.55, 0.55]))
 
         # Set up our `desired_tool` trajectory. This is where we want the tool to be with respect
         # to the task frame. The stiffness we set will drag the tool towards `desired_tool`.
