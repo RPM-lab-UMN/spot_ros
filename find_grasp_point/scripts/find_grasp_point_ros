@@ -1,14 +1,16 @@
-
+#!/usr/bin/env python3
 
 
 import rospy
-from find_grasp_point_utils import FindGraspPoint
+from find_grasp_point_utils.FindGraspPoint import FindGraspPoint
 
 
 
-def main(args):
-        grap_point_searcher = FindGraspPoint()
+def main():
+        
         rospy.init_node('find_grasp_point', anonymous=True)
+        grap_point_searcher = FindGraspPoint()
+        grap_point_searcher._server.start()
         try:
             rospy.spin()
         except KeyboardInterrupt:

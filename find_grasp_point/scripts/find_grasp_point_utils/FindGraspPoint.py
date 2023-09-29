@@ -15,7 +15,7 @@ class FindGraspPoint(object):
             "find_grasp_point",
             FindGraspPointAction,
             execute_cb=self._handle_action,
-            auto_start=True,
+            auto_start=False
        )
        self.bridge = CvBridge()
        self.g_image_click = None
