@@ -57,6 +57,7 @@ from bosdyn.client.frame_helpers import (BODY_FRAME_NAME,
                                          HAND_FRAME_NAME,
                                          VISION_FRAME_NAME,
                                          get_se2_a_tform_b,
+                                         get_vision_tform_body,
                                          get_a_tform_b)
 
 from bosdyn.client.robot_command import (block_until_arm_arrives, block_for_trajectory_cmd)
@@ -355,6 +356,92 @@ class SpotTaskWrapper:
         pick_vec = geometry_pb2.Vec2(x=g_image_click[0], y=g_image_click[1])
         return pick_vec
     
+
+    '''
+    Add the grasp constraint for the robot
+    '''
+    def add_grasp_constraint(self, config, grasp, robot_state_client):
+        # There are 3 types of constraints:
+        #   1. Vector alignment
+        #   2. Full rotation
+        #   3. Squeeze grasp
+        #
+        # You can specify more than one if you want and they will be OR'ed together.
+
+        # For these options, we'll use a vector alignment constraint.
+        use_vector_constraint = (config == "top_down") | (config == "horizontal") | (config == "horizontal_side")
+        # Specify the frame we're using.
+        grasp.grasp_params.grasp_params_frame_name = VISION_FRAME_NAME
+
+        if use_vector_constraint:
+            if config == "top_down":
+                # Add a constraint that requests that the x-axis of the gripper is pointing in the
+                # negative-z direction in the vision frame.
+
+                # The axis on the gripper is the x-axis.
+                axis_on_gripper_ewrt_gripper = geometry_pb2.Vec3(x=1, y=0, z=0)
+
+                # The axis in the vision frame is the negative z-axis
+                axis_to_align_with_ewrt_vo = geometry_pb2.Vec3(x=0, y=0, z=-1)
+
+            if config == "horizontal_side":
+                # Add a constraint that requests that the y-axis of the gripper is pointing in the
+                # positive-z direction in the vision frame.  That means that the gripper is constrained to be rolled 90 degrees and pointed at the horizon.
+
+                # The axis on the gripper is the y-axis.            print("Test grasp")
+
+                axis_on_gripper_ewrt_gripper = geometry_pb2.Vec3(x=0, y=1, z=0)
+
+                # The axis in the vision frame is the positive z-axis
+                axis_to_align_with_ewrt_vo = geometry_pb2.Vec3(x=0, y=0, z=1)
+            if config == "horizontal":
+                self._log.info("Horizontal Grasp!!")
+                # Another way to grasp the object
+                axis_on_gripper_ewrt_gripper = geometry_pb2.Vec3(x=0, y=0, z=1)
+
+                axis_to_align_with_ewrt_vo = geometry_pb2.Vec3(x=0, y=0, z=1)
+
+            
+            # Add the vector constraint to our proto.
+            constraint = grasp.grasp_params.allowable_orientation.add()
+            constraint.vector_alignment_with_tolerance.axis_on_gripper_ewrt_gripper.CopyFrom(
+                axis_on_gripper_ewrt_gripper)
+            constraint.vector_alignment_with_tolerance.axis_to_align_with_ewrt_frame.CopyFrom(
+                axis_to_align_with_ewrt_vo)
+
+            # We'll take anything within about 10 degrees for top-down or horizontal grasps.
+            constraint.vector_alignment_with_tolerance.threshold_radians = 0.17
+
+        elif config == "45_angle_grasp":
+            # Demonstration of a RotationWithTolerance constraint.  This constraint allows you to
+            # specify a full orientation you want the hand to be in, along with a threshold.
+            #
+            # You might want this feature when grasping an object with known geometry and you want to
+            # make sure you grasp a specific part of it.
+            #
+            # Here, since we don't have anything in particular we want to grasp,  we'll specify an
+            # orientation that will have the hand aligned with robot and rotated down 45 degrees as an
+            # example.
+
+            # First, get the robot's position in the world.
+            robot_state = robot_state_client.get_robot_state()
+            vision_T_body = get_vision_tform_body(robot_state.kinematic_state.transforms_snapshot)
+
+            # Rotation from the body to our desired grasp.
+            body_Q_grasp = math_helpers.Quat.from_pitch(0.785398)  # 45 degrees
+            vision_Q_grasp = vision_T_body.rotation * body_Q_grasp
+
+            # Turn into a proto
+            constraint = grasp.grasp_params.allowable_orientation.add()
+            constraint.rotation_with_tolerance.rotation_ewrt_frame.CopyFrom(vision_Q_grasp.to_proto())
+
+            # We'll accept anything within +/- 10 degrees
+            constraint.rotation_with_tolerance.threshold_radians = 0.17
+
+        elif config == "squeeze":
+            # Tell the robot to just squeeze on the ground at the given point.
+            constraint = grasp.grasp_params.allowable_orientation.add()
+            constraint.squeeze_grasp.SetInParent()
     def take_image_grasp(self):
         
         
@@ -372,10 +459,9 @@ class SpotTaskWrapper:
 
 
         # TODO: acquire from all the image sources, and choose the best one
-        image_sources = [
+        image_sources = [   "hand_color_image",
                             "frontleft_fisheye_image",
-                            "frontright_fisheye_image",
-                            "hand_color_image"
+                            "frontright_fisheye_image"
                         ]
 
 
@@ -402,7 +488,11 @@ class SpotTaskWrapper:
             pixel_xy=pick_vec, transforms_snapshot_for_camera=image.shot.transforms_snapshot,
             frame_name_image_sensor=image.shot.frame_name_image_sensor,
             camera_model=image.source.pinhole)
+        
 
+        grasp_config = "horizontal"
+        # Optionally add a grasp constraint.  This lets you tell the robot you only want top-down grasps or side-on grasps.
+        self.add_grasp_constraint(grasp_config, grasp, self.spot._robot_state_client)
         # Ask the robot to pick up the object
         grasp_request = manipulation_api_pb2.ManipulationApiRequest(pick_object_in_image=grasp)
 

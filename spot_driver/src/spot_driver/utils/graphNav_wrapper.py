@@ -277,6 +277,8 @@ class GraphNav(object):
         if initial_localization_fiducial:
             self._set_initial_localization_fiducial()
         if initial_localization_waypoint:
+            self.initial_method = "waypoint"
+            self.initial_waypoint = initial_localization_waypoint
             self._set_initial_localization_waypoint([initial_localization_waypoint])
 
         
@@ -550,16 +552,31 @@ class GraphNav(object):
                 # use obstacle_protocol feedback once it is improved
                 # TODO: validate obstacle_protocol and find an appropriate place to put the obstacle
                 # obstacle_feedback["spot_destination_odom"] = self.obstacle_protocol(grid)
-                obstacle_feedback["spot_destination_odom"] = self._spot_wrapper._transform_bd_pose(bdSE3Pose(0, -1.2, 0, bdQuat()), BODY_FRAME_NAME, ODOM_FRAME_NAME)
+                obstacle_feedback["spot_destination_odom"] = self._spot_wrapper._transform_bd_pose(bdSE3Pose(0, -1.5, 0, bdQuat()), BODY_FRAME_NAME, ODOM_FRAME_NAME)
                 # send the rough location of the obstacle in spot's body frame
                 obstacle_feedback["obstacle_location_body"] = obstacle_detected_response[1]
                 #self._logger.info(str(obstacle_detected_response[1]))
                 self._nav_interruption_callback(obstacle_feedback)
                 
                 self._logger.info("Callback made to send obstacle movement command")
+
+                
+                self._set_initial_localization_waypoint([self.initial_waypoint])
+
+                
+                self._list_graph_waypoint_and_edge_ids()
+                self._get_localization_state()
+
+                destination_waypoint = graph_nav_util.find_unique_waypoint_id(
+                    args[0][0],
+                    self._current_graph,
+                    self._current_annotation_name_to_wp_id,
+                    self._logger,
+                )
+
+                time.sleep(2)
             # commands are issued to last for 1 second, and issued on a loop to regularly check for
             # obstacles detected
-            time.sleep(4)
             nav_to_cmd_id = self._graph_nav_client.navigate_to(
                 destination_waypoint, 1.0, leases=[sublease.lease_proto]
             )

@@ -36,15 +36,15 @@ class ObstacleMoveActionServer(ActionServerBuilder):
         self._feedback_thread.start()
 
         # Run action
-        
-        self.handler(req)
-        self._server.set_succeeded(
-            ObstacleMoveResult(
-                success=True,
-                message="Succeeded in Removing the obstacle/Need to remove obstacle!"
+        try:
+            self.handler(req)
+            self._server.set_succeeded(
+                ObstacleMoveResult(
+                    success=True,
+                    message="Succeeded in Removing the obstacle/Need to remove obstacle!"
+                )
             )
-        )
-        '''
+        
         except Exception as e:
             self._server.set_aborted(
                 ObstacleMoveResult(
@@ -52,7 +52,7 @@ class ObstacleMoveActionServer(ActionServerBuilder):
                     message = "Exception Occurred as: " + '\n' + str(e)
                 )
             )
-        '''
+        
         
 
         # Stop feedback thread

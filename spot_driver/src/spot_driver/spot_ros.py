@@ -1226,8 +1226,10 @@ class SpotROS:
 
         # check status
         if resp[0]:
+            rospy.loginfo("Succeed in Navigation!")
             self.navigate_as.set_succeeded(NavigateToResult(resp[0], resp[1]))
         else:
+            rospy.loginfo("Failed in Navigation!")
             self.navigate_as.set_aborted(NavigateToResult(resp[0], resp[1]))
 
     def send_obstacle_removal_request(self, obstacle_info):
