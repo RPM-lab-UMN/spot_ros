@@ -1268,16 +1268,16 @@ class SpotROS:
                                )
                             )
         destination = PoseStamped(
-                            Header(frame_id = "odom", stamp = rospy.Time.now()),
+                            Header(frame_id = "body", stamp = rospy.Time.now()),
                             Pose(
-                                Point(obstacle_info["spot_destination_odom"].x,
-                               obstacle_info["spot_destination_odom"].y,
-                               obstacle_info["spot_destination_odom"].z),
+                                Point(obstacle_info["spot_destination_body"].x,
+                               obstacle_info["spot_destination_body"].y,
+                               obstacle_info["spot_destination_body"].z),
                             QuatMessage(
-                               obstacle_info["spot_destination_odom"].rot.x,
-                               obstacle_info["spot_destination_odom"].rot.y,
-                               obstacle_info["spot_destination_odom"].rot.z,
-                               obstacle_info["spot_destination_odom"].rot.w)
+                               obstacle_info["spot_destination_body"].rot.x,
+                               obstacle_info["spot_destination_body"].rot.y,
+                               obstacle_info["spot_destination_body"].rot.z,
+                               obstacle_info["spot_destination_body"].rot.w)
                                )
                             )
         rospy.loginfo("Spot destination to remove the obstacle: " + str(destination))
@@ -1293,7 +1293,10 @@ class SpotROS:
         obstacle_mover_client.send_goal(request)
         obstacle_mover_client.wait_for_result()
         rospy.loginfo(obstacle_mover_client.get_result())
-        rospy.loginfo("Obstalce Removed! Continue...")
+        rospy.loginfo("Obstalce Removing Result! Continue...")
+        if (obstacle_mover_client.get_result() == None):
+            return False
+        return obstacle_mover_client.get_result().success
         
 
     def populate_camera_static_transforms(self, image_data):

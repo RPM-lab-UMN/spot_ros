@@ -24,7 +24,7 @@ class ObstacleMoveActionServer(ActionServerBuilder):
         super().__init__(ObstacleMoveAction, ObstacleMoveResult, ObstacleMoveFeedback,
                           feedback_rate, action_name, ros_wrapper)
         self.bridge = CvBridge()
-        self._find_grasp_point_client = actionlib.SimpleActionClient("find_grasp_point/find_grasp_point", FindGraspPointAction)
+        self._find_grasp_point_client = actionlib.SimpleActionClient("find_grasp_point", FindGraspPointAction)
 
     def _handle_action(self, req):
         # goal is in the type of ObstacleMoveAction
@@ -40,8 +40,9 @@ class ObstacleMoveActionServer(ActionServerBuilder):
         self._feedback_thread.start()
 
         # Run action
-        try:
-            self.handler(req)
+        
+        handle_res = self.handler(req)
+        if (handle_res == True):
             self._server.set_succeeded(
                 ObstacleMoveResult(
                     success=True,
@@ -49,11 +50,11 @@ class ObstacleMoveActionServer(ActionServerBuilder):
                 )
             )
         
-        except Exception as e:
+        else:
             self._server.set_aborted(
                 ObstacleMoveResult(
                     success=False,
-                    message = "Exception Occurred as: " + '\n' + str(e)
+                    message = "Exception Occurred!"
                 )
             )
         
@@ -71,21 +72,25 @@ class ObstacleMoveActionServer(ActionServerBuilder):
 
         # Convert the image into cv2 type
         image_cv2 = self.task_wrapper._convert_to_cv2(image)
-
+        
         
         image_ros = self.bridge.cv2_to_imgmsg(image_cv2, "rgb8")
-
+        self.ros_wrapper.logger.info("Create image message!")
         
-        request = FindGraspPointGoal(image_ros, "manual_force")
+        request = FindGraspPointGoal(image_ros, "DINO")
         self._find_grasp_point_client.wait_for_server()
+
+        self.ros_wrapper.logger.info("The server is found!")
         self._find_grasp_point_client.send_goal(request)
         self._find_grasp_point_client.wait_for_result()
         res = self._find_grasp_point_client.get_result()
         if(res.success == False):
             # If there is no successful attempt to grasp the obstacle
-            return
+            return False
+        self.ros_wrapper.logger.info("Grasp point Found!")
         pick_x = res.pick_x
         pick_y = res.pick_y
+        self.ros_wrapper.logger.info("( + " + str(pick_x) + " , " + str(pick_y) + ")")
         grasp_res = self.task_wrapper.take_pick_grasp(pick_x, pick_y, image)
 
         if(grasp_res == False): 
@@ -93,18 +98,21 @@ class ObstacleMoveActionServer(ActionServerBuilder):
             # Stow the arm, re-locate the position, and see what will happen in navigation
             # Probably needs to try a grasp again
             self.task_wrapper._end_grasp()
-            return
+            return False
         
         # Part II: move the robot to the destination
         # Potential bug in the provided codes:
         # Assuming the z-coordinate for the obstalce is 0...
         #
-        # Currently, I am thinking about changing the style into
-        # observing the spot position destination
         #
-        # Also, so far, just command the robot to move 1m leftward...
-        # First attempt: read the current gripper pose, and move the gripper horizontally
-        # TODO: replace it with the desired obstacle target location
+        # Also, so far, just command the robot to move 1.2m rightward...
+        # spot_target_pose is in body frame
+        # because I want to keep the relative orientation between the gripper
+        # and the body. The relative orientation should not change as much as 
+        # possible, unless the chair is heavy and the robot has to adapt to the weight
+
+        # If the odom pose of spot is used, when converting it back to body pose,
+        # the error is large
         self.ros_wrapper.logger.info("Grasp Finished! Calculating...")
         spot_curr_location = req.spot_location
         spot_target_location = req.spot_destination
@@ -115,6 +123,9 @@ class ObstacleMoveActionServer(ActionServerBuilder):
 
         gripper_target_pose = self.task_wrapper._predict_gripper_pose(spot_target_pose, spot_target_location.header.frame_id)
         self.ros_wrapper.logger.info("Send arm impedance & trajectory command")
+
+        # The conversion of the pose from odom frame back to body frame may have a large error
+        # Currently spot_target_pose is specified in body frame
         self.task_wrapper._drag_arm_impedance(gripper_target_pose, spot_target_pose, spot_target_location.header.frame_id)
         time.sleep(2)
         self.ros_wrapper.logger.info("Obstacle Moved! Stow the arm ...")
@@ -124,3 +135,5 @@ class ObstacleMoveActionServer(ActionServerBuilder):
         self.ros_wrapper.logger.info("Arm stowed! Going back to original place ...")
         self.task_wrapper._go_along_trajectory(spot_curr_pose, 10, spot_curr_location.header.frame_id)
         self.ros_wrapper.logger.info("Back to original place!")
+
+        return True

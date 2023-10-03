@@ -675,25 +675,36 @@ class SpotTaskWrapper:
     Predict the target gripper pose given that it's orientation w.r.t 
     the body of the robot is unchanged
     '''
-    def _predict_gripper_pose(self, spot_target_pose, target_ref_frame_name = ODOM_FRAME_NAME):
+    def _predict_gripper_pose(self, spot_target_pose, target_ref_frame_name = BODY_FRAME_NAME):
         # spot_target_pose: the target pose for the spot to move to
         # target_ref_frame_name: the reference frame where the target pose is specified
         Tf_tree = self.spot._robot_state_client.get_robot_state().kinematic_state.transforms_snapshot
-        T = get_a_tform_b(Tf_tree, BODY_FRAME_NAME, target_ref_frame_name)
         g = get_a_tform_b(Tf_tree, BODY_FRAME_NAME, HAND_FRAME_NAME)
         self._log.info("Gripper current pose (body frame): ")
         self._log.info(g)
-        # In body frame, how the spot changes its orientation
-        spot_target_pose_body = T * spot_target_pose
-        self._log.info("Spot target pose (body frame)")
-        self._log.info(spot_target_pose_body)
-        # The gripper tareget pose in body frame
-        gripper_target_pose = g * spot_target_pose_body
 
-        self._log.info("Gripper target pose (body frame): ")
-        self._log.info(gripper_target_pose)
-        # Convert the gripper target pose back in the reference frame of spot_target_pose
-        gripper_target_pose = T.inverse() * gripper_target_pose
+
+        if (target_ref_frame_name != BODY_FRAME_NAME):
+            T = get_a_tform_b(Tf_tree, BODY_FRAME_NAME, target_ref_frame_name)
+            # In body frame, how the spot changes its orientation
+            spot_target_pose_body = T * spot_target_pose
+            self._log.info("Spot target pose (body frame)")
+            self._log.info(spot_target_pose_body)
+
+            # The gripper tareget pose in body frame
+            gripper_target_pose = g * spot_target_pose_body
+
+            self._log.info("Gripper target pose (body frame): ")
+            self._log.info(gripper_target_pose)
+
+            # Convert the gripper target pose back in the reference frame of spot_target_pose
+            gripper_target_pose = T.inverse() * gripper_target_pose
+        else:
+            gripper_target_pose = g
+
+        
+        
+            
 
         return gripper_target_pose
     
@@ -702,7 +713,7 @@ class SpotTaskWrapper:
     Move the obstacle to the pose, defined for the gripper
     '''
     def _drag_arm_impedance(self, gripper_target_pose:bdSE3Pose, spot_target_pose:bdSE3Pose,
-                                    reference_frame = ODOM_FRAME_NAME, duration_sec=15.0):
+                                    reference_frame = BODY_FRAME_NAME, duration_sec=15.0):
         '''Commands the robot arm to perform an impedance command
         which allows it to move heavy objects or perform surface 
         interaction.

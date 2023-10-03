@@ -552,14 +552,20 @@ class GraphNav(object):
                 # use obstacle_protocol feedback once it is improved
                 # TODO: validate obstacle_protocol and find an appropriate place to put the obstacle
                 # obstacle_feedback["spot_destination_odom"] = self.obstacle_protocol(grid)
-                obstacle_feedback["spot_destination_odom"] = self._spot_wrapper._transform_bd_pose(bdSE3Pose(0, -1.5, 0, bdQuat()), BODY_FRAME_NAME, ODOM_FRAME_NAME)
+                
+                
+                
+                obstacle_feedback["spot_destination_body"] = bdSE3Pose(0, -1.5, 0, bdQuat()) #self._spot_wrapper._transform_bd_pose(bdSE3Pose(0, -1.5, 0, bdQuat()), BODY_FRAME_NAME, ODOM_FRAME_NAME)
                 # send the rough location of the obstacle in spot's body frame
                 obstacle_feedback["obstacle_location_body"] = obstacle_detected_response[1]
                 #self._logger.info(str(obstacle_detected_response[1]))
-                self._nav_interruption_callback(obstacle_feedback)
+                obstacle_remove_res = self._nav_interruption_callback(obstacle_feedback)
                 
                 self._logger.info("Callback made to send obstacle movement command")
-
+                if(obstacle_remove_res == False):
+                    #If the attempt to remove the obstacle is failed
+                    break
+                
                 
                 self._set_initial_localization_waypoint([self.initial_waypoint])
 

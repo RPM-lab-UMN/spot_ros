@@ -1,18 +1,22 @@
 #!/usr/bin/env python3
 import rospy
-import actionlib
+
 from spot_msgs.msg import FindGraspPointAction, FindGraspPointResult, FindGraspPointFeedback
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge, CvBridgeError
 import actionlib
 import cv2
 import threading
-
+import torch
+import torchvision
+from DINO.collect_dino_features import *
+from DINO.dino_wrapper import *
+import matplotlib
 
 class FindGraspPoint(object):
     def __init__(self):
        self._server = actionlib.SimpleActionServer(
-            "find_grasp_point",
+            "spot/find_grasp_point",
             FindGraspPointAction,
             execute_cb=self._handle_action,
             auto_start=False
@@ -32,7 +36,7 @@ class FindGraspPoint(object):
         
         
         #Start feedback thread
-        self._feedback_thread = threading.Thread(target=self._handle_feedback, args=(action_type))
+        self._feedback_thread = threading.Thread(target=self._handle_feedback, args=action_type)
         self._running = True
         self._feedback_thread.start()
         
@@ -41,10 +45,15 @@ class FindGraspPoint(object):
         if(action_type == "manual_force"):
             # If the grasp point is asked through a manual force
             pick_x, pick_y = self._get_pick_vec_manual_force(image_cv2)
-            self.g_image_click = None
-            self.g_image_display = None
-        
+            
+        elif (action_type == "DINO"):
+            # If the grasp point is asked through DINO feature extractor
+            pick_x, pick_y = self._get_pick_vec_DINO(image_cv2)
 
+        self.g_image_click = None
+        self.g_image_display = None
+
+        # Return the result
         if(pick_x != -1.0 and pick_y != -1.0):
             # If a pixel is picked, return True
             self._server.set_succeeded(
@@ -68,7 +77,7 @@ class FindGraspPoint(object):
         self._running = False
         self._feedback_thread.join()
     
-    def _handle_feedback(self, action_type):
+    def _handle_feedback(self, action_type, *args):
         while not rospy.is_shutdown() and self._running:
             f = FindGraspPointFeedback("The Server is still running... " + "Type: " + action_type)
             self._server.publish_feedback(f)
@@ -76,7 +85,7 @@ class FindGraspPoint(object):
     '''
     Methods to deal with the issue via a manual selection
     '''
-    def cv_mouse_callback(self, event, x, y):
+    def cv_mouse_callback(self, event, x, y, flags, param):
     
         clone = self.g_image_display.copy()
         if event == cv2.EVENT_LBUTTONUP:
@@ -108,5 +117,74 @@ class FindGraspPoint(object):
                 # Quit
                 return None
         return self.g_image_click[0], self.g_image_click[1]
+    
+    def _get_pick_vec_DINO(self, img):
+        # Hard-code the default cfg for building DINO model
+        cfg = {}
+        cfg['dino_strides'] = 4
+        cfg['desired_height'] = img.shape[0]
+        cfg['desired_width'] = img.shape[1]
+        cfg['use_16bit'] = False
+        cfg['use_traced_model'] = False
+        cfg['cpu'] = False
+        cfg['similarity_thresh'] = 0.1
 
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        torch.backends.cudnn.benchmark = True
+        torch.hub.set_dir("../DINO/hub")
+        rospy.loginfo("torch hub:")
+        rospy.loginfo(torch.hub.get_dir())
+    
+        model = get_dino_pixel_wise_features_model(cfg = cfg, device = device)
+
+
+        img_feat = preprocess_frame(img, cfg=cfg)
+        img_feat = model(img_feat)
+        
+        img_feat_norm = torch.nn.functional.normalize(img_feat, dim=1)
+
+
+        img_feat_eval = torch.load("./queries/feat1.pt")
+        img_feat_eval = img_feat_eval[0].view(1,-1)
+        img_feat_eval = img_feat_eval.cuda()
+
+
+        cosine_similarity = torch.nn.CosineSimilarity(dim=1)  # (1, 512, H // 2, W // 2)
+
+        similarity = cosine_similarity(
+            img_feat_norm, img_feat_eval.view(1, -1, 1, 1)
+        )
+        # Viz thresholded "relative" attention scores
+        similarity = (similarity + 1.0) / 2.0  # scale from [-1, 1] to [0, 1]
+        
+        # A strange bug here... the similarity is flipped!!
+        similarity = 1 - similarity
+        # similarity = similarity.clamp(0., 1.)
+        similarity_rel = (similarity - similarity.min()) / (
+            similarity.max() - similarity.min() + 1e-12
+        )
+        similarity_rel = similarity_rel[0]  # 1, H // 2, W // 2 -> # H // 2, W // 2
+        similarity_rel[similarity_rel < cfg['similarity_thresh'] ]= 0.0
+
+        similarity_rel = similarity_rel.detach().cpu().numpy()
+
+        similarity_argmin = np.argmin(similarity_rel)
+
+        pick_y = int(similarity_argmin/(similarity_rel.shape[1]))
+        pick_x = int(similarity_argmin%(similarity_rel.shape[1]))
+
+        print([pick_x, pick_y])
+        cmap = matplotlib.cm.get_cmap("jet")
+        similarity_colormap = cmap(similarity_rel)[..., :3]
+
+        img_to_viz = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        _overlay = img_to_viz.astype(np.float32) / 255
+        _overlay = 0.5 * _overlay + 0.5 * similarity_colormap
+        
+        cv2.circle(_overlay, (pick_x, pick_y), 5, (0, 0, 255), -1) 
+        cv2.imshow("Debug image for DINO feature method", _overlay)
+        cv2.waitKey(0)
+
+
+        return pick_x, pick_y
         
