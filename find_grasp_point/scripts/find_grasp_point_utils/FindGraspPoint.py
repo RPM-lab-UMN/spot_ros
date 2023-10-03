@@ -24,6 +24,8 @@ class FindGraspPoint(object):
        self.bridge = CvBridge()
        self.g_image_click = None
        self.g_image_display = None
+
+       self.hub_addr = "/home/rpm2216/repo/robotdev/spot/ros_ws/src/spot_ros/find_grasp_point/DINO/hub"
        
 
 
@@ -131,7 +133,7 @@ class FindGraspPoint(object):
 
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         torch.backends.cudnn.benchmark = True
-        torch.hub.set_dir("../DINO/hub")
+        torch.hub.set_dir(self.hub_addr)
         rospy.loginfo("torch hub:")
         rospy.loginfo(torch.hub.get_dir())
     
