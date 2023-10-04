@@ -25,7 +25,7 @@ class FindGraspPoint(object):
        self.g_image_click = None
        self.g_image_display = None
 
-       self.hub_addr = "/home/rpm2216/repo/robotdev/spot/ros_ws/src/spot_ros/find_grasp_point/DINO/hub"
+       self.DINO_addr = "/home/rpm2216/repo/robotdev/spot/ros_ws/src/spot_ros/find_grasp_point/scripts/DINO"
        
 
 
@@ -65,8 +65,17 @@ class FindGraspPoint(object):
                     pick_y = pick_y
                 )
             )
+        elif (pick_x == 0 and pick_y == 0):
+            # If the system tries fails to find a good pixel value
+            self._server.set_succeded(
+                FindGraspPointResult(
+                    success=True,
+                    pick_x = 0,
+                    pick_y = 0
+                )
+            )
         else:
-            # If the pixel is not updated, return false
+            # If an exception occurred, no good pixel value is picked
             self._server.set_succeeded(
                 FindGraspPointResult(
                     success= False,
@@ -116,8 +125,8 @@ class FindGraspPoint(object):
         while self.g_image_click is None:
             key = cv2.waitKey(1) & 0xFF
             if key == ord('q') or key == ord('Q'):
-                # Quit
-                return None
+                # The user decides not to pick anything in the frame
+                return 0, 0
         return self.g_image_click[0], self.g_image_click[1]
     
     def _get_pick_vec_DINO(self, img):
@@ -129,11 +138,11 @@ class FindGraspPoint(object):
         cfg['use_16bit'] = False
         cfg['use_traced_model'] = False
         cfg['cpu'] = False
-        cfg['similarity_thresh'] = 0.1
+        cfg['similarity_thresh'] = 0.9
 
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         torch.backends.cudnn.benchmark = True
-        torch.hub.set_dir(self.hub_addr)
+        torch.hub.set_dir(self.DINO_addr + "/hub")
         rospy.loginfo("torch hub:")
         rospy.loginfo(torch.hub.get_dir())
     
@@ -146,7 +155,7 @@ class FindGraspPoint(object):
         img_feat_norm = torch.nn.functional.normalize(img_feat, dim=1)
 
 
-        img_feat_eval = torch.load("./queries/feat1.pt")
+        img_feat_eval = torch.load(self.DINO_addr + "/queries/feat1.pt")
         img_feat_eval = img_feat_eval[0].view(1,-1)
         img_feat_eval = img_feat_eval.cuda()
 
@@ -160,26 +169,34 @@ class FindGraspPoint(object):
         similarity = (similarity + 1.0) / 2.0  # scale from [-1, 1] to [0, 1]
         
         # A strange bug here... the similarity is flipped!!
-        similarity = 1 - similarity
+        # similarity = 1 - similarity
         # similarity = similarity.clamp(0., 1.)
         similarity_rel = (similarity - similarity.min()) / (
             similarity.max() - similarity.min() + 1e-12
         )
         similarity_rel = similarity_rel[0]  # 1, H // 2, W // 2 -> # H // 2, W // 2
-        similarity_rel[similarity_rel < cfg['similarity_thresh'] ]= 0.0
+        #similarity_rel[similarity_rel < cfg['similarity_thresh'] ]= 0.0
 
         similarity_rel = similarity_rel.detach().cpu().numpy()
 
-        similarity_argmin = np.argmin(similarity_rel)
+        similarity_max = np.max(similarity_rel)
+        similarity_argmax = np.argmax(similarity_rel)
 
-        pick_y = int(similarity_argmin/(similarity_rel.shape[1]))
-        pick_x = int(similarity_argmin%(similarity_rel.shape[1]))
+        if (similarity_max < cfg['similarity_thresh']):
+            # If the closest point in the current frame is still
+            # different from the query point significantly in latent space
+            pick_x = 0
+            pick_y = 0
+        else:
+            pick_y = int(similarity_argmax/(similarity_rel.shape[1]))
+            pick_x = int(similarity_argmax%(similarity_rel.shape[1]))
 
-        print([pick_x, pick_y])
+        rospy.loginfo("The picked pixel is: ")
+        rospy.loginfo([pick_x, pick_y])
         cmap = matplotlib.cm.get_cmap("jet")
         similarity_colormap = cmap(similarity_rel)[..., :3]
 
-        img_to_viz = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        img_to_viz = cv2.cvtColor(img, cv2.COLOR_BGR2RGB) # img is in RGB format
         _overlay = img_to_viz.astype(np.float32) / 255
         _overlay = 0.5 * _overlay + 0.5 * similarity_colormap
         

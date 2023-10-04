@@ -89,7 +89,7 @@ def main():
 
         m = Marker(
             header=Header(
-                frame_id="odom",
+                frame_id="body",
                 stamp=rospy.Time.now()
             ),
 

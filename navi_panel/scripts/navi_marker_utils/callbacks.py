@@ -27,4 +27,4 @@ class NavigateCallback(object):
         self._client.wait_for_result()
         result = self._client.get_result()
         rospy.loginfo(result)
-        self._manager.clear_localization()
+        #self._manager.clear_localization()

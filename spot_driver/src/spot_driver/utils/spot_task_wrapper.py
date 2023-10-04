@@ -567,6 +567,7 @@ class SpotTaskWrapper:
         return img
     '''
     Assume we already have the selected point, try to grasp the point
+    Version 1: depend on BD's method in grasping
     '''
     def take_pick_grasp(self, pick_x, pick_y, image):
         
@@ -590,7 +591,7 @@ class SpotTaskWrapper:
             camera_model=image.source.pinhole)
         
 
-        grasp_config = "horizontal"
+        grasp_config = "none"
         # Optionally add a grasp constraint.  This lets you tell the robot you only want top-down grasps or side-on grasps.
         self.add_grasp_constraint(grasp_config, grasp, self.spot._robot_state_client)
         # Ask the robot to pick up the object
@@ -626,6 +627,65 @@ class SpotTaskWrapper:
         
         self._log.info('Finished grasp.')
         return True
+    
+    '''
+    Assume we already have the selected point, try to grasp the point
+    Version 2: approximate the coordinate of the selected pixel point in 3D space,
+    move the gripper there, and close the gripper!
+    '''
+    def take_pick_grasp_manual(self, pick_x, pick_y, image):
+        
+        
+        # Set up the necessary clients
+        robot = self._robot
+
+        assert robot.has_arm(), "Robot requires an arm to run this example."
+
+        # Calculate the 3D coordinate of the picked pixel
+
+        # Obtain the assoicated depth image
+        image_client = self.spot._image_client
+        image_source = "hand_depth_in_hand_color_frame"
+        # Capture and save images to disk
+        image_responses = image_client.get_image_from_sources(image_source)
+        depth_image = np.frombuffer(image_responses[0].shot.image.data, dtype=np.uint16)
+        depth_image = depth_image.reshape(image_responses[0].shot.image.rows,
+                                image_responses[0].shot.image.cols)
+        self._log.info("Debugging Message for depth: ")
+        self._log.info("The selected pixel is: " + str(pick_x) + ", " + str(pick_y))
+        self._log.info(depth_image[pick_x, pick_y])
+        grasp_pose_sensor = bdSE3Pose(pick_x, pick_y, depth_image[pick_x, pick_y], bdQuat())
+
+        vision_tform_grasp = get_a_tform_b(
+                        image.shot.transforms_snapshot,
+                        BODY_FRAME_NAME,
+                        image.shot.frame_name_image_sensor)
+        
+        gripper_target_pose = vision_tform_grasp * grasp_pose_sensor
+
+        # Move the gripper to the place
+        # (Cited from grasp() in this wrapper, but with simplification)
+        pos, rot = self._pose_bd_to_vectors(gripper_target_pose)
+        self.spot.gripper_open()
+        status, msg = self.spot.hand_pose(
+                    pos, rot, 
+                    reference_frame=BODY_FRAME_NAME,
+                    duration = 2
+        )
+        self._log.info(f'status: {msg}')
+        if status is False: 
+            self._end_grasp()
+            self._log.info("Failed to move the gripper to the pose!")
+            return False
+        self.spot.gripper_close()
+        self._log.info("Gripper Closed!")
+        return True
+
+
+
+       
+        
+       
 
     '''
     Move the robot to the desired pose, while gripper attached to the object

@@ -8,7 +8,8 @@ import torchvision
 
 def preprocess_image(img, half = False,reshape_to = None):
     
-    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    # img is already in RGB format
+    # img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
     if reshape_to: 
         img = cv2.resize(img, reshape_to)
     img = torch.from_numpy(img).float() / 255.0

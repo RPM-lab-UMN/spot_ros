@@ -28,15 +28,13 @@ def main():
     # waypoint message handler
     def _handle_wp_message(msg):
         rospy.loginfo("Received waypoint message.")
-
+        
         wp_id = msg.waypoint_id
         pose = msg.pose
 
         # checks if marker with matching id exists
-        if server.get(wp_id) is True:
+        if server.get(wp_id) != None:
             # update existing marker position
-            rospy.loginfo(f"Updating position of marker {wp_id}")
-
             if not server.setPose(wp_id, pose):
                 rospy.logerr(f"Failed to set pose for marker {wp_id}")
 

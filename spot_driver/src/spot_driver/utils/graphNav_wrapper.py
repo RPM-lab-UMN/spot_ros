@@ -534,7 +534,7 @@ class GraphNav(object):
         # Navigate to the destination waypoint.
         is_finished = False
         nav_to_cmd_id = -1
-        obstacle_detected_response = self.detect_obstacles_near_spot(0.25)
+        obstacle_detected_response = self.detect_obstacles_near_spot(0.5)
         num_navigation_calls = 0
         while not is_finished:
             num_navigation_calls += 1
@@ -555,7 +555,7 @@ class GraphNav(object):
                 
                 
                 
-                obstacle_feedback["spot_destination_body"] = bdSE3Pose(0, -1.5, 0, bdQuat()) #self._spot_wrapper._transform_bd_pose(bdSE3Pose(0, -1.5, 0, bdQuat()), BODY_FRAME_NAME, ODOM_FRAME_NAME)
+                obstacle_feedback["spot_destination_body"] = bdSE3Pose(0, -1.3, 0, bdQuat()) #self._spot_wrapper._transform_bd_pose(bdSE3Pose(0, -1.5, 0, bdQuat()), BODY_FRAME_NAME, ODOM_FRAME_NAME)
                 # send the rough location of the obstacle in spot's body frame
                 obstacle_feedback["obstacle_location_body"] = obstacle_detected_response[1]
                 #self._logger.info(str(obstacle_detected_response[1]))
@@ -589,7 +589,7 @@ class GraphNav(object):
             self._logger.info(str(num_navigation_calls) + " calls made to bosdyn navigate_to")
             # TODO: Move this onto a separate thread and check it more frequently
             # adjust the distance threshold for detecting obstacles here.
-            obstacle_detected_response = self.detect_obstacles_near_spot(0.25)
+            obstacle_detected_response = self.detect_obstacles_near_spot(0.5)
 
 
             # Sleep 0.5 seconds to allow for command execution.
@@ -605,30 +605,32 @@ class GraphNav(object):
         if self._spot_wrapper.check_is_powered_on():
             # Sit the robot down + power off after the navigation command is complete.
             self._spot_wrapper.toggle_power(should_power_on=False)
-
-        status = self._graph_nav_client.navigation_feedback(nav_to_cmd_id)
-        if (
-            status.status
-            == graph_nav_pb2.NavigationFeedbackResponse.STATUS_REACHED_GOAL
-        ):
-            return True, "Successfully completed the navigation commands!"
-        elif status.status == graph_nav_pb2.NavigationFeedbackResponse.STATUS_LOST:
-            return (
-                False,
-                "Robot got lost when navigating the route, the robot will now sit down.",
-            )
-        elif status.status == graph_nav_pb2.NavigationFeedbackResponse.STATUS_STUCK:
-            return (
-                False,
-                "Robot got stuck when navigating the route, the robot will now sit down.",
-            )
-        elif (
-            status.status
-            == graph_nav_pb2.NavigationFeedbackResponse.STATUS_ROBOT_IMPAIRED
-        ):
-            return False, "Robot is impaired."
-        else:
-            return False, "Navigation command is not complete yet."
+        try:
+            status = self._graph_nav_client.navigation_feedback(nav_to_cmd_id)
+            if (
+                status.status
+                == graph_nav_pb2.NavigationFeedbackResponse.STATUS_REACHED_GOAL
+            ):
+                return True, "Successfully completed the navigation commands!"
+            elif status.status == graph_nav_pb2.NavigationFeedbackResponse.STATUS_LOST:
+                return (
+                    False,
+                    "Robot got lost when navigating the route, the robot will now sit down.",
+                )
+            elif status.status == graph_nav_pb2.NavigationFeedbackResponse.STATUS_STUCK:
+                return (
+                    False,
+                    "Robot got stuck when navigating the route, the robot will now sit down.",
+                )
+            elif (
+                status.status
+                == graph_nav_pb2.NavigationFeedbackResponse.STATUS_ROBOT_IMPAIRED
+            ):
+                return False, "Robot is impaired."
+            else:
+                return False, "Navigation command is not complete yet."
+        except:
+            return False, "Errors occurred to nav_to_cmd_id: Probably due to Errors in obstacle Removal"
 
 
     def _clear_graph(self, *args):

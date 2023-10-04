@@ -77,26 +77,31 @@ class ObstacleMoveActionServer(ActionServerBuilder):
         image_ros = self.bridge.cv2_to_imgmsg(image_cv2, "rgb8")
         self.ros_wrapper.logger.info("Create image message!")
         
-        request = FindGraspPointGoal(image_ros, "DINO")
+        request = FindGraspPointGoal(image_ros, "manual_force")
         self._find_grasp_point_client.wait_for_server()
 
         self.ros_wrapper.logger.info("The server is found!")
         self._find_grasp_point_client.send_goal(request)
         self._find_grasp_point_client.wait_for_result()
         res = self._find_grasp_point_client.get_result()
-        if(res.success == False):
-            # If there is no successful attempt to grasp the obstacle
-            return False
-        self.ros_wrapper.logger.info("Grasp point Found!")
         pick_x = res.pick_x
         pick_y = res.pick_y
-        self.ros_wrapper.logger.info("( + " + str(pick_x) + " , " + str(pick_y) + ")")
-        grasp_res = self.task_wrapper.take_pick_grasp(pick_x, pick_y, image)
 
+        if(res.success == False):
+            # If an Error occurred
+            return False
+        elif (pick_x == 0.0 and pick_y == 0.0):
+            # If everything goes fine, yet the system fails to find a good grasp point
+            # Do nothing and return directly
+            self.ros_wrapper.logger.info("No good grasp point Found...")
+            return True
+        self.ros_wrapper.logger.info("Grasp point Found!")
+        
+        self.ros_wrapper.logger.info("( + " + str(pick_x) + " , " + str(pick_y) + ")")
+        #grasp_res = self.task_wrapper.take_pick_grasp(pick_x, pick_y, image)
+        grasp_res = self.task_wrapper.take_pick_grasp_manual(pick_x, pick_y, image)
         if(grasp_res == False): 
-            #The grasp attempt failed!
-            # Stow the arm, re-locate the position, and see what will happen in navigation
-            # Probably needs to try a grasp again
+            # The grasp attempt failed!
             self.task_wrapper._end_grasp()
             return False
         

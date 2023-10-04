@@ -4,9 +4,9 @@ import rospy
 SELECTED_R = 0.05
 SELECTED_G = 0.45
 SELECTED_B = 0.98
-UNSELECTED_R = 0.9
-UNSELECTED_G = 0.0
-UNSELECTED_B = 0.0
+UNSELECTED_R = 0.45
+UNSELECTED_G = 0.06
+UNSELECTED_B = 0.67
 
 
 class StateManager(object):
@@ -20,17 +20,21 @@ class StateManager(object):
 
         else:
             rospy.loginfo(f"Changing localization from {self._localization.name} to {int_marker.name}")
-
             self._localization.controls[0].markers[0].color.r = UNSELECTED_R
             self._localization.controls[0].markers[0].color.g = UNSELECTED_G
             self._localization.controls[0].markers[0].color.b = UNSELECTED_B
+            self._server.erase(self._localization.name)
+            self._server.insert(self._localization)
 
-        self._localization = int_marker
-
+        self._localization = self._server.get(int_marker.name)
+        
         self._localization.controls[0].markers[0].color.r = SELECTED_R
         self._localization.controls[0].markers[0].color.g = SELECTED_G
         self._localization.controls[0].markers[0].color.b = SELECTED_B
 
+        self._server.erase(self._localization.name)
+        self._server.insert(self._localization, lambda feedback: feedback)
+        # DONE: validate that the color specification of the marker has been changed
         self._server.applyChanges()
 
     def get_localization(self):
