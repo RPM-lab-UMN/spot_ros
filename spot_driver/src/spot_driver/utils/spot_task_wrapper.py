@@ -647,22 +647,24 @@ class SpotTaskWrapper:
         image_client = self.spot._image_client
         image_source = "hand_depth_in_hand_color_frame"
         # Capture and save images to disk
-        image_responses = image_client.get_image_from_sources(image_source)
+        image_responses = image_client.get_image_from_sources([image_source])
         depth_image = np.frombuffer(image_responses[0].shot.image.data, dtype=np.uint16)
         depth_image = depth_image.reshape(image_responses[0].shot.image.rows,
                                 image_responses[0].shot.image.cols)
         self._log.info("Debugging Message for depth: ")
         self._log.info("The selected pixel is: " + str(pick_x) + ", " + str(pick_y))
-        self._log.info(depth_image[pick_x, pick_y])
-        grasp_pose_sensor = bdSE3Pose(pick_x, pick_y, depth_image[pick_x, pick_y], bdQuat())
+        self._log.info(depth_image[int(pick_x), int(pick_y)])
+        self._log.info(depth_image)
+        grasp_pose_sensor = bdSE3Pose(pick_x, pick_y, depth_image[int(pick_x), int(pick_y)], bdQuat())
 
         vision_tform_grasp = get_a_tform_b(
                         image.shot.transforms_snapshot,
                         BODY_FRAME_NAME,
                         image.shot.frame_name_image_sensor)
-        
         gripper_target_pose = vision_tform_grasp * grasp_pose_sensor
-
+        gripper_target_pose = gripper_target_pose * bdSE3Pose(0, -0.1, 0, bdQuat())
+        self._log.info("Target gripper pose")
+        self._log.info(gripper_target_pose)
         # Move the gripper to the place
         # (Cited from grasp() in this wrapper, but with simplification)
         pos, rot = self._pose_bd_to_vectors(gripper_target_pose)
