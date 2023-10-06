@@ -534,7 +534,7 @@ class GraphNav(object):
         # Navigate to the destination waypoint.
         is_finished = False
         nav_to_cmd_id = -1
-        obstacle_detected_response = self.detect_obstacles_near_spot(0.5)
+        obstacle_detected_response = self.detect_obstacles_near_spot(0.35)
         num_navigation_calls = 0
         while not is_finished:
             num_navigation_calls += 1
@@ -546,16 +546,16 @@ class GraphNav(object):
                 self._logger.info("Obstacle detected, removing it from path")
                 obstacle_feedback = {}
                 grid = self.get_obstacle_distance_grid()
+
                 # get spot's current location to return to after dragging the chair
                 obstacle_feedback["spot_location_odom"] = self._spot_wrapper._transform_bd_pose(bdSE3Pose(0, 0, 0, bdQuat()), BODY_FRAME_NAME, ODOM_FRAME_NAME)
-                # send the location of where to move the obstacle in spot's body frame
-                # use obstacle_protocol feedback once it is improved
-                # TODO: validate obstacle_protocol and find an appropriate place to put the obstacle
-                # obstacle_feedback["spot_destination_odom"] = self.obstacle_protocol(grid)
+
                 
                 
+                # Find a good place to put the obstacle
+                # obstacle_feedback["spot_destination_body"] = bdSE3Pose(0, -1.3, 0, bdQuat()) #self._spot_wrapper._transform_bd_pose(bdSE3Pose(0, -1.5, 0, bdQuat()), BODY_FRAME_NAME, ODOM_FRAME_NAME)
                 
-                obstacle_feedback["spot_destination_body"] = bdSE3Pose(0, -1.3, 0, bdQuat()) #self._spot_wrapper._transform_bd_pose(bdSE3Pose(0, -1.5, 0, bdQuat()), BODY_FRAME_NAME, ODOM_FRAME_NAME)
+                obstacle_feedback["spot_destination_body"] = self.find_obstacle_target_location(grid)
                 # send the rough location of the obstacle in spot's body frame
                 obstacle_feedback["obstacle_location_body"] = obstacle_detected_response[1]
                 #self._logger.info(str(obstacle_detected_response[1]))
@@ -589,7 +589,7 @@ class GraphNav(object):
             self._logger.info(str(num_navigation_calls) + " calls made to bosdyn navigate_to")
             # TODO: Move this onto a separate thread and check it more frequently
             # adjust the distance threshold for detecting obstacles here.
-            obstacle_detected_response = self.detect_obstacles_near_spot(0.5)
+            obstacle_detected_response = self.detect_obstacles_near_spot(0.35)
 
 
             # Sleep 0.5 seconds to allow for command execution.
@@ -817,7 +817,49 @@ class GraphNav(object):
         return False, None
 
 
+    def find_obstacle_target_location(self, grid):
+        """
+        Purpose: Determines an open space to move an obstacle once the obstacle has been detected near spot
+        Parameters:
+            grid(nxn array): the local obstacle distance grid snapshot
+        Returns: a bdSE3Pose of SPOT in the body frame that is safe to relocate the object
+        """
+        #Determine a safe location to move the obstacle
+        possible_obstacle_destinations = self._find_safe_place_for_obstacle(grid)
+        if(len(possible_obstacle_destinations) == 0): #Nothing was found, so spot sits down and waits
+            self._logger.error("No good relocation places located. Spot will sit down now")
+            self.sit()
+            return
+        self._logger.info("Successfully generated candidate list of safe places, now trying to find best one")
+        #Extract location defined in body frame within the obstacle grid to determine the closes safe point
+        tform_to_obstacle_grid = self._get_transform_to_local_grid(frame=BODY_FRAME_NAME)
+        anchor_x = 0
+        dir = None
+        while True:
+            right_check_location = self._get_obstacle_grid_coordinates(bdSE3Pose(anchor_x, -0.7, 0, bdQuat()), tform_to_obstacle_grid)
 
+            if(grid[right_check_location[0]][right_check_location[1]] >= 0.7):
+                # If the checkpoint location is within a relatively open space
+                dir = -0.7
+                break
+
+            left_check_location = self._get_obstacle_grid_coordinates(bdSE3Pose(anchor_x, 0.7, 0, bdQuat()), tform_to_obstacle_grid)
+            
+            if(grid[left_check_location[0]][left_check_location[1]] >= 0.7):
+                # If the checkpoint location is within a relatively open space
+                dir = 0.7
+                break
+
+            # If both sides are not good enough, go back for 0.5m and see
+            anchor_x = anchor_x - 0.5
+        
+        best_obstacle_destination_body = bdSE3Pose(anchor_x, dir, 0, bdQuat())
+
+        
+        return best_obstacle_destination_body
+    
+
+    
     def obstacle_protocol(self, grid):
         """
         Purpose: Determines an open space to move an obstacle once the obstacle has been detected near spot
@@ -826,7 +868,7 @@ class GraphNav(object):
         Returns: a bdSE3Pose in the body frame that is safe to relocate the object
         """
         #Ensure a Stop of all movement to avoid collision
-        self.stop()
+        self._spot_wrapper.stop()
         self._logger.info("Obstacle ahead, trying to find a safe place to relocate it")
         #Determine a safe location to move the obstacle
         possible_obstacle_destinations = self._find_safe_place_for_obstacle(grid)

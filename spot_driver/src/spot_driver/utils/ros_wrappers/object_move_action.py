@@ -77,7 +77,7 @@ class ObstacleMoveActionServer(ActionServerBuilder):
         image_ros = self.bridge.cv2_to_imgmsg(image_cv2, "rgb8")
         self.ros_wrapper.logger.info("Create image message!")
         
-        request = FindGraspPointGoal(image_ros, "manual_force")
+        request = FindGraspPointGoal(image_ros, "DINO")
         self._find_grasp_point_client.wait_for_server()
 
         self.ros_wrapper.logger.info("The server is found!")
@@ -98,8 +98,8 @@ class ObstacleMoveActionServer(ActionServerBuilder):
         self.ros_wrapper.logger.info("Grasp point Found!")
         
         self.ros_wrapper.logger.info("( + " + str(pick_x) + " , " + str(pick_y) + ")")
-        #grasp_res = self.task_wrapper.take_pick_grasp(pick_x, pick_y, image)
-        grasp_res = self.task_wrapper.take_pick_grasp_manual(pick_x, pick_y, image)
+        grasp_res = self.task_wrapper.take_pick_grasp(pick_x, pick_y, image)
+        #grasp_res = self.task_wrapper.take_pick_grasp_manual(pick_x, pick_y, image)
         if(grasp_res == False): 
             # The grasp attempt failed!
             self.task_wrapper._end_grasp()
@@ -125,13 +125,28 @@ class ObstacleMoveActionServer(ActionServerBuilder):
         spot_curr_pose = self.task_wrapper._ros_pose_to_bd_se3(spot_curr_location.pose)
         spot_target_pose = self.task_wrapper._ros_pose_to_bd_se3(spot_target_location.pose)
 
+        if spot_target_pose.position.x != 0:
+            self.ros_wrapper.logger.info("Hmmm... the robot is going back a little bit...")
+            spot_go_back_pose = bdSE3Pose(spot_target_pose.position.x, 0, 0, bdQuat())
+            # If we need the robot to go back for some steps
+            gripper_target_pose = self.task_wrapper._predict_gripper_pose(spot_go_back_pose, spot_target_location.header.frame_id)
+            self.ros_wrapper.logger.info("Send arm impedance & trajectory command")
+            self.task_wrapper._drag_arm_impedance(gripper_target_pose, spot_go_back_pose, spot_target_location.header.frame_id)
 
-        gripper_target_pose = self.task_wrapper._predict_gripper_pose(spot_target_pose, spot_target_location.header.frame_id)
-        self.ros_wrapper.logger.info("Send arm impedance & trajectory command")
+            self.ros_wrapper.logger.info("Now the robot is going rightward/leftward!")
+            spot_move_pose = bdSE3Pose(0, spot_target_pose.position.y, 0, bdQuat())
+            # Ready to go rightward/leftward
+            gripper_target_pose = self.task_wrapper._predict_gripper_pose(spot_move_pose, spot_target_location.header.frame_id)
+            self.ros_wrapper.logger.info("Send arm impedance & trajectory command")
+            self.task_wrapper._drag_arm_impedance(gripper_target_pose, spot_move_pose, spot_target_location.header.frame_id)
 
-        # The conversion of the pose from odom frame back to body frame may have a large error
-        # Currently spot_target_pose is specified in body frame
-        self.task_wrapper._drag_arm_impedance(gripper_target_pose, spot_target_pose, spot_target_location.header.frame_id)
+        else:
+            gripper_target_pose = self.task_wrapper._predict_gripper_pose(spot_target_pose, spot_target_location.header.frame_id)
+            self.ros_wrapper.logger.info("Send arm impedance & trajectory command")
+
+            # The conversion of the pose from odom frame back to body frame may have a large error
+            # Currently spot_target_pose is specified in body frame
+            self.task_wrapper._drag_arm_impedance(gripper_target_pose, spot_target_pose, spot_target_location.header.frame_id)
         time.sleep(2)
         self.ros_wrapper.logger.info("Obstacle Moved! Stow the arm ...")
         self.task_wrapper._end_grasp()

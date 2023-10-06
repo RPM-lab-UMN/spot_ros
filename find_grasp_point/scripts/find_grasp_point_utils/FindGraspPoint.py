@@ -21,6 +21,7 @@ class FindGraspPoint(object):
             execute_cb=self._handle_action,
             auto_start=False
        )
+       self.feedback_rate = 5
        self.bridge = CvBridge()
        self.g_image_click = None
        self.g_image_display = None
@@ -65,13 +66,13 @@ class FindGraspPoint(object):
                     pick_y = pick_y
                 )
             )
-        elif (pick_x == 0 and pick_y == 0):
+        elif (pick_x == 0.0 and pick_y == 0.0):
             # If the system tries fails to find a good pixel value
             self._server.set_succeded(
                 FindGraspPointResult(
                     success=True,
-                    pick_x = 0,
-                    pick_y = 0
+                    pick_x = 0.0,
+                    pick_y = 0.0
                 )
             )
         else:
@@ -126,7 +127,7 @@ class FindGraspPoint(object):
             key = cv2.waitKey(1) & 0xFF
             if key == ord('q') or key == ord('Q'):
                 # The user decides not to pick anything in the frame
-                return 0, 0
+                return 0.0, 0.0
         return self.g_image_click[0], self.g_image_click[1]
     
     def _get_pick_vec_DINO(self, img):
@@ -181,7 +182,7 @@ class FindGraspPoint(object):
 
         similarity_max = np.max(similarity_rel)
         similarity_argmax = np.argmax(similarity_rel)
-
+        
         if (similarity_max < cfg['similarity_thresh']):
             # If the closest point in the current frame is still
             # different from the query point significantly in latent space
@@ -196,13 +197,13 @@ class FindGraspPoint(object):
         cmap = matplotlib.cm.get_cmap("jet")
         similarity_colormap = cmap(similarity_rel)[..., :3]
 
-        img_to_viz = cv2.cvtColor(img, cv2.COLOR_BGR2RGB) # img is in RGB format
+        img_to_viz = img #cv2.cvtColor(img, cv2.COLOR_BGR2RGB) # img is in RGB format
         _overlay = img_to_viz.astype(np.float32) / 255
         _overlay = 0.5 * _overlay + 0.5 * similarity_colormap
         
         cv2.circle(_overlay, (pick_x, pick_y), 5, (0, 0, 255), -1) 
         cv2.imshow("Debug image for DINO feature method", _overlay)
-        cv2.waitKey(0)
+        cv2.waitKey(5000)
 
 
         return pick_x, pick_y

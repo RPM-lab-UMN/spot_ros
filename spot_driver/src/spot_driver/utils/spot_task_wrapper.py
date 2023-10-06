@@ -395,7 +395,6 @@ class SpotTaskWrapper:
                 # The axis in the vision frame is the positive z-axis
                 axis_to_align_with_ewrt_vo = geometry_pb2.Vec3(x=0, y=0, z=1)
             if config == "horizontal":
-                self._log.info("Horizontal Grasp!!")
                 # Another way to grasp the object
                 axis_on_gripper_ewrt_gripper = geometry_pb2.Vec3(x=0, y=0, z=1)
 
@@ -438,6 +437,28 @@ class SpotTaskWrapper:
             # We'll accept anything within +/- 10 degrees
             constraint.rotation_with_tolerance.threshold_radians = 0.17
 
+        elif config == "horizontal_rot":
+            # Demonstration of a RotationWithTolerance constraint.  This constraint allows you to
+            # specify a full orientation you want the hand to be in, along with a threshold.
+            #
+            # You might want this feature when grasping an object with known geometry and you want to
+            # make sure you grasp a specific part of it.
+            #
+            # Here, since we don't have anything in particular we want to grasp,  we'll specify an
+            # orientation that will have the hand aligned with robot and rotated down 45 degrees as an
+            # example.
+
+            # Specify the frame we're using.
+            grasp.grasp_params.grasp_params_frame_name = BODY_FRAME_NAME
+            # Rotation from the body to our desired grasp.
+            body_Q_grasp = math_helpers.Quat.from_yaw(0)  # 45 degrees
+            
+            # Turn into a proto
+            constraint = grasp.grasp_params.allowable_orientation.add()
+            constraint.rotation_with_tolerance.rotation_ewrt_frame.CopyFrom(body_Q_grasp.to_proto())
+
+            # We'll accept anything within +/- 10 degrees
+            constraint.rotation_with_tolerance.threshold_radians = 0.17
         elif config == "squeeze":
             # Tell the robot to just squeeze on the ground at the given point.
             constraint = grasp.grasp_params.allowable_orientation.add()
@@ -445,93 +466,7 @@ class SpotTaskWrapper:
     
     
     '''
-    Take an image and try to grasp something based on the image
-    '''
-    def take_image_grasp(self):
-        
-        
-        # Set up the necessary clients
-        robot = self._robot
-
-        assert robot.has_arm(), "Robot requires an arm to run this example."
-
-        # TODO: Command the robot to stand up at first if it is not standing
-
-        # Or you could grab it from spot_wrapper
-        image_client = self.spot._image_client
-
-        manipulation_api_client = robot.ensure_client(ManipulationApiClient.default_service_name)
-
-
-        # TODO: acquire from all the image sources, and choose the best one
-        image_sources = [   "hand_color_image",
-                            "frontleft_fisheye_image",
-                            "frontright_fisheye_image"
-                        ]
-
-
-        pick_vec = None
-        for image_source in image_sources:
-            # Take a picture with a camera
-            self._log.info('Getting an image from: ' + image_source)
-            image_responses = image_client.get_image_from_sources([image_source])
-
-            if len(image_responses) != 1:
-                self._log.info('Got invalid number of images: ' + str(len(image_responses)))
-                self._log.info(image_responses)
-                assert False
-
-            image = image_responses[0]
-            pick_vec = self._get_pick_vec(image) #Use the use defined grasp position
-            if pick_vec != None:
-                break
-        
-        if (pick_vec == None):
-            return False #If the user doesn't find a good grasp position, skip it
-        # Build the proto
-        grasp = manipulation_api_pb2.PickObjectInImage(
-            pixel_xy=pick_vec, transforms_snapshot_for_camera=image.shot.transforms_snapshot,
-            frame_name_image_sensor=image.shot.frame_name_image_sensor,
-            camera_model=image.source.pinhole)
-        
-
-        grasp_config = "horizontal"
-        # Optionally add a grasp constraint.  This lets you tell the robot you only want top-down grasps or side-on grasps.
-        self.add_grasp_constraint(grasp_config, grasp, self.spot._robot_state_client)
-        # Ask the robot to pick up the object
-        grasp_request = manipulation_api_pb2.ManipulationApiRequest(pick_object_in_image=grasp)
-
-        # Send the request
-        cmd_response = manipulation_api_client.manipulation_api_command(
-            manipulation_api_request=grasp_request)
-
-        # Get feedback from the robot
-        while True:
-            feedback_request = manipulation_api_pb2.ManipulationApiFeedbackRequest(
-                manipulation_cmd_id=cmd_response.manipulation_cmd_id)
-
-            # Send the request
-            response = manipulation_api_client.manipulation_api_feedback_command(
-                manipulation_api_feedback_request=feedback_request)
-
-            self._log.info('Current state: '+ manipulation_api_pb2.ManipulationFeedbackState.Name(response.current_state))
-
-
-            if response.current_state == manipulation_api_pb2.MANIP_STATE_GRASP_SUCCEEDED or response.current_state == manipulation_api_pb2.MANIP_STATE_GRASP_FAILED:
-                break
-
-            time.sleep(0.25)
-
-        
-        self._log.info('Finished grasp.')
-        cv2.destroyAllWindows()
-        global g_image_display, g_image_click
-        g_image_click = None
-        g_image_display = None
-        return True
-    
-    '''
-    The following functions are just the split of take_image_grasp
+    Take an image (originally designed for grasping job)
     '''
     def take_image_for_grasp(self):
         image_client = self.spot._image_client
@@ -591,7 +526,7 @@ class SpotTaskWrapper:
             camera_model=image.source.pinhole)
         
 
-        grasp_config = "none"
+        grasp_config = "horizontal_rot"
         # Optionally add a grasp constraint.  This lets you tell the robot you only want top-down grasps or side-on grasps.
         self.add_grasp_constraint(grasp_config, grasp, self.spot._robot_state_client)
         # Ask the robot to pick up the object
@@ -628,66 +563,6 @@ class SpotTaskWrapper:
         self._log.info('Finished grasp.')
         return True
     
-    '''
-    Assume we already have the selected point, try to grasp the point
-    Version 2: approximate the coordinate of the selected pixel point in 3D space,
-    move the gripper there, and close the gripper!
-    '''
-    def take_pick_grasp_manual(self, pick_x, pick_y, image):
-        
-        
-        # Set up the necessary clients
-        robot = self._robot
-
-        assert robot.has_arm(), "Robot requires an arm to run this example."
-
-        # Calculate the 3D coordinate of the picked pixel
-
-        # Obtain the assoicated depth image
-        image_client = self.spot._image_client
-        image_source = "hand_depth_in_hand_color_frame"
-        # Capture and save images to disk
-        image_responses = image_client.get_image_from_sources([image_source])
-        depth_image = np.frombuffer(image_responses[0].shot.image.data, dtype=np.uint16)
-        depth_image = depth_image.reshape(image_responses[0].shot.image.rows,
-                                image_responses[0].shot.image.cols)
-        self._log.info("Debugging Message for depth: ")
-        self._log.info("The selected pixel is: " + str(pick_x) + ", " + str(pick_y))
-        self._log.info(depth_image[int(pick_x), int(pick_y)])
-        self._log.info(depth_image)
-        grasp_pose_sensor = bdSE3Pose(pick_x, pick_y, depth_image[int(pick_x), int(pick_y)], bdQuat())
-
-        vision_tform_grasp = get_a_tform_b(
-                        image.shot.transforms_snapshot,
-                        BODY_FRAME_NAME,
-                        image.shot.frame_name_image_sensor)
-        gripper_target_pose = vision_tform_grasp * grasp_pose_sensor
-        gripper_target_pose = gripper_target_pose * bdSE3Pose(0, -0.1, 0, bdQuat())
-        self._log.info("Target gripper pose")
-        self._log.info(gripper_target_pose)
-        # Move the gripper to the place
-        # (Cited from grasp() in this wrapper, but with simplification)
-        pos, rot = self._pose_bd_to_vectors(gripper_target_pose)
-        self.spot.gripper_open()
-        status, msg = self.spot.hand_pose(
-                    pos, rot, 
-                    reference_frame=BODY_FRAME_NAME,
-                    duration = 2
-        )
-        self._log.info(f'status: {msg}')
-        if status is False: 
-            self._end_grasp()
-            self._log.info("Failed to move the gripper to the pose!")
-            return False
-        self.spot.gripper_close()
-        self._log.info("Gripper Closed!")
-        return True
-
-
-
-       
-        
-       
 
     '''
     Move the robot to the desired pose, while gripper attached to the object
