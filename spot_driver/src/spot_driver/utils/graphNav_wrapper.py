@@ -553,9 +553,9 @@ class GraphNav(object):
                 
                 
                 # Find a good place to put the obstacle
-                # obstacle_feedback["spot_destination_body"] = bdSE3Pose(0, -1.3, 0, bdQuat()) #self._spot_wrapper._transform_bd_pose(bdSE3Pose(0, -1.5, 0, bdQuat()), BODY_FRAME_NAME, ODOM_FRAME_NAME)
+                obstacle_feedback["spot_destination_body"] = bdSE3Pose(0, -1.5, 0, bdQuat()) #self._spot_wrapper._transform_bd_pose(bdSE3Pose(0, -1.5, 0, bdQuat()), BODY_FRAME_NAME, ODOM_FRAME_NAME)
                 
-                obstacle_feedback["spot_destination_body"] = self.find_obstacle_target_location(grid)
+                #obstacle_feedback["spot_destination_body"] = self.find_obstacle_target_location(grid)
                 # send the rough location of the obstacle in spot's body frame
                 obstacle_feedback["obstacle_location_body"] = obstacle_detected_response[1]
                 #self._logger.info(str(obstacle_detected_response[1]))
