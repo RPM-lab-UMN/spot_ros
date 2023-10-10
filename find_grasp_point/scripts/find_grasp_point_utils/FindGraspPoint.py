@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import rospy
-
+import os
 from spot_msgs.msg import FindGraspPointAction, FindGraspPointResult, FindGraspPointFeedback
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge, CvBridgeError
@@ -26,7 +26,8 @@ class FindGraspPoint(object):
        self.g_image_click = None
        self.g_image_display = None
 
-       self.DINO_addr = "/home/rpm2216/repo/robotdev/spot/ros_ws/src/spot_ros/find_grasp_point/scripts/DINO"
+       home_addr = os.path.expanduser('~')
+       self.DINO_addr = home_addr + "repo/robotdev/spot/ros_ws/src/spot_ros/find_grasp_point/scripts/DINO"
        
 
 

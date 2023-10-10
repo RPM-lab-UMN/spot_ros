@@ -553,9 +553,9 @@ class GraphNav(object):
                 
                 
                 # Find a good place to put the obstacle
-                obstacle_feedback["spot_destination_body"] = bdSE3Pose(0, -1.5, 0, bdQuat()) #self._spot_wrapper._transform_bd_pose(bdSE3Pose(0, -1.5, 0, bdQuat()), BODY_FRAME_NAME, ODOM_FRAME_NAME)
+                # obstacle_feedback["spot_destination_body"] = bdSE3Pose(0, -1.5, 0, bdQuat()) #self._spot_wrapper._transform_bd_pose(bdSE3Pose(0, -1.5, 0, bdQuat()), BODY_FRAME_NAME, ODOM_FRAME_NAME)
                 
-                #obstacle_feedback["spot_destination_body"] = self.find_obstacle_target_location(grid)
+                obstacle_feedback["spot_destination_body"] = self.find_obstacle_target_location(grid)
                 # send the rough location of the obstacle in spot's body frame
                 obstacle_feedback["obstacle_location_body"] = obstacle_detected_response[1]
                 #self._logger.info(str(obstacle_detected_response[1]))
@@ -836,22 +836,22 @@ class GraphNav(object):
         anchor_x = 0
         dir = None
         while True:
-            right_check_location = self._get_obstacle_grid_coordinates(bdSE3Pose(anchor_x, -0.7, 0, bdQuat()), tform_to_obstacle_grid)
+            right_check_location = self._get_obstacle_grid_coordinates(bdSE3Pose(anchor_x, -0.75, 0, bdQuat()), tform_to_obstacle_grid)
 
             if(grid[right_check_location[0]][right_check_location[1]] >= 0.7):
                 # If the checkpoint location is within a relatively open space
-                dir = -0.7
+                dir = -1.5
                 break
 
-            left_check_location = self._get_obstacle_grid_coordinates(bdSE3Pose(anchor_x, 0.7, 0, bdQuat()), tform_to_obstacle_grid)
+            left_check_location = self._get_obstacle_grid_coordinates(bdSE3Pose(anchor_x, 0.75, 0, bdQuat()), tform_to_obstacle_grid)
             
             if(grid[left_check_location[0]][left_check_location[1]] >= 0.7):
                 # If the checkpoint location is within a relatively open space
-                dir = 0.7
+                dir = 1.5
                 break
 
             # If both sides are not good enough, go back for 0.5m and see
-            anchor_x = anchor_x - 0.5
+            anchor_x = anchor_x - 1.2
         
         best_obstacle_destination_body = bdSE3Pose(anchor_x, dir, 0, bdQuat())
 
