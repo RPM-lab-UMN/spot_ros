@@ -11,6 +11,7 @@ import torch
 import torchvision
 from DINO.collect_dino_features import *
 from DINO.dino_wrapper import *
+
 import matplotlib
 
 class FindGraspPoint(object):
@@ -26,9 +27,8 @@ class FindGraspPoint(object):
        self.g_image_click = None
        self.g_image_display = None
 
-       home_addr = os.path.expanduser('~')
-       self.DINO_addr = home_addr + "repo/robotdev/spot/ros_ws/src/spot_ros/find_grasp_point/scripts/DINO"
-       
+       self.home_addr = os.path.expanduser('~') + "/repo/robotdev/spot/ros_ws/src/spot_ros/find_grasp_point/scripts/"
+       self.DINO_addr = self.home_addr + "DINO"
 
 
     def _handle_action(self, request):
@@ -145,9 +145,9 @@ class FindGraspPoint(object):
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         torch.backends.cudnn.benchmark = True
         torch.hub.set_dir(self.DINO_addr + "/hub")
-        rospy.loginfo("torch hub:")
-        rospy.loginfo(torch.hub.get_dir())
-    
+       
+
+        # Part II: get the place with high similarity
         model = get_dino_pixel_wise_features_model(cfg = cfg, device = device)
 
 
@@ -184,6 +184,13 @@ class FindGraspPoint(object):
         similarity_max = np.max(similarity_rel)
         similarity_argmax = np.argmax(similarity_rel)
         
+        potential_points = []
+        for i in similarity_rel.shape[0]:
+            for j in similarity_rel.shape[1]:
+                if similarity_rel[i, j] > cfg['similarity_thresh']:
+                    potential_points.append([i, j])
+        potential_points = np.array(potential_points)
+
         if (similarity_max < cfg['similarity_thresh']):
             # If the closest point in the current frame is still
             # different from the query point significantly in latent space
