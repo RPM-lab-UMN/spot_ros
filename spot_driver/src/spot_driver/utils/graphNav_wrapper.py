@@ -534,15 +534,24 @@ class GraphNav(object):
         # Navigate to the destination waypoint.
         is_finished = False
         nav_to_cmd_id = -1
-        obstacle_detected_response = self.detect_obstacles_near_spot(0.35)
+        obstacle_detected_response = self.detect_obstacles_ahead_spot(0.5)
         num_navigation_calls = 0
+
+        # If there is no obstacle at the start, command the robot to go to the place
+        if obstacle_detected_response[0] == False:
+            # commands are issued to last for 10 seconds
+            nav_to_cmd_id = self._graph_nav_client.navigate_to(
+                destination_waypoint, 10, leases=[sublease.lease_proto]
+            )
         while not is_finished:
             num_navigation_calls += 1
             # Issue the navigation command about twice a second such that it is easy to terminate the
-            # navigation command (with estop or killing the program).\
+            # navigation command (with estop or killing the program).
             self._logger.info(obstacle_detected_response)
             if obstacle_detected_response[0] == True:
-                time.sleep(2)
+                # Stop the robot (ideally, it should stop the navigation)
+                self._spot_wrapper.stop()
+                time.sleep(1)
                 self._logger.info("Obstacle detected, removing it from path")
                 obstacle_feedback = {}
                 grid = self.get_obstacle_distance_grid()
@@ -566,7 +575,7 @@ class GraphNav(object):
                     #If the attempt to remove the obstacle is failed
                     break
                 
-                
+                # Re-initialize the point clouds around the robot
                 self._set_initial_localization_waypoint([self.initial_waypoint])
 
                 
@@ -580,21 +589,20 @@ class GraphNav(object):
                     self._logger,
                 )
 
-                time.sleep(2)
-            # commands are issued to last for 1 second, and issued on a loop to regularly check for
-            # obstacles detected
-            nav_to_cmd_id = self._graph_nav_client.navigate_to(
-                destination_waypoint, 1.0, leases=[sublease.lease_proto]
-            )
-            self._logger.info(str(num_navigation_calls) + " calls made to bosdyn navigate_to")
+                # Re-send the navigation command
+                nav_to_cmd_id = self._graph_nav_client.navigate_to(
+                    destination_waypoint, 10, leases=[sublease.lease_proto]
+                )
+            
+            self._logger.info(str(num_navigation_calls) + " calls made in bosdyn navigate_to to detect the obstacle")
             # TODO: Move this onto a separate thread and check it more frequently
             # adjust the distance threshold for detecting obstacles here.
-            obstacle_detected_response = self.detect_obstacles_near_spot(0.35)
+            obstacle_detected_response = self.detect_obstacles_ahead_spot(0.5)
 
 
-            # Sleep 0.5 seconds to allow for command execution.
+            # Sleep 0.2 seconds to allow for command execution.
             # adjust this time if needed to check for obstacles more/less frequently
-            time.sleep(0.5) 
+            time.sleep(0.2) 
             # Poll the robot for feedback to determine if the navigation command is complete. Then sit
             # the robot down once it is finished.
             is_finished = self._check_success(nav_to_cmd_id)
@@ -786,6 +794,36 @@ class GraphNav(object):
         return distances
     
 
+    def detect_obstacles_ahead_spot(self, dist = 0.5):
+        """
+        Purpose: detect whether there is an obstacle ahead of the robot
+        Parameters: dist: the query distance ahead of the robot
+        Returns: Tuple containing a Boolean, whether there is a point ahead of the robot
+            and a SE3Pose estimating where the obstacle is, in spot's body frame
+        """
+        # get a list of points on the edges of spots body
+        poses = []
+        width = 0.5
+        length = 1.1
+        # get pose that is ahead of the robot (can be adapted to multiple pose)
+        poses.append(bdSE3Pose( length / 2 + dist, 0, 0, bdQuat()))
+
+        distances_list = self.check_proximity_to_obstacles(poses)
+
+        threshold = width/2
+        closest_pose = poses[distances_list.index(min(distances_list))]
+        if min(distances_list) < threshold:
+            # add the distance detected by the obstacle grid to the closest pose
+            self._logger.info(str(closest_pose))
+            closest_pos_vec3 = math_helpers.Vec3.from_proto(closest_pose)
+            vector_offset = closest_pos_vec3 / closest_pos_vec3.length() * min(distances_list)
+            self._logger.info(min(distances_list))
+            self._logger.info(str(vector_offset))
+            closest_pose = bdSE3Pose(closest_pose.x + vector_offset.x, closest_pose.y + vector_offset.y, closest_pose.z + vector_offset.z, bdQuat())
+            self._logger.info(str(closest_pose))
+            return True, closest_pose
+        return False, None
+    
 
     def detect_obstacles_near_spot(self, threshold = 0.5):
         """

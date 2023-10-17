@@ -140,7 +140,7 @@ class FindGraspPoint(object):
         cfg['use_16bit'] = False
         cfg['use_traced_model'] = False
         cfg['cpu'] = False
-        cfg['similarity_thresh'] = 0.9
+        cfg['similarity_thresh'] = 0.95
 
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         torch.backends.cudnn.benchmark = True
@@ -185,20 +185,30 @@ class FindGraspPoint(object):
         similarity_argmax = np.argmax(similarity_rel)
         
         potential_points = []
-        for i in similarity_rel.shape[0]:
-            for j in similarity_rel.shape[1]:
+        for i in range(similarity_rel.shape[0]):
+            for j in range(similarity_rel.shape[1]):
                 if similarity_rel[i, j] > cfg['similarity_thresh']:
                     potential_points.append([i, j])
         potential_points = np.array(potential_points)
 
-        if (similarity_max < cfg['similarity_thresh']):
-            # If the closest point in the current frame is still
-            # different from the query point significantly in latent space
+        if potential_points.shape[0] <= 40:
             pick_x = 0
             pick_y = 0
         else:
-            pick_y = int(similarity_argmax/(similarity_rel.shape[1]))
-            pick_x = int(similarity_argmax%(similarity_rel.shape[1]))
+            avg_pick_point = np.mean(potential_points, axis=0)
+            pick_x = int(avg_pick_point[1])
+            pick_y = int(avg_pick_point[0])
+        
+
+        # Find the point with the highest similarity
+        # if (similarity_max < cfg['similarity_thresh']):
+        #     # If the closest point in the current frame is still
+        #     # different from the query point significantly in latent space
+        #     pick_x = 0
+        #     pick_y = 0
+        # else:
+        #     pick_y = int(similarity_argmax/(similarity_rel.shape[1]))
+        #     pick_x = int(similarity_argmax%(similarity_rel.shape[1]))
 
         rospy.loginfo("The picked pixel is: ")
         rospy.loginfo([pick_x, pick_y])

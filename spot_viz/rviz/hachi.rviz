@@ -7,6 +7,7 @@ Panels:
         - /Global Options1
         - /Status1
         - /TF1/Frames1
+        - /Chair Marker1
         - /Nav Markers1
         - /PointCloud21
       Splitter Ratio: 0.5
@@ -670,9 +671,9 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.22979716956615448
+      Pitch: 1.3747961521148682
       Target Frame: <Fixed Frame>
-      Yaw: 4.681354999542236
+      Yaw: 5.1913557052612305
     Saved: ~
 Window Geometry:
   Displays:
