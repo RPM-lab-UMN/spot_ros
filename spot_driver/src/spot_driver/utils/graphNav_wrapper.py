@@ -534,7 +534,7 @@ class GraphNav(object):
         # Navigate to the destination waypoint.
         is_finished = False
         nav_to_cmd_id = -1
-        obstacle_detected_response = self.detect_obstacles_ahead_spot(0.5)
+        obstacle_detected_response = self.detect_obstacles_ahead_spot(0.6)
         num_navigation_calls = 0
 
         # If there is no obstacle at the start, command the robot to go to the place
@@ -551,7 +551,7 @@ class GraphNav(object):
             if obstacle_detected_response[0] == True:
                 # Stop the robot (ideally, it should stop the navigation)
                 self._spot_wrapper.stop()
-                time.sleep(1)
+                time.sleep(0.5)
                 self._logger.info("Obstacle detected, removing it from path")
                 obstacle_feedback = {}
                 grid = self.get_obstacle_distance_grid()
@@ -576,7 +576,7 @@ class GraphNav(object):
                     break
                 
                 # Re-initialize the point clouds around the robot
-                self._set_initial_localization_waypoint([self.initial_waypoint])
+                # self._set_initial_localization_waypoint([self.initial_waypoint])
 
                 
                 self._list_graph_waypoint_and_edge_ids()
@@ -597,12 +597,12 @@ class GraphNav(object):
             self._logger.info(str(num_navigation_calls) + " calls made in bosdyn navigate_to to detect the obstacle")
             # TODO: Move this onto a separate thread and check it more frequently
             # adjust the distance threshold for detecting obstacles here.
-            obstacle_detected_response = self.detect_obstacles_ahead_spot(0.5)
+            obstacle_detected_response = self.detect_obstacles_ahead_spot(0.6)
 
 
-            # Sleep 0.2 seconds to allow for command execution.
+            # Sleep 0.1 seconds to allow for command execution.
             # adjust this time if needed to check for obstacles more/less frequently
-            time.sleep(0.2) 
+            time.sleep(0.05) 
             # Poll the robot for feedback to determine if the navigation command is complete. Then sit
             # the robot down once it is finished.
             is_finished = self._check_success(nav_to_cmd_id)
@@ -810,7 +810,7 @@ class GraphNav(object):
 
         distances_list = self.check_proximity_to_obstacles(poses)
 
-        threshold = width/2
+        threshold = width/2 + 0.15
         closest_pose = poses[distances_list.index(min(distances_list))]
         if min(distances_list) < threshold:
             # add the distance detected by the obstacle grid to the closest pose
@@ -874,18 +874,18 @@ class GraphNav(object):
         anchor_x = 0
         dir = None
         while True:
-            right_check_location = self._get_obstacle_grid_coordinates(bdSE3Pose(anchor_x, -0.75, 0, bdQuat()), tform_to_obstacle_grid)
+            right_check_location = self._get_obstacle_grid_coordinates(bdSE3Pose(anchor_x, -0.6, 0, bdQuat()), tform_to_obstacle_grid)
 
             if(grid[right_check_location[0]][right_check_location[1]] >= 0.7):
                 # If the checkpoint location is within a relatively open space
-                dir = -1.5
+                dir = -1.2
                 break
 
-            left_check_location = self._get_obstacle_grid_coordinates(bdSE3Pose(anchor_x, 0.75, 0, bdQuat()), tform_to_obstacle_grid)
+            left_check_location = self._get_obstacle_grid_coordinates(bdSE3Pose(anchor_x, 0.6, 0, bdQuat()), tform_to_obstacle_grid)
             
             if(grid[left_check_location[0]][left_check_location[1]] >= 0.7):
                 # If the checkpoint location is within a relatively open space
-                dir = 1.5
+                dir = 1.2
                 break
 
             # If both sides are not good enough, go back for 0.5m and see

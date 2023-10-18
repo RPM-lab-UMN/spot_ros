@@ -77,7 +77,7 @@ class ObstacleMoveActionServer(ActionServerBuilder):
         image_ros = self.bridge.cv2_to_imgmsg(image_cv2, "rgb8")
         self.ros_wrapper.logger.info("Create image message!")
         
-        request = FindGraspPointGoal(image_ros, "manual_force")
+        request = FindGraspPointGoal(image_ros, "DINO")
         self._find_grasp_point_client.wait_for_server()
 
         self.ros_wrapper.logger.info("The server is found!")
@@ -156,11 +156,11 @@ class ObstacleMoveActionServer(ActionServerBuilder):
         if spot_target_pose.position.x != 0:
             self.ros_wrapper.logger.info("Two stages to go back!")
             spot_first_pose = bdSE3Pose(0, -spot_target_pose.position.y, 0, bdQuat())
-            self.task_wrapper._go_along_trajectory(spot_first_pose, 5, BODY_FRAME_NAME)
+            self.task_wrapper._go_along_trajectory(spot_first_pose, 4, BODY_FRAME_NAME)
             spot_second_pose = bdSE3Pose(-spot_target_pose.position.x, 0, 0, bdQuat())
-            self.task_wrapper._go_along_trajectory(spot_second_pose, 5, BODY_FRAME_NAME)
+            self.task_wrapper._go_along_trajectory(spot_second_pose, 4, BODY_FRAME_NAME)
         else:
-            self.task_wrapper._go_along_trajectory(spot_curr_pose, 10, spot_curr_location.header.frame_id)
+            self.task_wrapper._go_along_trajectory(spot_curr_pose, 4, spot_curr_location.header.frame_id)
         self.ros_wrapper.logger.info("Back to original place!")
 
         return True

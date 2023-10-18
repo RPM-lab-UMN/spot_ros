@@ -191,7 +191,11 @@ class FindGraspPoint(object):
                     potential_points.append([i, j])
         potential_points = np.array(potential_points)
 
-        if potential_points.shape[0] <= 40:
+        x_std = np.std(potential_points[:, 1])
+        y_std = np.std(potential_points[:, 0])
+        std_ratio = x_std / y_std
+        std_range = (std_ratio < 4) or (std_ratio > 10)
+        if potential_points.shape[0] <= 40 or std_range :
             pick_x = 0
             pick_y = 0
         else:
@@ -220,7 +224,7 @@ class FindGraspPoint(object):
         _overlay = 0.5 * _overlay + 0.5 * similarity_colormap
         
         cv2.circle(_overlay, (pick_x, pick_y), 5, (0, 0, 255), -1) 
-        cv2.imshow("Debug image for DINO feature method", _overlay)
+        cv2.imshow("Debug image for DINO feature method: (std_ratio)" + str(std_ratio), _overlay)
         cv2.waitKey(5000)
 
 
