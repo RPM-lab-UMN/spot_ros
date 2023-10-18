@@ -42,19 +42,25 @@ class ObstacleMoveActionServer(ActionServerBuilder):
         # Run action
         
         handle_res = self.handler(req)
-        if (handle_res == True):
+        if (handle_res == "SUCCEED"):
             self._server.set_succeeded(
                 ObstacleMoveResult(
-                    success=True,
-                    message="Succeeded in Removing the obstacle/Need to remove obstacle!"
+                    success= True,
+                    message="SUCCEED"
                 )
             )
-        
+        elif ( handle_res == "NO_GRASP"):
+            self._server.set_succeeded(
+                ObstacleMoveResult(
+                    success= True,
+                    message="NO_GRASP"
+                )
+            )
         else:
             self._server.set_aborted(
                 ObstacleMoveResult(
-                    success=False,
-                    message = "Exception Occurred!"
+                    success= False,
+                    message = "ERROR"
                 )
             )
         
@@ -68,7 +74,7 @@ class ObstacleMoveActionServer(ActionServerBuilder):
         # Part I: command the gripper to grasp a place on the chair
 
         #grasp_res = self.task_wrapper.take_image_grasp()
-        image = self.task_wrapper.take_image_for_grasp()
+        image, depth_image = self.task_wrapper.take_image_for_grasp()
 
         # Convert the image into cv2 type
         image_cv2 = self.task_wrapper._convert_to_cv2(image)
@@ -89,12 +95,19 @@ class ObstacleMoveActionServer(ActionServerBuilder):
 
         if(res.success == False):
             # If an Error occurred
-            return False
+            return "ERROR"
         elif (pick_x == 0.0 and pick_y == 0.0):
             # If everything goes fine, yet the system fails to find a good grasp point
             # Do nothing and return directly
             self.ros_wrapper.logger.info("No good grasp point Found...")
-            return True
+            return "NO_GRASP"
+        # elif (depth_image[int(pick_x), int(pick_y)] > 1500 or depth_image[int(pick_x), int(pick_y)] == 0):
+        #     # If everything goes fine, but the depth constraint is violated
+        #     # Do nothing and return directly
+        #     self.ros_wrapper.logger.info("The grasp point is too far or too close ... " 
+        #                                  + str(depth_image[int(pick_x), int(pick_y)]))
+        #     return True
+
         self.ros_wrapper.logger.info("Grasp point Found!")
         
         self.ros_wrapper.logger.info("( + " + str(pick_x) + " , " + str(pick_y) + ")")
@@ -103,7 +116,7 @@ class ObstacleMoveActionServer(ActionServerBuilder):
         if(grasp_res == False): 
             # The grasp attempt failed!
             self.task_wrapper._end_grasp()
-            return False
+            return "NO_GRASP"
         
         # Part II: move the robot to the destination
         # Potential bug in the provided codes:
@@ -163,4 +176,4 @@ class ObstacleMoveActionServer(ActionServerBuilder):
             self.task_wrapper._go_along_trajectory(spot_curr_pose, 4, spot_curr_location.header.frame_id)
         self.ros_wrapper.logger.info("Back to original place!")
 
-        return True
+        return "SUCCEED"

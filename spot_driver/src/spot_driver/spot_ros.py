@@ -1295,8 +1295,8 @@ class SpotROS:
         rospy.loginfo(obstacle_mover_client.get_result())
         rospy.loginfo("Obstalce Removing Result! Continue...")
         if (obstacle_mover_client.get_result() == None):
-            return False
-        return obstacle_mover_client.get_result().success
+            return "ERROR"
+        return obstacle_mover_client.get_result().message
         
 
     def populate_camera_static_transforms(self, image_data):

@@ -466,22 +466,30 @@ class SpotTaskWrapper:
     
     
     '''
-    Take an image (originally designed for grasping job)
+    Take an image (originally designed for grasping job), both rgb & depth images
     '''
     def take_image_for_grasp(self):
         image_client = self.spot._image_client
         image_source = "hand_color_image"
+        depth_image_source = "hand_depth_in_hand_color_frame"
+
         # Take a picture with a camera
         self._log.info('Getting an image from: ' + image_source)
-        image_responses = image_client.get_image_from_sources([image_source])
+        image_responses = image_client.get_image_from_sources([image_source, depth_image_source])
 
-        if len(image_responses) != 1:
+        if len(image_responses) != 2:
             self._log.info('Got invalid number of images: ' + str(len(image_responses)))
             self._log.info(image_responses)
             assert False
 
         image = image_responses[0]
-        return image
+        
+
+        # Depth is a raw bytestream
+        cv_depth = np.frombuffer(image_responses[1].shot.image.data, dtype=np.uint16)
+        cv_depth = cv_depth.reshape(image_responses[1].shot.image.rows,
+                                    image_responses[1].shot.image.cols)
+        return image, cv_depth
     '''
     Convert the image into cv2 format
     '''

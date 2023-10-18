@@ -71,14 +71,14 @@ class FindGraspPoint(object):
             # If the system tries fails to find a good pixel value
             self._server.set_succeded(
                 FindGraspPointResult(
-                    success=True,
+                    success= True,
                     pick_x = 0.0,
                     pick_y = 0.0
                 )
             )
         else:
             # If an exception occurred, no good pixel value is picked
-            self._server.set_succeeded(
+            self._server.set_aborted(
                 FindGraspPointResult(
                     success= False,
                     pick_x = -1,
@@ -188,14 +188,23 @@ class FindGraspPoint(object):
         for i in range(similarity_rel.shape[0]):
             for j in range(similarity_rel.shape[1]):
                 if similarity_rel[i, j] > cfg['similarity_thresh']:
-                    potential_points.append([i, j])
+                    potential_points.append([i,j])
         potential_points = np.array(potential_points)
+
+        similarity_filtered  = similarity_rel.copy()
+        similarity_filtered[similarity_filtered <= cfg['similarity_thresh']] = 0
+        similarity_filtered[similarity_filtered > 0] = 1
+        _, singulars, _ = np.linalg.svd(similarity_filtered)
+        singular_ratio = singulars[0] / singulars[1]
+        singular_range = (singular_ratio <= 3) or (singular_ratio >= 7)
 
         x_std = np.std(potential_points[:, 1])
         y_std = np.std(potential_points[:, 0])
         std_ratio = x_std / y_std
-        std_range = (std_ratio < 4) or (std_ratio > 10)
-        if potential_points.shape[0] <= 40 or std_range :
+        std_range = (std_ratio < 5) or (std_ratio > 14)
+
+        avg_pick_point = np.mean(potential_points, axis=0)
+        if potential_points.shape[0] <= 40 or singular_range or std_range:
             pick_x = 0
             pick_y = 0
         else:
@@ -224,7 +233,7 @@ class FindGraspPoint(object):
         _overlay = 0.5 * _overlay + 0.5 * similarity_colormap
         
         cv2.circle(_overlay, (pick_x, pick_y), 5, (0, 0, 255), -1) 
-        cv2.imshow("Debug image for DINO feature method: (std_ratio)" + str(std_ratio), _overlay)
+        cv2.imshow("Debug image: " + str(int(std_ratio)) + " " + str(int(singular_ratio)), _overlay)
         cv2.waitKey(5000)
 
 
