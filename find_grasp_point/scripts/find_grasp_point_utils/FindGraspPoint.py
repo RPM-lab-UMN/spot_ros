@@ -201,7 +201,7 @@ class FindGraspPoint(object):
         x_std = np.std(potential_points[:, 1])
         y_std = np.std(potential_points[:, 0])
         std_ratio = x_std / y_std
-        std_range = (std_ratio < 5) or (std_ratio > 14)
+        std_range = (std_ratio < 5) or (std_ratio > 15)
 
         avg_pick_point = np.mean(potential_points, axis=0)
         if potential_points.shape[0] <= 40 or singular_range or std_range:
@@ -234,7 +234,7 @@ class FindGraspPoint(object):
         
         cv2.circle(_overlay, (pick_x, pick_y), 5, (0, 0, 255), -1) 
         cv2.imshow("Debug image: " + str(int(std_ratio)) + " " + str(int(singular_ratio)), _overlay)
-        cv2.waitKey(5000)
+        cv2.waitKey(2000)
 
 
         return pick_x, pick_y

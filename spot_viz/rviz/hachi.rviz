@@ -596,7 +596,7 @@ Visualization Manager:
       Marker Topic: /grasp_markers
       Name: Marker
       Namespaces:
-        {}
+        navi_breadcrumbs: true
       Queue Size: 100
       Value: true
     - Alpha: 1
@@ -671,9 +671,9 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 1.3747961521148682
+      Pitch: 0.35979634523391724
       Target Frame: <Fixed Frame>
-      Yaw: 5.1913557052612305
+      Yaw: 6.226356029510498
     Saved: ~
 Window Geometry:
   Displays:

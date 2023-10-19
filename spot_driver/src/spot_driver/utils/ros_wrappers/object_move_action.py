@@ -106,7 +106,7 @@ class ObstacleMoveActionServer(ActionServerBuilder):
         #     # Do nothing and return directly
         #     self.ros_wrapper.logger.info("The grasp point is too far or too close ... " 
         #                                  + str(depth_image[int(pick_x), int(pick_y)]))
-        #     return True
+        #     return "SUCCEED"
 
         self.ros_wrapper.logger.info("Grasp point Found!")
         
