@@ -196,7 +196,7 @@ class FindGraspPoint(object):
         similarity_filtered[similarity_filtered > 0] = 1
         _, singulars, _ = np.linalg.svd(similarity_filtered)
         singular_ratio = singulars[0] / singulars[1]
-        singular_range = (singular_ratio <= 3) or (singular_ratio >= 7)
+        singular_range = (singular_ratio <= 2.5) or (singular_ratio >= 7)
 
         x_std = np.std(potential_points[:, 1])
         y_std = np.std(potential_points[:, 0])
@@ -233,7 +233,7 @@ class FindGraspPoint(object):
         _overlay = 0.5 * _overlay + 0.5 * similarity_colormap
         
         cv2.circle(_overlay, (pick_x, pick_y), 5, (0, 0, 255), -1) 
-        cv2.imshow("Debug image: " + str(int(std_ratio)) + " " + str(int(singular_ratio)), _overlay)
+        cv2.imshow("Debug image: " + str(round(std_ratio, 2)) + " " + str(round(singular_ratio, 2)), _overlay)
         cv2.waitKey(2000)
 
 
