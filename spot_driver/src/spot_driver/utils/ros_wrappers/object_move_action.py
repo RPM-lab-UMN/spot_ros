@@ -111,6 +111,15 @@ class ObstacleMoveActionServer(ActionServerBuilder):
         self.ros_wrapper.logger.info("Grasp point Found!")
         
         self.ros_wrapper.logger.info("( + " + str(pick_x) + " , " + str(pick_y) + ")")
+        spot_curr_location = req.spot_location
+        spot_target_location = req.spot_destination
+        spot_curr_pose = self.task_wrapper._ros_pose_to_bd_se3(spot_curr_location.pose)
+        spot_target_pose = self.task_wrapper._ros_pose_to_bd_se3(spot_target_location.pose)
+
+        if(spot_target_pose.position.x == -1):
+            # If the error code is received, which indicates that no good 
+            # space is found for the robot to place the obstacle
+            return "NO_GRASP"
         grasp_res = self.task_wrapper.take_pick_grasp(pick_x, pick_y, image)
         #grasp_res = self.task_wrapper.take_pick_grasp_manual(pick_x, pick_y, image)
         if(grasp_res == False): 
@@ -121,7 +130,7 @@ class ObstacleMoveActionServer(ActionServerBuilder):
         # Part II: move the robot to the destination
         # Potential bug in the provided codes:
         # Assuming the z-coordinate for the obstalce is 0...
-        #
+        #spot_curr_location = req.spot_location
         #
         # Also, so far, just command the robot to move 1.2m rightward...
         # spot_target_pose is in body frame
@@ -132,11 +141,9 @@ class ObstacleMoveActionServer(ActionServerBuilder):
         # If the odom pose of spot is used, when converting it back to body pose,
         # the error is large
         self.ros_wrapper.logger.info("Grasp Finished! Calculating...")
-        spot_curr_location = req.spot_location
-        spot_target_location = req.spot_destination
+        
         time.sleep(2) # Wait until the grasp is stable     
-        spot_curr_pose = self.task_wrapper._ros_pose_to_bd_se3(spot_curr_location.pose)
-        spot_target_pose = self.task_wrapper._ros_pose_to_bd_se3(spot_target_location.pose)
+        
 
         if spot_target_pose.position.x != 0:
             self.ros_wrapper.logger.info("Hmmm... the robot is going back a little bit...")

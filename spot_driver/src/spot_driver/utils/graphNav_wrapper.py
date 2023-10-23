@@ -568,7 +568,7 @@ class GraphNav(object):
                 try:
                     obstacle_feedback["spot_destination_body"] = self.find_obstacle_target_location(grid)
                 except:
-                    return (False, "CANNOT Find a good place to put the obstacle" )
+                    obstacle_feedback["spot_destination_body"] = bdSE3Pose(-1, -1, 0, bdQuat())
                 # send the rough location of the obstacle in spot's body frame
                 obstacle_feedback["obstacle_location_body"] = obstacle_detected_response[1]
                 #self._logger.info(str(obstacle_detected_response[1]))

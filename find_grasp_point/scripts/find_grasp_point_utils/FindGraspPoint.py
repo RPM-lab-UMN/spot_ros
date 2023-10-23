@@ -191,10 +191,8 @@ class FindGraspPoint(object):
                     potential_points.append([i,j])
         potential_points = np.array(potential_points)
 
-        similarity_filtered  = similarity_rel.copy()
-        similarity_filtered[similarity_filtered <= cfg['similarity_thresh']] = 0
-        similarity_filtered[similarity_filtered > 0] = 1
-        _, singulars, _ = np.linalg.svd(similarity_filtered)
+
+        _, singulars, _ = np.linalg.svd(similarity_rel)
         singular_ratio = singulars[0] / singulars[1]
         singular_range = (singular_ratio <= 2.5) or (singular_ratio >= 7)
 
