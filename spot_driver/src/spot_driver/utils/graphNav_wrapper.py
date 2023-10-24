@@ -12,7 +12,7 @@ from bosdyn.api.graph_nav import graph_nav_pb2
 from bosdyn.api.graph_nav import map_pb2
 from bosdyn.api.graph_nav import nav_pb2
 from bosdyn.api.graph_nav import map_pb2, map_processing_pb2, recording_pb2
-
+from bosdyn.api import geometry_pb2
 
 import bosdyn.client.channel
 import bosdyn.client.util
@@ -536,12 +536,15 @@ class GraphNav(object):
         nav_to_cmd_id = -1
         obstacle_detected_response = self.detect_obstacles_ahead_spot(0.8)
         num_navigation_calls = 0
-
+        velocity_limit = geometry_pb2.SE2VelocityLimit()
+        velocity_limit.max_vel.linear.x = 0.5
+        velocity_limit.max_vel.linear.y = 0.5
+        travel_params = self._graph_nav_client.generate_travel_params(0.5, 0.26, velocity_limit)
         # If there is no obstacle at the start, command the robot to go to the place
         if obstacle_detected_response[0] == False:
             # commands are issued to last for 10 seconds
             nav_to_cmd_id = self._graph_nav_client.navigate_to(
-                destination_waypoint, 10, leases=[sublease.lease_proto]
+                destination_waypoint, 10, leases=[sublease.lease_proto], travel_params = travel_params
             )
         # The counting parameter for the robot to get away from the unmovable object
         get_away = 0
@@ -597,7 +600,7 @@ class GraphNav(object):
                 )
                 # Re-send the navigation command
                 nav_to_cmd_id = self._graph_nav_client.navigate_to(
-                    destination_waypoint, 10, leases=[sublease.lease_proto]
+                    destination_waypoint, 10, leases=[sublease.lease_proto], travel_params = travel_params
                 )
             
             self._logger.info(str(num_navigation_calls) + " calls made in bosdyn navigate_to to detect the obstacle")

@@ -184,15 +184,17 @@ class FindGraspPoint(object):
         similarity_max = np.max(similarity_rel)
         similarity_argmax = np.argmax(similarity_rel)
         
+        similarity_filtered = np.zeros(similarity_rel.shape)
         potential_points = []
         for i in range(similarity_rel.shape[0]):
             for j in range(similarity_rel.shape[1]):
                 if similarity_rel[i, j] > cfg['similarity_thresh']:
                     potential_points.append([i,j])
+                    similarity_filtered[i, j] = 1
         potential_points = np.array(potential_points)
 
 
-        _, singulars, _ = np.linalg.svd(similarity_rel)
+        _, singulars, _ = np.linalg.svd(similarity_filtered)
         singular_ratio = singulars[0] / singulars[1]
         singular_range = (singular_ratio <= 2.5) or (singular_ratio >= 7)
 
