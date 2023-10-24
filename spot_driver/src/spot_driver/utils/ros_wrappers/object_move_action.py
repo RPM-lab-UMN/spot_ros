@@ -70,10 +70,7 @@ class ObstacleMoveActionServer(ActionServerBuilder):
         self._running = False
         self._feedback_thread.join()
 
-    def handler(self, req):
-        # Part I: command the gripper to grasp a place on the chair
-
-        #grasp_res = self.task_wrapper.take_image_grasp()
+    def get_pick_vec(self):
         image, depth_image = self.task_wrapper.take_image_for_grasp()
 
         # Convert the image into cv2 type
@@ -90,6 +87,13 @@ class ObstacleMoveActionServer(ActionServerBuilder):
         self._find_grasp_point_client.send_goal(request)
         self._find_grasp_point_client.wait_for_result()
         res = self._find_grasp_point_client.get_result()
+
+        return res, image
+    def handler(self, req):
+        # Part I: command the gripper to grasp a place on the chair
+
+        
+        res, image = self.get_pick_vec()
         pick_x = res.pick_x
         pick_y = res.pick_y
 
@@ -117,7 +121,7 @@ class ObstacleMoveActionServer(ActionServerBuilder):
         spot_target_pose = self.task_wrapper._ros_pose_to_bd_se3(spot_target_location.pose)
 
         if(spot_target_pose.position.x == -1):
-            # If the error code is received, which indicates that no good 
+            # If the error code is received , which indicates that no good 
             # space is found for the robot to place the obstacle
             return "NO_GRASP"
         grasp_res = self.task_wrapper.take_pick_grasp(pick_x, pick_y, image)
@@ -125,7 +129,32 @@ class ObstacleMoveActionServer(ActionServerBuilder):
         if(grasp_res == False): 
             # The grasp attempt failed!
             self.task_wrapper._end_grasp()
-            return "NO_GRASP"
+            self.ros_wrapper.logger.info("Emm.. let me try another time to grasp")
+            # Try another one with a step forward
+            step_forward_pose = bdSE3Pose(0.25, 0, 0, bdQuat())
+            self.task_wrapper._go_along_trajectory(step_forward_pose, 0.5, BODY_FRAME_NAME)
+
+            # Try another time
+            res, image = self.get_pick_vec()
+            pick_x = res.pick_x
+            pick_y = res.pick_y
+
+            if(res.success == False):
+                # If an Error occurred
+                return "ERROR"
+            elif (pick_x == 0.0 and pick_y == 0.0):
+                # If everything goes fine, yet the system fails to find a good grasp point
+                # Do nothing and return directly
+                self.ros_wrapper.logger.info("No good grasp point Found...")
+                return "NO_GRASP"
+            
+            grasp_res = self.task_wrapper.take_pick_grasp(pick_x, pick_y, image)
+
+            if (grasp_res == False):
+                self.ros_wrapper.logger.info("I still failed the grasp ...")
+                self.task_wrapper._end_grasp()
+
+                return "NO_GRASP"
         
         # Part II: move the robot to the destination
         # Potential bug in the provided codes:

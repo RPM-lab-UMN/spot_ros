@@ -534,12 +534,12 @@ class GraphNav(object):
         # Navigate to the destination waypoint.
         is_finished = False
         nav_to_cmd_id = -1
-        obstacle_detected_response = self.detect_obstacles_ahead_spot(0.8)
+        obstacle_detected_response = self.detect_obstacles_ahead_spot(0.75)
         num_navigation_calls = 0
         velocity_limit = geometry_pb2.SE2VelocityLimit()
         velocity_limit.max_vel.linear.x = 0.5
         velocity_limit.max_vel.linear.y = 0.5
-        travel_params = self._graph_nav_client.generate_travel_params(0.5, 0.26, velocity_limit)
+        travel_params = self._graph_nav_client.generate_travel_params(0.5, 0.13, velocity_limit)
         # If there is no obstacle at the start, command the robot to go to the place
         if obstacle_detected_response[0] == False:
             # commands are issued to last for 10 seconds
@@ -583,7 +583,7 @@ class GraphNav(object):
                     break
                 elif (obstacle_remove_res == "NO_GRASP"):
                     # If there is no need to remove the current obstacle
-                    get_away = 20
+                    get_away = 50
                 # Re-initialize the point clouds around the robot
                 # self._set_initial_localization_waypoint([self.initial_waypoint])
 
@@ -606,7 +606,7 @@ class GraphNav(object):
             self._logger.info(str(num_navigation_calls) + " calls made in bosdyn navigate_to to detect the obstacle")
             # TODO: Move this onto a separate thread and check it more frequently
             # adjust the distance threshold for detecting obstacles here.
-            obstacle_detected_response = self.detect_obstacles_ahead_spot(0.8)
+            obstacle_detected_response = self.detect_obstacles_ahead_spot(0.75)
 
             # If the robot is in the process to get away from the unmovable obstacles
             if (get_away > 0):
