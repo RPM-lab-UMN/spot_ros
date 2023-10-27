@@ -92,7 +92,9 @@ class ObstacleMoveActionServer(ActionServerBuilder):
     def handler(self, req):
         # Part I: command the gripper to grasp a place on the chair
 
-        
+        #step_forward_pose = bdSE3Pose(-0.25, 0, 0, bdQuat())
+        #self.task_wrapper._go_along_trajectory(step_forward_pose, 0.5, BODY_FRAME_NAME)
+
         res, image = self.get_pick_vec()
         pick_x = res.pick_x
         pick_y = res.pick_y
@@ -118,12 +120,9 @@ class ObstacleMoveActionServer(ActionServerBuilder):
         spot_curr_location = req.spot_location
         spot_target_location = req.spot_destination
         spot_curr_pose = self.task_wrapper._ros_pose_to_bd_se3(spot_curr_location.pose)
-        spot_target_pose = self.task_wrapper._ros_pose_to_bd_se3(spot_target_location.pose)
 
-        if(spot_target_pose.position.x == -1):
-            # If the error code is received , which indicates that no good 
-            # space is found for the robot to place the obstacle
-            return "NO_GRASP"
+
+        
         grasp_res = self.task_wrapper.take_pick_grasp(pick_x, pick_y, image)
         #grasp_res = self.task_wrapper.take_pick_grasp_manual(pick_x, pick_y, image)
         if(grasp_res == False): 
@@ -156,6 +155,14 @@ class ObstacleMoveActionServer(ActionServerBuilder):
 
                 return "NO_GRASP"
         
+        # After grasp the target, find the target location
+        try:
+            spot_target_pose = self.graph_nav_wrapper.find_obstacle_target_location()
+            #spot_target_pose = bdSE3Pose(-1.2, -1.5, 0, bdQuat())
+        except:
+            # If no such good target place for the obstalce is found
+            self.ros_wrapper.logger.info("No good location to place the obstacle is found...")
+            return "NO_GRASP"
         # Part II: move the robot to the destination
         # Potential bug in the provided codes:
         # Assuming the z-coordinate for the obstalce is 0...

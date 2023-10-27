@@ -32,6 +32,7 @@ class ActionServerBuilder:
         self._running = False
         self.task_wrapper = ros_wrapper.task_wrapper
         self.ros_wrapper = ros_wrapper
+        self.graph_nav_wrapper = ros_wrapper.graph_nav_wrapper
 
     def handler(self, goal):
         raise NotImplementedError("Must be implemented by a subclass")

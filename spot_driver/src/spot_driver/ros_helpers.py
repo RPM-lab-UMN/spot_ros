@@ -26,7 +26,9 @@ from bosdyn.api import image_pb2, local_grid_pb2
 from bosdyn.client.math_helpers import SE3Pose
 from bosdyn.client.frame_helpers import (get_odom_tform_body,
                                          get_vision_tform_body,
-                                         get_a_tform_b)
+                                         get_a_tform_b,
+                                         GROUND_PLANE_FRAME_NAME,
+                                         BODY_FRAME_NAME)
 
 import numpy as np
 
@@ -355,6 +357,10 @@ def GetOdomFromState(state, spot_wrapper, use_vision=True):
     else:
         odom_msg.header.frame_id = "odom"
         tform_body = get_odom_tform_body(state.kinematic_state.transforms_snapshot)
+
+    gpe_tform_body = get_a_tform_b(state.kinematic_state.transforms_snapshot, 
+                                    GROUND_PLANE_FRAME_NAME,
+                                    BODY_FRAME_NAME)
     odom_msg.child_frame_id = "body"
     pose_odom_msg = PoseWithCovariance()
     pose_odom_msg.pose.position.x = tform_body.position.x

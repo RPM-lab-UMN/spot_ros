@@ -196,17 +196,18 @@ class FindGraspPoint(object):
 
         _, singulars, _ = np.linalg.svd(similarity_filtered)
         singular_ratio = singulars[0] / singulars[1]
-        singular_range = (singular_ratio <= 2.5) or (singular_ratio >= 7)
+        singular_range = (singular_ratio <= 2.3) or (singular_ratio >= 7)
 
         x_std = np.std(potential_points[:, 1])
         y_std = np.std(potential_points[:, 0])
         std_ratio = x_std / y_std
-        std_range = (std_ratio < 5) or (std_ratio > 15)
+        std_range = (std_ratio < 4.8) or (std_ratio > 15.8)
 
         avg_pick_point = np.mean(potential_points, axis=0)
         if potential_points.shape[0] <= 40 or singular_range or std_range:
             pick_x = 0
             pick_y = 0
+            return pick_x, pick_y
         else:
             avg_pick_point = np.mean(potential_points, axis=0)
             pick_x = int(avg_pick_point[1])
