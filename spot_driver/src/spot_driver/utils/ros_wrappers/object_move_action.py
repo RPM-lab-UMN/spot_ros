@@ -120,7 +120,7 @@ class ObstacleMoveActionServer(ActionServerBuilder):
         spot_curr_location = req.spot_location
         spot_target_location = req.spot_destination
         spot_curr_pose = self.task_wrapper._ros_pose_to_bd_se3(spot_curr_location.pose)
-
+        spot_target_pose = self.task_wrapper._ros_pose_to_bd_se3(spot_target_location.pose)
 
         
         grasp_res = self.task_wrapper.take_pick_grasp(pick_x, pick_y, image)
@@ -156,19 +156,21 @@ class ObstacleMoveActionServer(ActionServerBuilder):
                 return "NO_GRASP"
         
         # After grasp the target, find the target location
+        # NOT used currently because the robot may consider the chair as the obstacle...
         try:
             spot_target_pose = self.graph_nav_wrapper.find_obstacle_target_location()
+            self.ros_wrapper.logger.info("Found location to place the obstalce")
+            self.ros_wrapper.logger.info(spot_target_pose)
             #spot_target_pose = bdSE3Pose(-1.2, -1.5, 0, bdQuat())
         except:
             # If no such good target place for the obstalce is found
             self.ros_wrapper.logger.info("No good location to place the obstacle is found...")
+            self._end_grasp()
             return "NO_GRASP"
         # Part II: move the robot to the destination
         # Potential bug in the provided codes:
         # Assuming the z-coordinate for the obstalce is 0...
-        #spot_curr_location = req.spot_location
         #
-        # Also, so far, just command the robot to move 1.2m rightward...
         # spot_target_pose is in body frame
         # because I want to keep the relative orientation between the gripper
         # and the body. The relative orientation should not change as much as 
@@ -187,14 +189,14 @@ class ObstacleMoveActionServer(ActionServerBuilder):
             # If we need the robot to go back for some steps
             gripper_target_pose = self.task_wrapper._predict_gripper_pose(spot_go_back_pose, spot_target_location.header.frame_id)
             self.ros_wrapper.logger.info("Send arm impedance & trajectory command")
-            self.task_wrapper._drag_arm_impedance(gripper_target_pose, spot_go_back_pose, spot_target_location.header.frame_id)
+            self.task_wrapper._drag_arm_impedance(gripper_target_pose, spot_go_back_pose, spot_target_location.header.frame_id, duration_sec = 15.0)
 
             self.ros_wrapper.logger.info("Now the robot is going rightward/leftward!")
             spot_move_pose = bdSE3Pose(0, spot_target_pose.position.y, 0, bdQuat())
             # Ready to go rightward/leftward
             gripper_target_pose = self.task_wrapper._predict_gripper_pose(spot_move_pose, spot_target_location.header.frame_id)
             self.ros_wrapper.logger.info("Send arm impedance & trajectory command")
-            self.task_wrapper._drag_arm_impedance(gripper_target_pose, spot_move_pose, spot_target_location.header.frame_id)
+            self.task_wrapper._drag_arm_impedance(gripper_target_pose, spot_move_pose, spot_target_location.header.frame_id, duration_sec = 7.0)
 
         else:
             gripper_target_pose = self.task_wrapper._predict_gripper_pose(spot_target_pose, spot_target_location.header.frame_id)
@@ -202,7 +204,7 @@ class ObstacleMoveActionServer(ActionServerBuilder):
 
             # The conversion of the pose from odom frame back to body frame may have a large error
             # Currently spot_target_pose is specified in body frame
-            self.task_wrapper._drag_arm_impedance(gripper_target_pose, spot_target_pose, spot_target_location.header.frame_id)
+            self.task_wrapper._drag_arm_impedance(gripper_target_pose, spot_target_pose, spot_target_location.header.frame_id, duration_sec = 7.0)
         time.sleep(2)
         self.ros_wrapper.logger.info("Obstacle Moved! Stow the arm ...")
         self.task_wrapper._end_grasp()
@@ -212,11 +214,11 @@ class ObstacleMoveActionServer(ActionServerBuilder):
         if spot_target_pose.position.x != 0:
             self.ros_wrapper.logger.info("Two stages to go back!")
             spot_first_pose = bdSE3Pose(0, -spot_target_pose.position.y, 0, bdQuat())
-            self.task_wrapper._go_along_trajectory(spot_first_pose, 4, BODY_FRAME_NAME)
-            spot_second_pose = bdSE3Pose(-spot_target_pose.position.x, 0, 0, bdQuat())
-            self.task_wrapper._go_along_trajectory(spot_second_pose, 4, BODY_FRAME_NAME)
+            self.task_wrapper._go_along_trajectory(spot_first_pose, 7, BODY_FRAME_NAME)
+            spot_second_pose = bdSE3Pose(-spot_target_pose.position.x + 0.3, 0, 0, bdQuat())
+            self.task_wrapper._go_along_trajectory(spot_second_pose, 15, BODY_FRAME_NAME)
         else:
-            self.task_wrapper._go_along_trajectory(spot_curr_pose, 4, spot_curr_location.header.frame_id)
+            self.task_wrapper._go_along_trajectory(spot_curr_pose, 7, spot_curr_location.header.frame_id)
         self.ros_wrapper.logger.info("Back to original place!")
 
         return "SUCCEED"

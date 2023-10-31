@@ -535,7 +535,7 @@ class GraphNav(object):
         # Navigate to the destination waypoint.
         is_finished = False
         nav_to_cmd_id = -1
-        obstacle_detected_response = self.detect_obstacles_ahead_spot(0.4)
+        obstacle_detected_response = self.detect_obstacles_ahead_spot(0.5)
         num_navigation_calls = 0
         velocity_limit = geometry_pb2.SE2VelocityLimit()
         velocity_limit.max_vel.linear.x = 0.4
@@ -570,10 +570,12 @@ class GraphNav(object):
                 
                 
                 # Find a good place to put the obstacle
-                # obstacle_feedback["spot_destination_body"] = bdSE3Pose(0, -1.5, 0, bdQuat()) #self._spot_wrapper._transform_bd_pose(bdSE3Pose(0, -1.5, 0, bdQuat()), BODY_FRAME_NAME, ODOM_FRAME_NAME)
-                # Currently not used (now the obstacle target location is only determined after 
-                # the robot grasp the target successfully)
-                obstacle_feedback["spot_destination_body"] = bdSE3Pose(0, 0, 0, bdQuat())
+                # self._spot_wrapper._transform_bd_pose(bdSE3Pose(0, -1.5, 0, bdQuat()), BODY_FRAME_NAME, ODOM_FRAME_NAME)
+                obstacle_feedback["spot_destination_body"] = self.find_obstacle_target_location()
+
+                # Currently not used (find the target pose after the robot grasp the chair)
+                # Not work quite well, because the robot would consider the chair as the obstacle...
+                # obstacle_feedback["spot_destination_body"] = bdSE3Pose(0, 0, 0, bdQuat())
                
                 # send the rough location of the obstacle in spot's body frame
                 obstacle_feedback["obstacle_location_body"] = obstacle_detected_response[1]
@@ -613,7 +615,7 @@ class GraphNav(object):
                 return False, "Too many attempts in navigation! Possibly due to accidents"
             # TODO: Move this onto a separate thread and check it more frequently
             # adjust the distance threshold for detecting obstacles here.
-            obstacle_detected_response = self.detect_obstacles_ahead_spot(0.4)
+            obstacle_detected_response = self.detect_obstacles_ahead_spot(0.5)
 
             # If the robot is in the process to get away from the unmovable obstacles
             if (get_away > 0):
@@ -877,7 +879,7 @@ class GraphNav(object):
     
     def find_obstacle_target_location(self):
         grid = self.get_obstacle_distance_grid()
-        return find_obstacle_target_location_grid(grid)
+        return self.find_obstacle_target_location_grid(grid)
 
     def find_obstacle_target_location_grid(self, grid):
         """
@@ -913,7 +915,7 @@ class GraphNav(object):
                 break
 
             # If both sides are not good enough, go back for 0.5m and see
-            anchor_x = anchor_x - 1.2
+            anchor_x = anchor_x - 1.6
         
         best_obstacle_destination_body = bdSE3Pose(anchor_x, dir, 0, bdQuat())
 

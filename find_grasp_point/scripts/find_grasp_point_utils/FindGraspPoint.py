@@ -189,7 +189,7 @@ class FindGraspPoint(object):
         for i in range(similarity_rel.shape[0]):
             for j in range(similarity_rel.shape[1]):
                 if similarity_rel[i, j] > cfg['similarity_thresh']:
-                    potential_points.append([i,j])
+                    potential_points.append([i , j])
                     similarity_filtered[i, j] = 1
         potential_points = np.array(potential_points)
 
@@ -201,13 +201,12 @@ class FindGraspPoint(object):
         x_std = np.std(potential_points[:, 1])
         y_std = np.std(potential_points[:, 0])
         std_ratio = x_std / y_std
-        std_range = (std_ratio < 4.8) or (std_ratio > 15.8)
+        std_range = (std_ratio < 4) or (std_ratio > 15.8)
 
         avg_pick_point = np.mean(potential_points, axis=0)
         if potential_points.shape[0] <= 40 or singular_range or std_range:
             pick_x = 0
             pick_y = 0
-            return pick_x, pick_y
         else:
             avg_pick_point = np.mean(potential_points, axis=0)
             pick_x = int(avg_pick_point[1])
