@@ -157,7 +157,7 @@ class FindGraspPoint(object):
         img_feat_norm = torch.nn.functional.normalize(img_feat, dim=1)
 
 
-        img_feat_eval = torch.load(self.DINO_addr + "/queries/feat1.pt")
+        img_feat_eval = torch.load(self.DINO_addr + "/queries/feat2.pt")
         img_feat_eval = img_feat_eval[0].view(1,-1)
         img_feat_eval = img_feat_eval.cuda()
 

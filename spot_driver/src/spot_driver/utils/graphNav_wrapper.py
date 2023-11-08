@@ -571,8 +571,30 @@ class GraphNav(object):
                 
                 # Find a good place to put the obstacle
                 # self._spot_wrapper._transform_bd_pose(bdSE3Pose(0, -1.5, 0, bdQuat()), BODY_FRAME_NAME, ODOM_FRAME_NAME)
-                obstacle_feedback["spot_destination_body"] = self.find_obstacle_target_location()
+                try:
+                    obstacle_feedback["spot_destination_body"] = self.find_obstacle_target_location()
+                except:
+                    # If no good obstacle target location is found
+                    # (usually because it's out of index)
 
+                    # Resend the navigation commands
+                    # Let the robot figure out the way to go out automatically
+                    get_away = 50
+                    self._list_graph_waypoint_and_edge_ids()
+                    self._get_localization_state()
+                    time.sleep(1)
+                    self._get_localization_state()
+
+                    destination_waypoint = graph_nav_util.find_unique_waypoint_id(
+                        args[0][0],
+                        self._current_graph,
+                        self._current_annotation_name_to_wp_id,
+                        self._logger,
+                    )
+                    # Re-send the navigation command
+                    nav_to_cmd_id = self._graph_nav_client.navigate_to(
+                        destination_waypoint, nav_time, leases=[sublease.lease_proto], travel_params = travel_params
+                    )
                 # Currently not used (find the target pose after the robot grasp the chair)
                 # Not work quite well, because the robot would consider the chair as the obstacle...
                 # obstacle_feedback["spot_destination_body"] = bdSE3Pose(0, 0, 0, bdQuat())
@@ -607,6 +629,7 @@ class GraphNav(object):
                 nav_to_cmd_id = self._graph_nav_client.navigate_to(
                     destination_waypoint, nav_time, leases=[sublease.lease_proto], travel_params = travel_params
                 )
+                continue
             
             self._logger.info(str(num_navigation_calls) + " calls made in bosdyn navigate_to to detect the obstacle")
             
