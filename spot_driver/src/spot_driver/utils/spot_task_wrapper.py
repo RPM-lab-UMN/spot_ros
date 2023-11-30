@@ -61,6 +61,7 @@ from bosdyn.client.frame_helpers import (BODY_FRAME_NAME,
                                          get_a_tform_b)
 
 from bosdyn.client.robot_command import (block_until_arm_arrives, block_for_trajectory_cmd)
+from bosdyn.client.robot_command import RobotCommandBuilder
 from bosdyn.client.image import ImageClient
 from bosdyn.client.robot_state import RobotStateClient
 
@@ -732,7 +733,12 @@ class SpotTaskWrapper:
                                             timeout_sec=duration_sec)
         return succeeded
         '''
-        
+        drag_trajectory_params = self.spot._mobility_params
+
+        drag_trajectory_params.vel_limit.max_vel.linear.x = 0.6
+        drag_trajectory_params.vel_limit.max_vel.linear.y = 0.6
+        # drag_trajectory_params.vel_limit.min_vel.linear.x *= 0.8
+        # drag_trajectory_params.vel_limit.min_vel.linear.y *= 0.8
         pose = spot_target_pose.get_closest_se2_transform()
         self._log.info(f'Sending Robot Command.')
         succeeded, _, id = self.spot.trajectory_cmd(
@@ -741,7 +747,8 @@ class SpotTaskWrapper:
             cmd_duration=duration_sec, 
             reference_frame=reference_frame,
             blocking=False,
-            build_on_command=gripper_arm_cmd
+            build_on_command=gripper_arm_cmd,
+            trajectory_params = drag_trajectory_params
         )
         if succeeded:
             block_for_trajectory_cmd(self.spot._robot_command_client,

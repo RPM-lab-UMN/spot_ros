@@ -157,7 +157,7 @@ class FindGraspPoint(object):
         img_feat_norm = torch.nn.functional.normalize(img_feat, dim=1)
 
 
-        img_feat_eval = torch.load(self.DINO_addr + "/queries/feat1.pt")
+        img_feat_eval = torch.load(self.DINO_addr + "/queries/feat2.pt")
         img_feat_eval = img_feat_eval[0].view(1,-1)
         img_feat_eval = img_feat_eval.cuda()
 
@@ -234,6 +234,9 @@ class FindGraspPoint(object):
         
         cv2.circle(_overlay, (pick_x, pick_y), 5, (0, 0, 255), -1) 
         cv2.imshow("Debug image: " + str(round(std_ratio, 2)) + " " + str(round(singular_ratio, 2)), _overlay)
+        # Move window to (10,50) position 
+        # using moveWindow() function 
+        cv2.moveWindow("Debug image: " + str(round(std_ratio, 2)) + " " + str(round(singular_ratio, 2)), 10, 50) 
         cv2.waitKey(2000)
 
 

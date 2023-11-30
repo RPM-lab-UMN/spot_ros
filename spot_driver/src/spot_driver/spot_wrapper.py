@@ -735,6 +735,7 @@ class SpotWrapper:
         precise_position=False,
         blocking=False,
         build_on_command=None,
+        trajectory_params = None,
     ):
         """Send a trajectory motion command to the robot.
 
@@ -767,13 +768,16 @@ class SpotWrapper:
         T_in_ref = bdSE2Pose(x=goal_x, y=goal_y, angle=goal_heading)
         T_in_target = self._transform_bd_pose(T_in_ref, reference_frame, frame_name)
 
+        if trajectory_params == None:
+            trajectory_params = self._mobility_params
+        
         response = self._robot_command(
                 RobotCommandBuilder.synchro_se2_trajectory_point_command(
                     goal_x=T_in_target.x,
                     goal_y=T_in_target.y,
                     goal_heading=T_in_target.angle,
                     frame_name=frame_name,
-                    params=self._mobility_params,
+                    params=trajectory_params,
                     build_on_command=build_on_command,
                 ),
                 end_time_secs=end_time,
