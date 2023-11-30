@@ -735,8 +735,8 @@ class SpotTaskWrapper:
         '''
         drag_trajectory_params = self.spot._mobility_params
 
-        drag_trajectory_params.vel_limit.max_vel.linear.x = 0.3
-        drag_trajectory_params.vel_limit.max_vel.linear.y = 0.3
+        drag_trajectory_params.vel_limit.max_vel.linear.x = 0.6
+        drag_trajectory_params.vel_limit.max_vel.linear.y = 0.6
         # drag_trajectory_params.vel_limit.min_vel.linear.x *= 0.8
         # drag_trajectory_params.vel_limit.min_vel.linear.y *= 0.8
         pose = spot_target_pose.get_closest_se2_transform()

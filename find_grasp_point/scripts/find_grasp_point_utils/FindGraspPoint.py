@@ -234,6 +234,9 @@ class FindGraspPoint(object):
         
         cv2.circle(_overlay, (pick_x, pick_y), 5, (0, 0, 255), -1) 
         cv2.imshow("Debug image: " + str(round(std_ratio, 2)) + " " + str(round(singular_ratio, 2)), _overlay)
+        # Move window to (10,50) position 
+        # using moveWindow() function 
+        cv2.moveWindow("Debug image: " + str(round(std_ratio, 2)) + " " + str(round(singular_ratio, 2)), 10, 50) 
         cv2.waitKey(2000)
 
 

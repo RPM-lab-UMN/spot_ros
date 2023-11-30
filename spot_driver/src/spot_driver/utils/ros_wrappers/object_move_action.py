@@ -190,7 +190,7 @@ class ObstacleMoveActionServer(ActionServerBuilder):
             # If we need the robot to go back for some steps
             gripper_target_pose = self.task_wrapper._predict_gripper_pose(spot_go_back_pose, spot_target_location.header.frame_id)
             self.ros_wrapper.logger.info("Send arm impedance & trajectory command")
-            self.task_wrapper._drag_arm_impedance(gripper_target_pose, spot_go_back_pose, spot_target_location.header.frame_id, duration_sec = 15.0)
+            self.task_wrapper._drag_arm_impedance(gripper_target_pose, spot_go_back_pose, spot_target_location.header.frame_id, duration_sec = 8.0)
 
             self.ros_wrapper.logger.info("Now the robot is going rightward/leftward!")
             spot_move_pose = bdSE3Pose(0, spot_target_pose.position.y, 0, bdQuat())
