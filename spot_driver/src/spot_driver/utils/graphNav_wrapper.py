@@ -535,7 +535,7 @@ class GraphNav(object):
         # Navigate to the destination waypoint.
         is_finished = False
         nav_to_cmd_id = -1
-        obstacle_detected_response = self.detect_obstacles_ahead_spot(0.8)
+        obstacle_detected_response = self.detect_obstacles_ahead_spot(0.7)
         num_navigation_calls = 0
         velocity_limit = geometry_pb2.SE2VelocityLimit()
         velocity_limit.max_vel.linear.x = 0.4
@@ -638,7 +638,7 @@ class GraphNav(object):
                 return False, "Too many attempts in navigation! Possibly due to accidents"
             # TODO: Move this onto a separate thread and check it more frequently
             # adjust the distance threshold for detecting obstacles here.
-            obstacle_detected_response = self.detect_obstacles_ahead_spot(0.8)
+            obstacle_detected_response = self.detect_obstacles_ahead_spot(0.7)
 
             # If the robot is in the process to get away from the unmovable obstacles
             if (get_away > 0):
