@@ -3,6 +3,7 @@ from sensor_msgs import point_cloud2
 import numpy as np
 import rospy
 import struct
+from std_msgs.msg import Header
 
 def ros_image_to_rgb_ndarray(image: Image) -> np.ndarray:
     H, W = image.height, image.width
@@ -76,3 +77,12 @@ def package_ros_pointcloud2(xyz, rgb, header):
     cloud = point_cloud2.create_cloud(header, fields, points)
     cloud.is_dense = True
     return cloud
+
+def create_waypoint_pointcloud_message(xyz):
+    rgb = np.array([[0, 0, 255]])
+    
+    rgb = np.repeat(rgb, xyz.shape[0], axis=0)
+    header = Header()
+    header.stamp = rospy.Time.now()
+    header.frame_id = "odom"
+    return package_ros_pointcloud2(xyz, rgb, header)

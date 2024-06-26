@@ -1,45 +1,25 @@
+####################################################
+# Author: Xun Tu
+# Date: 09/15/2023
+#
+# This file should contain the ROS-related items for gripper actions
+###################################################
+
+
 from spot_msgs.msg import GripperAction, GripperResult, GripperFeedback
-from geometry_msgs.msg import Pose
+
 from std_msgs.msg import Header
-import numpy as np
-import actionlib
-import threading
+
 import rospy
-from quaternion import quaternion, as_rotation_matrix
+import threading
+from .ActionServer import ActionServerBuilder
 
-class GripperActionServer:
+
+
+class GripperActionServer(ActionServerBuilder):
     def __init__(self, ros_wrapper, action_name, feedback_rate=5):
-
-        self._server = actionlib.SimpleActionServer(
-                action_name,
-                GripperAction,
-                execute_cb=self._handle_action,
-                auto_start=False,
-            )
-        self._server.start()
-        self._feedback_thread = None
-        self.feedback_rate = feedback_rate
-        self._running = False
-        self.task_wrapper = ros_wrapper.task_wrapper
-        self.ros_wrapper = ros_wrapper
-    
-    def handler(self, goal):
-        raise NotImplementedError("Must be implemented by subclass")
-
-    def _handle_feedback(self):
-        while not rospy.is_shutdown() and self._running:
-            f = GripperFeedback(self.task_wrapper.feedback)
-            self._server.publish_feedback(f)
-            rospy.Rate(self.feedback_rate).sleep()
-
-    def _ros_pose_to_mat(self, pose:Pose):
-        T = np.eye(4)
-        p = pose.position
-        T[:3, 3] = np.array([p.x, p.y, p.z])
-        o = pose.orientation
-        q = quaternion(o.w, o.x, o.y, o.z)
-        T[:3, :3] = as_rotation_matrix(q)[:3, :3]
-        return T
+        # ros_wrapper here refers to the "biggest" wrapper of SPOT ROS servers defined in spot_ros
+        super().__init__(GripperAction, GripperResult, GripperFeedback, feedback_rate, action_name, ros_wrapper)
 
     def _handle_action(self, goal):
         rospy.logdebug("Received goal: " + str(goal))
@@ -82,7 +62,6 @@ class GraspActionServer(GripperActionServer):
     def handler(self, goal):
         pose = self._ros_pose_to_mat(goal.pose)
         return self.task_wrapper.grasp(pose, goal.header.frame_id)
-
 
 
 class MoveActionServer(GripperActionServer):

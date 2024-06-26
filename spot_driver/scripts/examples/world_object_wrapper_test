@@ -3,6 +3,8 @@
 import logging
 import sys
 import os
+import sys
+import os
 
 from spot_driver.spot_wrapper import SpotWrapper
 from spot_driver.utils.world_objects_wrapper import WorldObjectHandler
@@ -13,6 +15,9 @@ from bosdyn.api.image_pb2 import Image
 import cv2
 import numpy as np
 import apriltag
+
+# before executing, we assume our users have made the following environment variables in their os: BOSDYN_CLIENT_USERNAME, BOSDYN_CLIENT_PASSWORD, BOSDYN_CLIENT_IP
+# To make an environment variable, do something like export <variable-name> = '<value>', or have a bash script 
 
 # before executing, we assume our users have made the following environment variables in their os: BOSDYN_CLIENT_USERNAME, BOSDYN_CLIENT_PASSWORD, BOSDYN_CLIENT_IP
 # To make an environment variable, do something like export <variable-name> = '<value>', or have a bash script 

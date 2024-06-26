@@ -3,11 +3,16 @@
 import logging
 import time 
 import sys
+import osimport sys
 import os
 from spot_driver.spot_wrapper import SpotWrapper
 from spot_driver.spot_task_wrapper import SpotTaskWrapper
 
 import numpy as np
+
+# before executing, we assume our users have made the following environment variables in their os: BOSDYN_CLIENT_USERNAME, BOSDYN_CLIENT_PASSWORD, BOSDYN_CLIENT_IP
+# To make an environment variable, do something like export <variable-name> = '<value>', or have a bash script 
+
 
 # before executing, we assume our users have made the following environment variables in their os: BOSDYN_CLIENT_USERNAME, BOSDYN_CLIENT_PASSWORD, BOSDYN_CLIENT_IP
 # To make an environment variable, do something like export <variable-name> = '<value>', or have a bash script 
@@ -25,6 +30,9 @@ class TaskWrapperTester:
         self.log = logging.getLogger("rosout")
         self.log.debug('Starting code.')
 
+        self.spot = SpotWrapper(os.getenv('BOSDYN_CLIENT_USERNAME'), 
+                                os.getenv('BOSDYN_CLIENT_PASSWORD'), 
+                                os.getenv('BOSDYN_CLIENT_IP'),
         self.spot = SpotWrapper(os.getenv('BOSDYN_CLIENT_USERNAME'), 
                                 os.getenv('BOSDYN_CLIENT_PASSWORD'), 
                                 os.getenv('BOSDYN_CLIENT_IP'),

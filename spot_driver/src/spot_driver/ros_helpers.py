@@ -22,9 +22,15 @@ from spot_msgs.msg import SystemFault, SystemFaultState
 from spot_msgs.msg import BatteryState, BatteryStateArray
 from spot_msgs.msg import DockState
 
-from bosdyn.api import image_pb2
+from bosdyn.api import image_pb2, local_grid_pb2
 from bosdyn.client.math_helpers import SE3Pose
-from bosdyn.client.frame_helpers import get_odom_tform_body, get_vision_tform_body
+from bosdyn.client.frame_helpers import (get_odom_tform_body,
+                                         get_vision_tform_body,
+                                         get_a_tform_b,
+                                         GROUND_PLANE_FRAME_NAME,
+                                         BODY_FRAME_NAME)
+
+import numpy as np
 
 friendly_joint_names = {}
 """Dictionary for mapping BD joint names to more friendly names"""
@@ -351,6 +357,10 @@ def GetOdomFromState(state, spot_wrapper, use_vision=True):
     else:
         odom_msg.header.frame_id = "odom"
         tform_body = get_odom_tform_body(state.kinematic_state.transforms_snapshot)
+
+    gpe_tform_body = get_a_tform_b(state.kinematic_state.transforms_snapshot, 
+                                    GROUND_PLANE_FRAME_NAME,
+                                    BODY_FRAME_NAME)
     odom_msg.child_frame_id = "body"
     pose_odom_msg = PoseWithCovariance()
     pose_odom_msg.pose.position.x = tform_body.position.x
@@ -620,3 +630,81 @@ def getBehaviorFaultsFromState(state, spot_wrapper):
         state.behavior_fault_state.faults, spot_wrapper
     )
     return behavior_fault_state_msg
+
+
+def get_numpy_data_type(local_grid_proto):
+    """Convert the cell format of the local grid proto to a numpy data type."""
+    if local_grid_proto.cell_format == local_grid_pb2.LocalGrid.CELL_FORMAT_UINT16:
+        return np.uint16
+    if local_grid_proto.cell_format == local_grid_pb2.LocalGrid.CELL_FORMAT_INT16:
+        return np.int16
+    if local_grid_proto.cell_format == local_grid_pb2.LocalGrid.CELL_FORMAT_UINT8:
+        return np.uint8
+    if local_grid_proto.cell_format == local_grid_pb2.LocalGrid.CELL_FORMAT_INT8:
+        return np.int8
+    if local_grid_proto.cell_format == local_grid_pb2.LocalGrid.CELL_FORMAT_FLOAT64:
+        return np.float64
+    if local_grid_proto.cell_format == local_grid_pb2.LocalGrid.CELL_FORMAT_FLOAT32:
+        return np.float32
+    return None
+
+
+def expand_data_by_rle_count(local_grid, data_type=np.int16):
+    """Expand local grid data to full bytes data using the RLE count."""
+    cells_pz = np.frombuffer(local_grid.data, dtype=data_type)
+    cells_pz_full = []
+    # For each value of rle_counts, we expand the cell data at the matching index
+    # to have that many repeated, consecutive values.
+    for i in range(0, len(local_grid.rle_counts)):
+        for j in range(0, local_grid.rle_counts[i]):
+            cells_pz_full.append(cells_pz[i])
+    return np.array(cells_pz_full)
+
+
+def unpack_grid(local_grid):
+    """Unpack the local grid proto."""
+    # Determine the data type for the bytes data.
+    data_type = get_numpy_data_type(local_grid)
+    if data_type is None:
+        print("Cannot determine the dataformat for the local grid.")
+        return None
+    # Decode the local grid.
+    if local_grid.encoding == local_grid_pb2.LocalGrid.ENCODING_RAW:
+        full_grid = np.frombuffer(local_grid.data, dtype=data_type)
+    elif local_grid.encoding == local_grid_pb2.LocalGrid.ENCODING_RLE:
+        full_grid = expand_data_by_rle_count(local_grid, data_type=data_type)
+    else:
+        # Return nothing if there is no encoding type set.
+        return None
+    # Apply the offset and scaling to the local grid.
+    if local_grid.cell_value_scale == 0:
+        return full_grid
+    full_grid_float = full_grid.astype(np.float64)
+    full_grid_float *= local_grid.cell_value_scale
+    full_grid_float += local_grid.cell_value_offset
+    return full_grid_float
+
+
+def local_grid_value(local_grid, pose, ref_frame, unpacked_data=None):
+    """Read a value from a local grid at a pose"""
+    # Unpack grid data if necessary
+    if unpacked_data is None:
+        unpacked_data = unpack_grid(local_grid)
+
+    # Get transformation from reference frame to local grid
+    T = get_a_tform_b(local_grid.transforms_snapshot,
+                      local_grid.frame_name_local_grid_data,
+                      ref_frame)
+
+    # Apply transformation and get indices in array
+    tpose = T * pose
+    extent = local_grid.extent
+    xi = int(tpose.x/extent.cell_size)
+    yi = int(tpose.y/extent.cell_size)
+
+    # Check bounds
+    if xi < 0 or yi < 0 or xi >= extent.num_cells_x or yi >= extent.num_cells_y:
+        raise IndexError('Pose is out of bounds of local grid')
+
+    return unpacked_data[xi + extent.num_cells_x * yi]
+

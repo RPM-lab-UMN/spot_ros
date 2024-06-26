@@ -1,0 +1,93 @@
+#!/usr/bin/env python3
+
+from interactive_markers.interactive_marker_server import *
+from interactive_markers.menu_handler import *
+from visualization_msgs.msg import *
+from geometry_msgs.msg import Pose
+from spot_msgs.msg import GraphWaypoint, GraphEdge
+from std_srvs.srv import Trigger, TriggerResponse
+
+import numpy as np
+import rospy
+
+from navi_marker_utils import (
+    create_waypoint_marker,
+    create_edge_marker,
+    SetLocalizationCallback,
+    NavigateCallback,
+    StateManager
+)
+
+
+def main():
+    rospy.loginfo("Initializing nav_markers node...")
+    rospy.init_node("spot_graphnav_markers", anonymous=True)
+    server = InteractiveMarkerServer("navigation_waypoints")
+    manager = StateManager(server)
+
+    # waypoint message handler
+    def _handle_wp_message(msg):
+        rospy.loginfo("Received waypoint message.")
+        
+        wp_id = msg.waypoint_id
+        pose = msg.pose
+
+        # checks if marker with matching id exists
+        if server.get(wp_id) != None:
+            # update existing marker position
+            if not server.setPose(wp_id, pose):
+                rospy.logerr(f"Failed to set pose for marker {wp_id}")
+
+            else:
+                server.applyChanges()
+
+        else:
+            # insert new marker
+            rospy.loginfo(f"Creating new marker {wp_id}")
+            int_marker = create_waypoint_marker(wp_id, pose)
+            server.insert(int_marker, lambda feedback: feedback)
+            mh = MenuHandler()
+            mh.insert("Set as localization", callback=SetLocalizationCallback(int_marker, manager))
+            mh.insert("Navigate here", callback=NavigateCallback(manager))
+            mh.apply(server, wp_id)
+
+        server.applyChanges()
+
+    wp_sub = rospy.Subscriber("spot/graph_waypoints/set", GraphWaypoint, _handle_wp_message)
+
+    # edge message handler
+    def _handle_eg_message(msg):
+        rospy.loginfo("Received edge message.")
+
+        _from = msg.from_wp
+        _to = msg.to_wp
+
+        rospy.loginfo(f"Creating edge marker from {_from.waypoint_id} to {_to.waypoint_id}")
+        int_marker = create_edge_marker(_from, _to)
+
+        server.insert(int_marker, lambda feedback: feedback)
+        server.applyChanges()
+
+    eg_sub = rospy.Subscriber("spot/graph_edges", GraphEdge, _handle_eg_message)
+
+    # Trigger service for clearing graph markers and localization setting
+    def _clear_markers(req):
+        manager.clear_localization()
+        server.clear()
+        server.applyChanges()
+        return TriggerResponse(
+            success=True,
+            message="Cleared markers and localization."
+        )
+
+    clear_service = rospy.Service("spot/graph_waypoints/clear", Trigger, _clear_markers)
+
+    server.applyChanges()
+
+    rospy.loginfo("nav_markers started successfully.")
+
+    rospy.spin()
+
+
+if __name__ == "__main__":
+    main()

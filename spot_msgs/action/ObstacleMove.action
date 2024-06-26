@@ -1,0 +1,9 @@
+# action for removing obstacles encountered in graph_nav
+geometry_msgs/PoseStamped spot_location # location of spot in the odom frame before moving the obstacle
+geometry_msgs/PoseStamped obstacle_location # estimated location of obstacle in spot's body frame
+geometry_msgs/PoseStamped spot_destination # destination for where to drag obstacle
+---
+bool success
+string message #TODO: return the final obstacle location
+---
+string feedback 

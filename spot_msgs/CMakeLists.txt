@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.0.2)
+cmake_minimum_required(VERSION 3.5.2)
 project(spot_msgs)
 
 find_package(catkin REQUIRED COMPONENTS
@@ -17,6 +17,8 @@ add_message_files(
   BehaviorFault.msg
   EStopStateArray.msg
   FootStateArray.msg
+  GraphWaypoint.msg
+  GraphEdge.msg
   LeaseArray.msg
   LeaseOwner.msg
   Metrics.msg
@@ -56,6 +58,7 @@ add_service_files(
   PosedStand.srv
   Dock.srv
   GetDockState.srv
+  GraphRecording.srv
 )
 
 add_action_files(
@@ -64,6 +67,9 @@ add_action_files(
   PoseBody.action
   Trajectory.action
   Gripper.action
+  ObstacleMove.action
+  MultiGrasp.action
+  FindGraspPoint.action
 )
 
 generate_messages(
@@ -71,6 +77,7 @@ generate_messages(
   std_msgs
   geometry_msgs
   actionlib_msgs
+  sensor_msgs
 )
 
 catkin_package(

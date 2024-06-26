@@ -1,0 +1,8 @@
+sensor_msgs/Image selected_frame
+string action_type
+---
+bool success
+float64 pick_x
+float64 pick_y
+---
+string feedback
