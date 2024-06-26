@@ -10,7 +10,7 @@ rates:
   side_image:  0.0
   rear_image:  0.0
   hand_image:  30.0
-  hand_pointcloud:  0.0
+  hand_pointcloud:  30.0
   front_pointcloud: 0.0
   side_pointcloud:  0.0
   rear_pointcloud:  0.0

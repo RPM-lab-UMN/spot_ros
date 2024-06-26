@@ -73,7 +73,7 @@ from .utils.spot_task_wrapper import SpotTaskWrapper
 from .utils.ros_wrappers.gripper_action import GraspActionServer, MoveActionServer
 from .utils.ros_wrappers.object_move_action import ObstacleMoveActionServer
 from .utils.ros_pointcloud import images_to_pointcloud2, create_waypoint_pointcloud_message
-from .utils.task_state_publisher import TaskStatePublisher
+from .utils.ros_wrappers.task_state_publisher import TaskStatePublisher
 from .utils.graphNav_wrapper import GraphNav
 import actionlib
 import logging
