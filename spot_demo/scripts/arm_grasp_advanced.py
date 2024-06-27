@@ -545,7 +545,8 @@ class FetchInterface(object):
 
             # New features
             ord('G'): self._take_image_grab,
-            ord('F'): self._find_people_go,
+            # TODO: fix up find people go
+            # ord('F'): self._find_people_go,
             ord('D'): self._drop_item,
 
         
@@ -660,7 +661,10 @@ class FetchInterface(object):
         stdscr.addstr(15, 0, "          [wasd]: Directional strafing              ")
         stdscr.addstr(16, 0, "          [qe]: Turning, [ESC]: Stop              ")
         stdscr.addstr(17, 0, "          [l]: Return/Acquire lease                 ")
-        stdscr.addstr(18, 0, "")
+        stdscr.addstr(18, 0, "          == New Features ==                          ")
+        stdscr.addstr(19, 0, "          [G]: Find a good point in the image and grasp")
+        stdscr.addstr(20, 0, "          [D]: Release the object and Stow the arm")
+        stdscr.addstr(21, 0, "")
 
         
 

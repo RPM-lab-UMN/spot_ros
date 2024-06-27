@@ -2,6 +2,9 @@
 
 ![CP Spot](cp_spot.jpg)
 
+This is the repo of the ROS platform for SPOT program develeopment. Please look at the official [documentation](https://docs.google.com/presentation/d/1ZU_3JvKUxMIxRAlqPw1op0fvFXfMsm5t/edit#slide=id.p1), from our lab (if you don't have access, talk to the labmates)
+# Old Documentation (Deprecated)
+The following records are the old documentations before Xun's arrival. The issues mentioned there have not been encountered, and they are not directly related to our current development process. Feel free to ignore them. 
 ## Prerequisite
 ```
 pip3 install bosdyn-client bosdyn-mission bosdyn-api bosdyn-core
