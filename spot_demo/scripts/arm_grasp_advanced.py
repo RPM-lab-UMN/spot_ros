@@ -24,7 +24,7 @@ import numpy as np
 import cv2
 import apriltag
 import matplotlib
-
+from PyQt5.QtWidgets import *
 import torch
 import torchvision
 from DINO.collect_dino_features import *
@@ -46,7 +46,10 @@ from bosdyn.client import ResponseError, RpcError, create_standard_sdk
 from bosdyn.client.async_tasks import AsyncGRPCTask, AsyncPeriodicQuery, AsyncTasks
 from bosdyn.client.estop import EstopClient, EstopEndpoint, EstopKeepAlive
 from bosdyn.client import frame_helpers
-from bosdyn.client.frame_helpers import ODOM_FRAME_NAME, VISION_FRAME_NAME, BODY_FRAME_NAME, get_vision_tform_body, math_helpers
+from bosdyn.client.frame_helpers import \
+    ODOM_FRAME_NAME, VISION_FRAME_NAME,  GRAV_ALIGNED_BODY_FRAME_NAME,\
+          BODY_FRAME_NAME, HAND_FRAME_NAME, \
+        get_vision_tform_body, math_helpers, get_a_tform_b
 from bosdyn.client.image import ImageClient
 from bosdyn.client.manipulation_api_client import ManipulationApiClient
 from bosdyn.client.lease import Error as LeaseBaseError
@@ -546,8 +549,9 @@ class FetchInterface(object):
             # New features
             ord('G'): self._take_image_grab,
             # TODO: fix up find people go
-            # ord('F'): self._find_people_go,
+            ord('F'): self._find_people_go,
             ord('D'): self._drop_item,
+            ord('M'): self._move_gripper,
 
         
             ord('u'): self._unstow,
@@ -664,7 +668,9 @@ class FetchInterface(object):
         stdscr.addstr(18, 0, "          == New Features ==                          ")
         stdscr.addstr(19, 0, "          [G]: Find a good point in the image and grasp")
         stdscr.addstr(20, 0, "          [D]: Release the object and Stow the arm")
-        stdscr.addstr(21, 0, "")
+        stdscr.addstr(21, 0, "          [F]: Find the target object and approach it")
+        stdscr.addstr(22, 0, "          [M]: Move the gripper")
+        stdscr.addstr(23, 0, "")
 
         
 
@@ -1150,8 +1156,6 @@ class FetchInterface(object):
 
         return None, None, None
 
- 
-
     def _find_people_go(self):
         
         #Set up the clients
@@ -1174,12 +1178,12 @@ class FetchInterface(object):
         
         if not person:
             # If the camera finds nobody
-            self.add_message("No peWrson found! Exit..")
+            self.add_message("No person found! Exit..")
             return
         
         # We now have found a person to drop the toy off near.
         drop_position_rt_vision, heading_rt_vision = compute_stand_location_and_yaw(
-                vision_tform_person, robot_state_client, distance_margin=2.0)
+                vision_tform_person, robot_state_client, distance_margin=0.5)
 
         wait_position_rt_vision, wait_heading_rt_vision = compute_stand_location_and_yaw(
                 vision_tform_person, robot_state_client, distance_margin=2.5)
@@ -1270,6 +1274,182 @@ class FetchInterface(object):
 
         time.sleep(1)
         '''
+    
+    
+    '''
+    Move the end-effector of SPOT
+    '''
+    def block_until_arm_arrives_with_prints(self, robot, command_client, cmd_id):
+        """Block until the arm arrives at the goal and print the distance remaining.
+            Note: a version of this function is available as a helper in robot_command
+            without the prints.
+        """
+        while True:
+            feedback_resp = command_client.robot_command_feedback(cmd_id)
+            measured_pos_distance_to_goal = feedback_resp.feedback.synchronized_feedback.arm_command_feedback.arm_cartesian_feedback.measured_pos_distance_to_goal
+            measured_rot_distance_to_goal = feedback_resp.feedback.synchronized_feedback.arm_command_feedback.arm_cartesian_feedback.measured_rot_distance_to_goal
+            robot.logger.info('Distance to go: %.2f meters, %.2f radians',
+                            measured_pos_distance_to_goal, measured_rot_distance_to_goal)
+
+            if feedback_resp.feedback.synchronized_feedback.arm_command_feedback.arm_cartesian_feedback.status == arm_command_pb2.ArmCartesianCommand.Feedback.STATUS_TRAJECTORY_COMPLETE:
+                robot.logger.info('Move complete.')
+                break
+            time.sleep(0.2)
+
+    def _move_gripper(self):
+        '''
+        The function to open a GUI for people to type in the location
+        & orientation of the hand
+        '''
+        # Step 0: Unstow the Arm
+        self._unstow()
+        # Step 1: Create a class for the GUI input
+        class Window(QDialog):
+            # constructor
+            def __init__(self, vals):
+                super(Window, self).__init__()
+        
+                # setting window title
+                self.setWindowTitle("Hand Adjustment")
+        
+                # setting geometry to the window
+                self.setGeometry(100, 100, 300, 400)
+        
+                # creating a group box
+                self.formGroupBox = QGroupBox("Form 1: dx [m], dy [m], dz [m], pitch for the Hand")
+        
+                # creating spin box to select pitch angle
+                self.pitchSpinBar = QSpinBox()
+        
+                # creating three line edits for dx, dy, dz
+                self.xLineEdit = QLineEdit()
+                self.yLineEdit = QLineEdit()
+                self.zLineEdit = QLineEdit()
+        
+                # calling the method that create the form
+                self.createForm()
+        
+                # creating a dialog button for ok and cancel
+                self.buttonBox = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        
+                # adding action when form is accepted
+                self.buttonBox.accepted.connect(self.getInfo)
+        
+                # adding action when form is rejected
+                self.buttonBox.rejected.connect(self.reject)
+        
+                # creating a vertical layout
+                mainLayout = QVBoxLayout()
+        
+                # adding form group box to the layout
+                mainLayout.addWidget(self.formGroupBox)
+        
+                # adding button box to the layout
+                mainLayout.addWidget(self.buttonBox)
+        
+                # setting lay out
+                self.setLayout(mainLayout)
+
+                self.vals = vals # Pass by reference
+        
+            # get info method called when form is accepted
+            def getInfo(self):
+                dx = float(self.xLineEdit.text())
+                dy = float(self.yLineEdit.text())
+                dz = float(self.zLineEdit.text())
+                pitch = int(self.pitchSpinBar.text())
+                # printing the form information
+                print("Desired Displacement : {0}, {0}, {0}".format(dx, dy, dz))
+                print("Desired Pitch: {0}".format(pitch))
+        
+                # closing the window
+                self.close()
+                self.vals[0] = dx
+                self.vals[1] = dy
+                self.vals[2] = dz
+                self.vals[3] = pitch
+        
+            # create form method
+            def createForm(self):
+        
+                # creating a form layout
+                layout = QFormLayout()
+        
+                # adding rows
+                # for displacements
+                layout.addRow(QLabel("dx"), self.xLineEdit)
+                layout.addRow(QLabel("dy"), self.yLineEdit)
+                layout.addRow(QLabel("dz"), self.zLineEdit)
+        
+                # for age and adding spin box
+                layout.addRow(QLabel("Pitch"), self.pitchSpinBar)
+        
+                # setting layout
+                self.formGroupBox.setLayout(layout)
+        
+        # Step 2: Read the user desired inputs
+        # create pyqt5 app
+        app = QApplication(sys.argv)
+
+        vals = [0, 0, 0, 0]
+        # create the instance of our Window
+        window = Window(vals)
+    
+        # showing the window
+        window.show()
+    
+        # start the app
+        app.exec()
+
+        # Step 3: Command the hand to move along the desired placement
+        dx, dy, dz, pitch = vals
+        # Build a position to move the arm to (in meters, relative to and expressed in the gravity aligned body frame).
+        x = dx
+        y = dy
+        z = dz
+        tran_T_hand = geometry_pb2.Vec3(x=x, y=y, z=z)
+
+        # Rotation as a quaternion
+        angle = ((np.pi/2) / 5) * pitch
+        qw = np.cos(angle)
+        qx = 0
+        qy = np.sin(angle)
+        qz = 0
+        tran_Q_hand = geometry_pb2.Quaternion(w=qw, x=qx, y=qy, z=qz)
+
+        tran_Tr_hand= geometry_pb2.SE3Pose(position=tran_T_hand,
+                                                rotation=tran_Q_hand)
+        robot = self._robot
+        robot_state_client = robot.ensure_client(RobotStateClient.default_service_name)
+        robot_state = robot_state_client.get_robot_state()
+        body_Tr_hand = get_a_tform_b(robot_state.kinematic_state.transforms_snapshot,
+                                         GRAV_ALIGNED_BODY_FRAME_NAME, HAND_FRAME_NAME)
+
+        body_Tr_tran = body_Tr_hand * math_helpers.SE3Pose.from_proto(tran_Tr_hand)
+
+        # duration in seconds
+        seconds = 2
+
+        arm_command = RobotCommandBuilder.arm_pose_command(
+            body_Tr_tran.x, body_Tr_tran.y, body_Tr_tran.z, \
+                body_Tr_tran.rot.w, body_Tr_tran.rot.x, \
+                body_Tr_tran.rot.y, body_Tr_tran.rot.z, GRAV_ALIGNED_BODY_FRAME_NAME, seconds)
+
+        # Make the open gripper RobotCommand
+        gripper_command = RobotCommandBuilder.claw_gripper_open_fraction_command(1.0)
+
+        # Combine the arm and gripper commands into one RobotCommand
+        command = RobotCommandBuilder.build_synchro_command(gripper_command, arm_command)
+
+        # Send the request
+        command_client = robot.ensure_client(RobotCommandClient.default_service_name)
+        cmd_id = command_client.robot_command(command)
+        robot.logger.info('Moving arm to the specified pose.')
+
+        # Wait until the arm arrives at the goal.
+        self.block_until_arm_arrives_with_prints(robot, command_client, cmd_id)
+        
+
     def _drop_item(self):
         #TODO: drop the item
         self.add_message("Dropping the item")
